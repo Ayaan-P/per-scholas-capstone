@@ -10,6 +10,9 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
 from supabase import create_client, Client
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def parse_orchestration_response(orchestration_result):
     """Parse Claude Code orchestration result to extract structured opportunities"""
@@ -53,8 +56,8 @@ def parse_proposal_orchestration_response(orchestration_result):
 app = FastAPI(title="PerScholas Fundraising API")
 
 # Supabase configuration
-SUPABASE_URL = "https://zjqwpvdcpzeguhdwrskr.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcXdwdmRjcHplZ3VoZHdyc2tyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTczMzcsImV4cCI6MjA3MzgzMzMzN30.Ba46pLQFygSQoe-TZ4cRvLCpmT707zw2JT8qIRSjopU"
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://zjqwpvdcpzeguhdwrskr.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcXdwdmRjcHplZ3VoZHdyc2tyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTczMzcsImV4cCI6MjA3MzgzMzMzN30.Ba46pLQFygSQoe-TZ4cRvLCpmT707zw2JT8qIRSjopU")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Enable CORS for frontend
