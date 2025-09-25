@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { api } from '../../lib/api'
 
 interface AnalyticsData {
   searchMetrics: {
@@ -45,7 +46,7 @@ export default function AnalyticsPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(`http://localhost:8001/api/analytics?range=${timeRange}`)
+      const response = await api.getAnalytics(timeRange)
       const data = await response.json()
       setAnalytics(data)
     } catch (error) {

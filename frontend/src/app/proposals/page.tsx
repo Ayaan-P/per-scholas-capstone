@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { api } from '../../lib/api'
 
 interface Proposal {
   id: string
@@ -27,7 +28,7 @@ export default function ProposalsPage() {
 
   const fetchProposals = async () => {
     try {
-      const response = await fetch('http://localhost:8001/api/proposals')
+      const response = await api.getProposals()
       const data = await response.json()
       setProposals(data.proposals)
     } catch (error) {
@@ -98,11 +99,7 @@ export default function ProposalsPage() {
 
   const updateProposalStatus = async (proposalId: string, newStatus: string) => {
     try {
-      await fetch(`http://localhost:8001/api/proposals/${proposalId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      })
+      await api.updateProposalStatus(proposalId, newStatus)
       fetchProposals()
     } catch (error) {
       console.error('Failed to update proposal status:', error)

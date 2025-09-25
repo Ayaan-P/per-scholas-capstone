@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { api } from '../lib/api'
 
 interface Opportunity {
   id: string
@@ -19,9 +20,7 @@ export default function Home() {
 
   const saveOpportunity = async (opportunityId: string) => {
     try {
-      await fetch(`http://localhost:8001/api/opportunities/${opportunityId}/save`, {
-        method: 'POST'
-      })
+      await api.saveOpportunity(opportunityId)
       alert('Opportunity saved to database!')
     } catch (error) {
       alert('Failed to save opportunity')
@@ -38,17 +37,13 @@ export default function Home() {
 
     try {
       // Start search job
-      const response = await fetch('http://localhost:8001/api/search-opportunities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: searchPrompt })
-      })
+      const response = await api.searchOpportunities({ prompt: searchPrompt })
 
       const { job_id } = await response.json()
 
       // Poll for job completion
       const pollJob = async () => {
-        const jobResponse = await fetch(`http://localhost:8001/api/jobs/${job_id}`)
+        const jobResponse = await api.getJob(job_id)
         const jobData = await jobResponse.json()
 
         if (jobData.status === 'completed') {

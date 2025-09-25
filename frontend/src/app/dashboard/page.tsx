@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { api } from '../../lib/api'
 
 interface DashboardStats {
   totalOpportunities: number
@@ -35,8 +36,8 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       const [statsResponse, activityResponse] = await Promise.all([
-        fetch('http://localhost:8001/api/dashboard/stats'),
-        fetch('http://localhost:8001/api/dashboard/activity')
+        api.getDashboardStats(),
+        api.getDashboardActivity()
       ])
 
       if (statsResponse.ok) {

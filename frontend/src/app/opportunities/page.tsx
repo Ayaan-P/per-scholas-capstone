@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { api } from '../../lib/api'
 
 interface Opportunity {
   id: string
@@ -26,7 +27,7 @@ export default function OpportunitiesPage() {
 
   const fetchOpportunities = async () => {
     try {
-      const response = await fetch('http://localhost:8001/api/opportunities')
+      const response = await api.getOpportunities()
       const data = await response.json()
       setOpportunities(data.opportunities)
     } catch (error) {
@@ -38,18 +39,14 @@ export default function OpportunitiesPage() {
 
   const generateProposal = async (opportunity: Opportunity) => {
     try {
-      const response = await fetch('http://localhost:8001/api/proposals/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          opportunity_id: opportunity.id,
-          opportunity_title: opportunity.title,
-          funder: opportunity.funder,
-          amount: opportunity.amount,
-          deadline: opportunity.deadline,
-          description: opportunity.description,
-          requirements: opportunity.requirements
-        })
+      const response = await api.generateProposal({
+        opportunity_id: opportunity.id,
+        opportunity_title: opportunity.title,
+        funder: opportunity.funder,
+        funding_amount: opportunity.amount,
+        deadline: opportunity.deadline,
+        description: opportunity.description,
+        requirements: opportunity.requirements
       })
 
       if (response.ok) {
