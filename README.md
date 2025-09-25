@@ -45,16 +45,13 @@ API available at http://localhost:8000
 
 ## Deployment
 
-### Frontend - Vercel
-1. Connect GitHub repository to Vercel
-2. Deploy automatically on push
-3. Set environment variables for API endpoint
+### Frontend - Netlify
 
-### Backend - Railway/Render
-1. Deploy FastAPI application
-2. Set up PostgreSQL database
-3. Configure environment variables
-4. Enable CORS for frontend domain
+1. Deploys automatically on push
+
+
+### Backend - Render
+1. Deploys automatically on push 
 
 ## Demo Flow
 
