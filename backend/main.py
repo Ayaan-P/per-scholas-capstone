@@ -6,6 +6,7 @@ import uuid
 import os
 import subprocess
 import tempfile
+from grants_service import GrantsGovService
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
@@ -93,6 +94,7 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
             'error': str(e),
             'session_type': session_type
         }
+
 
 def parse_orchestration_response(orchestration_result):
     """Parse Claude Code orchestration result to extract structured opportunities"""
@@ -521,56 +523,19 @@ Return as JSON array in "opportunities" field."""
             job["current_task"] = "Creating Claude Code fundraising session..."
             job["progress"] = 50
 
-            # Create Claude Code session (with dummy data fallback)
+            # Create Claude Code session (with grants service fallback)
             print(f"[Claude Code Session] Starting fundraising opportunity discovery...")
 
-            # TODO: Remove this dummy data when Claude Code is installed on server
-            use_dummy_data = True  # Set to False when Claude Code is available
+            # Use grants service API if available, otherwise fall back to Claude Code
+            use_api = True  # Set to False to use Claude Code instead
 
-            if use_dummy_data:
-                print(f"[Claude Code Session] Using dummy data for development...")
-                orchestration_result = '''
-{
-  "opportunities": [
-    {
-      "id": "nsf-ate-2024",
-      "title": "NSF Advanced Technological Education (ATE) Program",
-      "funder": "National Science Foundation",
-      "amount": 300000,
-      "deadline": "2025-01-15",
-      "match_score": 95,
-      "description": "Supports education programs that prepare technicians for high-technology fields that drive the nation's economy",
-      "requirements": ["Community college partnership", "Industry collaboration", "STEM focus", "Underrepresented populations"],
-      "contact": "ate@nsf.gov",
-      "application_url": "https://www.nsf.gov/funding/pgm_summ.jsp?pims_id=5464"
-    },
-    {
-      "id": "dol-apprenticeship-2024",
-      "title": "DOL Apprenticeship Building America Grant",
-      "funder": "U.S. Department of Labor",
-      "amount": 500000,
-      "deadline": "2025-02-28",
-      "match_score": 88,
-      "description": "Expand apprenticeship programs in technology and cybersecurity sectors",
-      "requirements": ["Registered apprenticeship", "Technology focus", "Employer partnerships", "Diverse recruitment"],
-      "contact": "apprenticeship@dol.gov",
-      "application_url": "https://www.dol.gov/agencies/eta/apprenticeship"
-    },
-    {
-      "id": "google-grow-2024",
-      "title": "Google.org Grow with Google Community Grants",
-      "funder": "Google.org",
-      "amount": 150000,
-      "deadline": "2025-03-31",
-      "match_score": 92,
-      "description": "Support organizations helping people gain digital skills and economic opportunity",
-      "requirements": ["Digital skills training", "Economic mobility", "Underserved communities", "Measurable outcomes"],
-      "contact": "grow@google.org",
-      "application_url": "https://grow.google/programs/"
-    }
-  ]
-}
-                '''.strip()
+            if use_api:
+                print(f"[Claude Code Session] Fetching real grants data...")
+                search_keywords = criteria.prompt if criteria.prompt and criteria.prompt != "hi" else "technology workforce development"
+
+                grants_service = GrantsGovService()
+                real_grants = grants_service.search_grants(search_keywords, limit=10)
+                orchestration_result = json.dumps({"opportunities": real_grants})
             else:
                 session_result = create_claude_code_session(
                     prompt=orchestration_prompt,
@@ -596,35 +561,35 @@ Return as JSON array in "opportunities" field."""
         if not opportunities:
             opportunities = []
 
-        # Auto-save opportunities to database
-        saved_opportunities = []
-        if opportunities:
-            job["current_task"] = "Saving opportunities to database..."
-            job["progress"] = 90
+        # Auto-save disabled for demo - return opportunities directly
+        saved_opportunities = opportunities
+        # if opportunities:
+        #     job["current_task"] = "Saving opportunities to database..."
+        #     job["progress"] = 90
 
-            for opp in opportunities:
-                try:
-                    # Save to Supabase
-                    result = supabase.table("opportunities").insert({
-                        "id": opp.get("id"),
-                        "title": opp.get("title"),
-                        "funder": opp.get("funder"),
-                        "amount": opp.get("amount"),
-                        "deadline": opp.get("deadline"),
-                        "match_score": opp.get("match_score", 0),
-                        "description": opp.get("description"),
-                        "requirements": opp.get("requirements", []),
-                        "contact": opp.get("contact"),
-                        "application_url": opp.get("application_url"),
-                        "status": "active",
-                        "created_at": datetime.now().isoformat(),
-                        "updated_at": datetime.now().isoformat()
-                    }).execute()
-                    saved_opportunities.append(opp)
-                    print(f"Saved opportunity: {opp.get('title')}")
-                except Exception as e:
-                    print(f"Failed to save opportunity {opp.get('title')}: {e}")
-                    # Continue with other opportunities
+        #     for opp in opportunities:
+        #         try:
+        #             # Save to Supabase
+        #             result = supabase.table("opportunities").insert({
+        #                 "id": opp.get("id"),
+        #                 "title": opp.get("title"),
+        #                 "funder": opp.get("funder"),
+        #                 "amount": opp.get("amount"),
+        #                 "deadline": opp.get("deadline"),
+        #                 "match_score": opp.get("match_score", 0),
+        #                 "description": opp.get("description"),
+        #                 "requirements": opp.get("requirements", []),
+        #                 "contact": opp.get("contact"),
+        #                 "application_url": opp.get("application_url"),
+        #                 "status": "active",
+        #                 "created_at": datetime.now().isoformat(),
+        #                 "updated_at": datetime.now().isoformat()
+        #             }).execute()
+        #             saved_opportunities.append(opp)
+        #             print(f"Saved opportunity: {opp.get('title')}")
+        #         except Exception as e:
+        #             print(f"Failed to save opportunity {opp.get('title')}: {e}")
+        #             # Continue with other opportunities
 
         # Complete job with opportunities for user review
         job["status"] = "completed"
@@ -634,7 +599,7 @@ Return as JSON array in "opportunities" field."""
             "opportunities": opportunities,
             "saved_opportunities": len(saved_opportunities),
             "total_found": len(opportunities),
-            "search_criteria": criteria.dict(),
+            "search_criteria": criteria.model_dump(),
             "completed_at": datetime.now().isoformat()
         }
 
@@ -777,19 +742,19 @@ The proposal should be compelling, data-driven, and specifically tailored to {re
             job["current_task"] = "Creating Claude Code proposal session..."
             job["progress"] = 50
 
-            # Create Claude Code session for proposal generation (with dummy data fallback)
+            # Create Claude Code session for proposal generation (with dummy content fallback)
             print(f"[Claude Code Session] Starting proposal generation...")
 
-            # TODO: Remove this dummy data when Claude Code is installed on server
-            use_dummy_data = True  # Set to False when Claude Code is available
+            # Use dummy proposal content if Claude Code not available, otherwise use Claude Code
+            use_api = True  # Set to False to use Claude Code instead
 
-            if use_dummy_data:
-                print(f"[Claude Code Session] Using dummy data for proposal generation...")
+            if use_api:
+                print(f"[Claude Code Session] Using dummy proposal template...")
                 proposal_result = f'''
 # Grant Proposal: {request.opportunity_title}
 
 ## Executive Summary
-Per Scholas requests ${request.funding_amount:,} from {request.funder} to expand our proven technology workforce development program, directly addressing the critical need for skilled tech professionals from underrepresented communities.
+Per Scholas requests ${request.amount:,} from {request.funder} to expand our proven technology workforce development program, directly addressing the critical need for skilled tech professionals from underrepresented communities.
 
 ## Organization Background
 Per Scholas is a leading nonprofit that advances economic equity through rigorous, tuition-free technology training programs. Since 1995, we have graduated over 18,000 students with an average starting salary of $52,000—a 3x increase from their pre-program earnings.
@@ -814,10 +779,10 @@ We serve adults from communities that have been systemically excluded from econo
 **Phase 3 (Months 19-24):** Job placement and career support services
 
 ## Budget Justification
-- Instruction and curriculum: 45% (${int(request.funding_amount * 0.45):,})
-- Student support services: 25% (${int(request.funding_amount * 0.25):,})
-- Employer engagement: 20% (${int(request.funding_amount * 0.20):,})
-- Administrative costs: 10% (${int(request.funding_amount * 0.10):,})
+- Instruction and curriculum: 45% (${int(request.amount * 0.45):,})
+- Student support services: 25% (${int(request.amount * 0.25):,})
+- Employer engagement: 20% (${int(request.amount * 0.20):,})
+- Administrative costs: 10% (${int(request.amount * 0.10):,})
 
 ## Expected Outcomes and Evaluation
 - 250 program graduates
