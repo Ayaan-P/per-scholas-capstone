@@ -9,8 +9,11 @@ interface Opportunity {
   funder: string
   amount: number
   deadline: string
-  matchScore: number
+  match_score: number
   description: string
+  requirements: string[]
+  contact: string
+  application_url: string
 }
 
 export default function Home() {
@@ -147,35 +150,76 @@ export default function Home() {
                     <h3 className="text-xl font-semibold text-gray-900">
                       {opp.title}
                     </h3>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getMatchColor(opp.matchScore)}`}>
-                      {opp.matchScore}% fit
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getMatchColor(opp.match_score)}`}>
+                      {opp.match_score}% fit
                     </span>
                   </div>
 
-                  <div className="space-y-3 mb-6">
-                    <div className="text-gray-600 font-medium">{opp.funder}</div>
-
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-lg font-semibold text-gray-900">
-                        ${opp.amount.toLocaleString()}
-                      </span>
-                      <span className="text-gray-500">
-                        Deadline: {new Date(opp.deadline).toLocaleDateString()}
-                      </span>
+                  <div className="space-y-4 mb-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-gray-600 font-medium text-lg">{opp.funder}</div>
+                        <div className="text-sm text-gray-500 mt-1">Grant ID: {opp.id}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-green-600">
+                          ${opp.amount.toLocaleString()}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {opp.deadline && opp.deadline !== 'Invalid Date' ? (
+                            <>Deadline: {opp.deadline}</>
+                          ) : (
+                            'No deadline specified'
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <p className="text-gray-700 leading-relaxed">{opp.description}</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
+                      <p className="text-gray-700 leading-relaxed text-sm">{opp.description}</p>
+                    </div>
+
+                    {opp.requirements && opp.requirements.length > 0 && (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">Key Requirements</h4>
+                        <ul className="space-y-1 text-sm text-gray-700">
+                          {opp.requirements.map((req, idx) => (
+                            <li key={idx} className="flex items-start">
+                              <span className="text-blue-500 mr-2">•</span>
+                              {req}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {opp.contact && (
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Contact:</span> {opp.contact}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex gap-4">
-                    <button className="border border-perscholas-primary text-perscholas-primary px-6 py-2 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors">
-                      View Full Details
-                    </button>
+                  <div className="flex gap-4 flex-wrap">
+                    {opp.application_url && (
+                      <a
+                        href={opp.application_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="border border-perscholas-primary text-perscholas-primary px-6 py-2 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        View on Grants.gov ↗
+                      </a>
+                    )}
                     <button
                       onClick={() => saveOpportunity(opp.id)}
                       className="bg-perscholas-primary text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors"
                     >
                       Save to Database
+                    </button>
+                    <button className="border border-gray-300 text-gray-700 px-6 py-2 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors">
+                      Generate Proposal
                     </button>
                   </div>
                 </div>
