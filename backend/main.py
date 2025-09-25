@@ -147,7 +147,7 @@ anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY els
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://*.vercel.app"],
+    allow_origins=["http://localhost:3000", "https://*.vercel.app", "https://*.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
