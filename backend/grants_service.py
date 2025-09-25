@@ -183,7 +183,12 @@ class GrantsGovService:
                         amount = self._parse_amount(str(award_floor))
 
                     details['amount'] = amount if amount and amount > 0 else None
-                    details['description'] = synopsis.get('synopsisDesc', '').strip()
+                    # Clean HTML tags from description
+                    raw_desc = synopsis.get('synopsisDesc', '').strip()
+                    clean_desc = re.sub(r'<[^>]+>', '', raw_desc)  # Remove HTML tags
+                    clean_desc = re.sub(r'&nbsp;', ' ', clean_desc)  # Replace &nbsp; with spaces
+                    clean_desc = re.sub(r'&[a-zA-Z]+;', '', clean_desc)  # Remove other HTML entities
+                    details['description'] = clean_desc.strip()
                     details['contact'] = synopsis.get('agencyContactEmail', '')
 
                 return details
@@ -287,33 +292,52 @@ class GrantsGovService:
 
     def _extract_requirements(self, description: str) -> List[str]:
         """Extract requirements from description"""
-        default_requirements = [
-            "Non-profit organization or educational institution",
-            "Focus on underserved communities",
-            "Demonstrate measurable outcomes",
-            "Submit detailed budget justification"
-        ]
-
         if not description:
-            return default_requirements
+            return ["See full opportunity details on grants.gov"]
 
-        # Look for common requirement indicators
+        # Look for actual requirements in the text
         requirements = []
         desc_lower = description.lower()
 
-        if 'non-profit' in desc_lower or 'nonprofit' in desc_lower:
-            requirements.append("Non-profit organization status required")
+        # Look for common requirement patterns
+        requirement_patterns = [
+            (r'must be.*?(?=\.|;|\n|$)', 'eligibility requirement'),
+            (r'applicant.*?must.*?(?=\.|;|\n|$)', 'applicant requirement'),
+            (r'eligible.*?organizations?.*?(?=\.|;|\n|$)', 'organization eligibility'),
+            (r'required.*?to.*?(?=\.|;|\n|$)', 'general requirement'),
+            (r'deadline.*?(?=\.|;|\n|$)', 'deadline requirement'),
+            (r'matching.*?funds?.*?(?=\.|;|\n|$)', 'matching funds'),
+            (r'collaboration.*?(?=\.|;|\n|$)', 'collaboration requirement'),
+            (r'partnership.*?(?=\.|;|\n|$)', 'partnership requirement')
+        ]
 
-        if 'education' in desc_lower:
-            requirements.append("Educational partnership required")
+        for pattern, req_type in requirement_patterns:
+            matches = re.findall(pattern, description, re.IGNORECASE)
+            for match in matches[:2]:  # Limit to 2 per pattern
+                # Clean up the match
+                clean_match = re.sub(r'<[^>]+>', '', match).strip()
+                clean_match = re.sub(r'&nbsp;', ' ', clean_match)
+                clean_match = re.sub(r'\s+', ' ', clean_match)
+                if len(clean_match) > 10 and len(clean_match) < 150:  # Reasonable length
+                    requirements.append(clean_match.capitalize())
 
-        if 'match' in desc_lower or 'matching' in desc_lower:
-            requirements.append("Matching funds required")
+        # If no specific requirements found, extract key phrases
+        if not requirements:
+            key_phrases = []
+            if 'non-profit' in desc_lower or 'nonprofit' in desc_lower:
+                key_phrases.append("Non-profit organization eligibility")
+            if 'institution' in desc_lower and 'education' in desc_lower:
+                key_phrases.append("Educational institution involvement")
+            if 'collaboration' in desc_lower or 'partner' in desc_lower:
+                key_phrases.append("Partnership or collaboration required")
+            if 'community' in desc_lower:
+                key_phrases.append("Community engagement component")
+            if 'research' in desc_lower:
+                key_phrases.append("Research component required")
 
-        if 'report' in desc_lower:
-            requirements.append("Regular reporting required")
+            requirements = key_phrases[:4] if key_phrases else ["See full eligibility requirements on grants.gov"]
 
-        return requirements if requirements else default_requirements
+        return requirements[:4]  # Limit to 4 requirements for display
 
     def _get_mock_grants(self) -> List[Dict[str, Any]]:
         """Fallback mock data if API fails"""
