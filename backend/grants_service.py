@@ -117,15 +117,24 @@ class GrantsGovService:
                     # Get detailed info for each opportunity using the ID (not number)
                     opportunity_details = self._get_opportunity_details_with_token(hit.get('id', ''), token)
 
+                    # Clean HTML entities from title and funder
+                    title = hit.get('title', 'Federal Grant Opportunity')
+                    title = re.sub(r'&amp;', '&', title)
+                    title = re.sub(r'&[a-zA-Z0-9#]+;', '', title)
+
+                    funder = hit.get('agency', 'Federal Agency')
+                    funder = re.sub(r'&amp;', '&', funder)
+                    funder = re.sub(r'&[a-zA-Z0-9#]+;', '', funder)
+
                     # Use actual field names from the API response
                     opp = {
                         "id": hit.get('number', f"grant-{len(opportunities)+1}"),
-                        "title": hit.get('title', 'Federal Grant Opportunity'),
-                        "funder": hit.get('agency', 'Federal Agency'),
+                        "title": title,
+                        "funder": funder,
                         "amount": opportunity_details.get('amount') or 750000,  # Use real amount or default
                         "deadline": self._parse_date(hit.get('closeDate', '')),
                         "match_score": self._calculate_match_score(hit.get('title', '')),
-                        "description": opportunity_details.get('description', f"Grant opportunity: {hit.get('title', 'Federal funding opportunity')}. Agency: {hit.get('agency', 'Federal Agency')}. Status: {hit.get('oppStatus', 'Posted')}."),
+                        "description": opportunity_details.get('description') or self._clean_html_entities(f"Grant opportunity: {hit.get('title', 'Federal funding opportunity')}. Agency: {hit.get('agency', 'Federal Agency')}. Status: {hit.get('oppStatus', 'Posted')}."),
                         "requirements": self._extract_requirements(opportunity_details.get('description', hit.get('title', '') + ' ' + hit.get('agency', ''))),
                         "contact": opportunity_details.get('contact', f"Contact via grants.gov for opportunity {hit.get('number', '')}"),
                         "application_url": f"https://grants.gov/view-opportunity/{hit.get('number', 'opportunity')}"
@@ -187,7 +196,11 @@ class GrantsGovService:
                     raw_desc = synopsis.get('synopsisDesc', '').strip()
                     clean_desc = re.sub(r'<[^>]+>', '', raw_desc)  # Remove HTML tags
                     clean_desc = re.sub(r'&nbsp;', ' ', clean_desc)  # Replace &nbsp; with spaces
-                    clean_desc = re.sub(r'&[a-zA-Z]+;', '', clean_desc)  # Remove other HTML entities
+                    clean_desc = re.sub(r'&amp;', '&', clean_desc)  # Replace &amp; with &
+                    clean_desc = re.sub(r'&lt;', '<', clean_desc)  # Replace &lt; with <
+                    clean_desc = re.sub(r'&gt;', '>', clean_desc)  # Replace &gt; with >
+                    clean_desc = re.sub(r'&quot;', '"', clean_desc)  # Replace &quot; with "
+                    clean_desc = re.sub(r'&[a-zA-Z0-9#]+;', '', clean_desc)  # Remove remaining HTML entities
                     details['description'] = clean_desc.strip()
                     details['contact'] = synopsis.get('agencyContactEmail', '')
 
@@ -243,6 +256,18 @@ class GrantsGovService:
 
         return grants if grants else self._get_mock_grants()
 
+    def _clean_html_entities(self, text: str) -> str:
+        """Clean HTML entities from text"""
+        if not text:
+            return text
+
+        clean_text = re.sub(r'&amp;', '&', text)
+        clean_text = re.sub(r'&lt;', '<', clean_text)
+        clean_text = re.sub(r'&gt;', '>', clean_text)
+        clean_text = re.sub(r'&quot;', '"', clean_text)
+        clean_text = re.sub(r'&[a-zA-Z0-9#]+;', '', clean_text)
+        return clean_text.strip()
+
     def _parse_date(self, date_str: str) -> str:
         """Parse various date formats to YYYY-MM-DD"""
         try:
@@ -295,9 +320,18 @@ class GrantsGovService:
         if not description:
             return ["See full opportunity details on grants.gov"]
 
+        # Clean HTML from description first
+        clean_desc = re.sub(r'<[^>]+>', '', description)  # Remove HTML tags
+        clean_desc = re.sub(r'&nbsp;', ' ', clean_desc)  # Replace &nbsp; with spaces
+        clean_desc = re.sub(r'&amp;', '&', clean_desc)  # Replace &amp; with &
+        clean_desc = re.sub(r'&lt;', '<', clean_desc)  # Replace &lt; with <
+        clean_desc = re.sub(r'&gt;', '>', clean_desc)  # Replace &gt; with >
+        clean_desc = re.sub(r'&quot;', '"', clean_desc)  # Replace &quot; with "
+        clean_desc = re.sub(r'&[a-zA-Z0-9#]+;', '', clean_desc)  # Remove remaining HTML entities
+
         # Look for actual requirements in the text
         requirements = []
-        desc_lower = description.lower()
+        desc_lower = clean_desc.lower()
 
         # Look for common requirement patterns
         requirement_patterns = [
