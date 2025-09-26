@@ -5,6 +5,7 @@ requests==2.31.0
 python-dotenv==1.0.0
 supabase==1.0.3
 anthropic==0.40.0
-sentence-transformers>=2.6.0
+sentence-transformers==2.2.2
+huggingface_hub<0.17.0
 PyPDF2==3.0.1
 numpy==1.24.3
