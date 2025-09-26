@@ -246,7 +246,7 @@ class SemanticService:
                         rfp['content']
                     )
                     # Only include matches above meaningful threshold
-                    if similarity >= 0.4:  # 40% minimum similarity
+                    if similarity >= 0.25:  # 25% minimum similarity
                         similarities.append({
                             **rfp,
                             'similarity_score': similarity
