@@ -9,12 +9,15 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import xml.etree.ElementTree as ET
 import re
+from semantic_service import SemanticService
 
 class GrantsGovService:
     def __init__(self):
         self.base_url = "https://www.grants.gov/web/grants/search-grants.html"
         # Grants.gov has a search API that returns XML
         self.api_url = "https://www.grants.gov/grantsws/rest/opportunities/search/"
+        # Initialize semantic service for enhanced scoring
+        self.semantic_service = SemanticService()
 
     def search_grants_via_script(self, keywords: str = "technology workforce", limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -133,7 +136,12 @@ class GrantsGovService:
                         "funder": funder,
                         "amount": opportunity_details.get('amount') or 750000,  # Use real amount or default
                         "deadline": self._parse_date(hit.get('closeDate', '')),
-                        "match_score": self._calculate_match_score(hit.get('title', '')),
+                        "match_score": self._calculate_enhanced_match_score({
+                            'title': title,
+                            'description': opportunity_details.get('description', ''),
+                            'amount': opportunity_details.get('amount') or 750000,
+                            'funder': funder
+                        }),
                         "description": opportunity_details.get('description') or self._clean_html_entities(f"Grant opportunity: {hit.get('title', 'Federal funding opportunity')}. Agency: {hit.get('agency', 'Federal Agency')}. Status: {hit.get('oppStatus', 'Posted')}."),
                         "requirements": self._extract_requirements(opportunity_details.get('description', hit.get('title', '') + ' ' + hit.get('agency', ''))),
                         "contact": opportunity_details.get('contact', f"Contact via grants.gov for opportunity {hit.get('number', '')}"),
@@ -306,7 +314,7 @@ class GrantsGovService:
             return 250000  # Default amount
 
     def _calculate_match_score(self, title: str) -> int:
-        """Calculate match score based on keywords"""
+        """Calculate match score based on keywords (legacy method)"""
         keywords = ['technology', 'workforce', 'training', 'education', 'stem', 'coding', 'cyber', 'digital']
         title_lower = title.lower()
 
@@ -314,6 +322,24 @@ class GrantsGovService:
         base_score = 70 + (matches * 5)
 
         return min(95, base_score)
+
+    def _calculate_enhanced_match_score(self, grant: Dict[str, Any]) -> int:
+        """Calculate enhanced match score using semantic similarity with historical RFPs"""
+        try:
+            # Find similar RFPs using semantic search
+            grant_text = f"{grant.get('title', '')} {grant.get('description', '')}"
+            similar_rfps = self.semantic_service.find_similar_rfps(grant_text, limit=3)
+
+            # Use semantic service to calculate enhanced score
+            enhanced_score = self.semantic_service.calculate_enhanced_match_score(grant, similar_rfps)
+
+            print(f"[GRANTS] Enhanced match score for '{grant.get('title', 'Unknown')}': {enhanced_score}%")
+            return enhanced_score
+
+        except Exception as e:
+            print(f"[GRANTS] Error calculating enhanced match score: {e}")
+            # Fallback to legacy scoring
+            return self._calculate_match_score(grant.get('title', ''))
 
     def _extract_requirements(self, description: str) -> List[str]:
         """Extract requirements from description"""

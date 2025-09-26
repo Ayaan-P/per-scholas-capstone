@@ -21,6 +21,16 @@ export const api = {
       body: JSON.stringify({})
     }),
 
+  getSimilarRfps: (opportunityId: string) =>
+    fetch(`${API_BASE_URL}/api/rfps/similar/${opportunityId}`),
+
+  loadRfps: () =>
+    fetch(`${API_BASE_URL}/api/rfps/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    }),
+
   // Jobs
   getJob: (jobId: string) =>
     fetch(`${API_BASE_URL}/api/jobs/${jobId}`),

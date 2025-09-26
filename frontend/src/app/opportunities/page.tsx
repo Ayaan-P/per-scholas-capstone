@@ -15,6 +15,15 @@ interface Opportunity {
   contact: string
   application_url: string
   created_at: string
+  similar_rfps?: SimilarRfp[]
+}
+
+interface SimilarRfp {
+  id: number
+  title: string
+  category: string
+  content: string
+  similarity_score: number
 }
 
 export default function OpportunitiesPage() {
@@ -29,7 +38,25 @@ export default function OpportunitiesPage() {
     try {
       const response = await api.getOpportunities()
       const data = await response.json()
-      setOpportunities(data.opportunities)
+
+      // Fetch similar RFPs for each opportunity
+      const opportunitiesWithRfps = await Promise.all(
+        data.opportunities.map(async (opp: Opportunity) => {
+          try {
+            const rfpResponse = await api.getSimilarRfps(opp.id)
+            const rfpData = await rfpResponse.json()
+            return {
+              ...opp,
+              similar_rfps: rfpData.similar_rfps || []
+            }
+          } catch (error) {
+            console.error(`Failed to fetch RFPs for opportunity ${opp.id}:`, error)
+            return opp
+          }
+        })
+      )
+
+      setOpportunities(opportunitiesWithRfps)
     } catch (error) {
       console.error('Failed to fetch opportunities:', error)
     } finally {
@@ -174,6 +201,30 @@ export default function OpportunitiesPage() {
                       </button>
                     </div>
                   </div>
+
+                  {opp.similar_rfps && opp.similar_rfps.length > 0 && (
+                    <div className="mt-6 border-t border-gray-200 pt-4">
+                      <h4 className="font-medium text-gray-900 mb-3">Similar Past RFPs</h4>
+                      <div className="space-y-3">
+                        {opp.similar_rfps.map((rfp, idx) => (
+                          <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex justify-between items-start mb-2">
+                              <h5 className="font-medium text-sm text-gray-900">{rfp.title}</h5>
+                              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                {Math.round(rfp.similarity_score * 100)}% match
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-600 mb-2">
+                              Category: {rfp.category}
+                            </div>
+                            <p className="text-xs text-gray-700 line-clamp-2">
+                              {rfp.content.substring(0, 200)}...
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-4 text-xs text-gray-400">
                     Saved: {new Date(opp.created_at).toLocaleDateString()}

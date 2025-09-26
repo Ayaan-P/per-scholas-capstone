@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 from grants_service import GrantsGovService
+from semantic_service import SemanticService
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
@@ -146,6 +147,9 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
+# Semantic service for RFP matching
+semantic_service = SemanticService()
+
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
@@ -235,7 +239,7 @@ async def get_opportunities():
 
 @app.post("/api/opportunities/{opportunity_id}/save")
 async def save_opportunity(opportunity_id: str):
-    """Save a specific opportunity to the database"""
+    """Save a specific opportunity to the database with RFP similarity analysis"""
     # Find opportunity in current job results
     opportunity = None
     for job in jobs_db.values():
@@ -249,6 +253,33 @@ async def save_opportunity(opportunity_id: str):
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
     try:
+        # Generate embedding for the opportunity
+        opportunity_text = f"{opportunity['title']} {opportunity['description']}"
+        embedding = semantic_service.get_embedding(opportunity_text)
+
+        # Find similar RFPs
+        similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=3)
+
+        # Save to saved_opportunities table with embedding
+        saved_data = {
+            "opportunity_id": opportunity["id"],
+            "title": opportunity["title"],
+            "funder": opportunity["funder"],
+            "amount": opportunity["amount"],
+            "deadline": opportunity["deadline"],
+            "match_score": opportunity["match_score"],
+            "description": opportunity["description"],
+            "requirements": opportunity["requirements"],
+            "contact": opportunity["contact"],
+            "application_url": opportunity["application_url"]
+        }
+
+        if embedding:
+            saved_data["embedding"] = embedding
+
+        supabase.table("saved_opportunities").insert(saved_data).execute()
+
+        # Also save to legacy table for backward compatibility
         supabase.table("opportunities").insert({
             "id": opportunity["id"],
             "title": opportunity["title"],
@@ -266,9 +297,65 @@ async def save_opportunity(opportunity_id: str):
         # Also add to local cache
         opportunities_db.append(opportunity)
 
-        return {"status": "saved", "opportunity_id": opportunity_id}
+        return {
+            "status": "saved",
+            "opportunity_id": opportunity_id,
+            "similar_rfps": similar_rfps,
+            "message": f"Opportunity saved! Found {len(similar_rfps)} similar historical RFPs."
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save opportunity: {str(e)}")
+
+@app.post("/api/rfps/load")
+async def load_rfps():
+    """Load RFPs from directory into database (admin endpoint)"""
+    try:
+        # Load RFPs from directory
+        rfps = semantic_service.load_rfps_from_directory()
+
+        if not rfps:
+            return {"status": "no_rfps", "message": "No RFPs found to load"}
+
+        # Store in Supabase
+        success = semantic_service.store_rfps_in_supabase(rfps)
+
+        if success:
+            return {
+                "status": "success",
+                "message": f"Successfully loaded {len(rfps)} RFPs into database",
+                "count": len(rfps)
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to store RFPs in database")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load RFPs: {str(e)}")
+
+@app.get("/api/rfps/similar/{opportunity_id}")
+async def get_similar_rfps(opportunity_id: str):
+    """Get similar RFPs for a saved opportunity"""
+    try:
+        # Find opportunity in saved opportunities
+        result = supabase.table("saved_opportunities").select("*").eq("opportunity_id", opportunity_id).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Saved opportunity not found")
+
+        opportunity = result.data[0]
+        opportunity_text = f"{opportunity['title']} {opportunity['description']}"
+
+        # Find similar RFPs
+        similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
+
+        return {
+            "opportunity": opportunity,
+            "similar_rfps": similar_rfps
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error finding similar RFPs: {str(e)}")
 
 @app.get("/api/proposals")
 async def get_proposals():
@@ -532,9 +619,13 @@ Return as JSON array in "opportunities" field."""
             if use_api:
                 print(f"[Claude Code Session] Fetching real grants data...")
                 search_keywords = criteria.prompt if criteria.prompt and criteria.prompt != "hi" else "technology workforce development"
+                # Clean the search keywords - remove newlines and extra whitespace
+                search_keywords = search_keywords.strip()
+                print(f"[DEBUG] Search keywords: '{search_keywords}'")
 
                 grants_service = GrantsGovService()
                 real_grants = grants_service.search_grants(search_keywords, limit=10)
+                print(f"[DEBUG] Retrieved {len(real_grants)} real grants")
                 orchestration_result = json.dumps({"opportunities": real_grants})
             else:
                 session_result = create_claude_code_session(
