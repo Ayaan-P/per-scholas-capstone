@@ -7,7 +7,7 @@ import os
 import subprocess
 import tempfile
 from grants_service import GrantsGovService
-from semantic_service import SemanticService
+# from semantic_service import SemanticService  # Disabled for Render free tier
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
@@ -255,10 +255,12 @@ async def save_opportunity(opportunity_id: str):
     try:
         # Generate embedding for the opportunity
         opportunity_text = f"{opportunity['title']} {opportunity['description']}"
-        embedding = semantic_service.get_embedding(opportunity_text)
+        # embedding = semantic_service.get_embedding(opportunity_text)  # Disabled for Render free tier
+        embedding = None
 
         # Find similar RFPs
-        similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=3)
+        # similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=3)  # Disabled for Render free tier
+        similar_rfps = []
 
         # Save to saved_opportunities table with embedding
         saved_data = {
@@ -311,13 +313,15 @@ async def load_rfps():
     """Load RFPs from directory into database (admin endpoint)"""
     try:
         # Load RFPs from directory
-        rfps = semantic_service.load_rfps_from_directory()
+        # rfps = semantic_service.load_rfps_from_directory()  # Disabled for Render free tier
+        rfps = []
 
         if not rfps:
-            return {"status": "no_rfps", "message": "No RFPs found to load"}
+            return {"status": "no_rfps", "message": "No RFPs found to load - semantic service disabled"}
 
         # Store in Supabase
-        success = semantic_service.store_rfps_in_supabase(rfps)
+        # success = semantic_service.store_rfps_in_supabase(rfps)  # Disabled for Render free tier
+        success = False
 
         if success:
             return {
@@ -344,14 +348,15 @@ async def get_similar_rfps(opportunity_id: str):
         opportunity = result.data[0]
         opportunity_text = f"{opportunity['title']} {opportunity['description']}"
 
-        # Lazy load semantic service
-        global semantic_service
-        if semantic_service is None:
-            from semantic_service import SemanticService
-            semantic_service = SemanticService()
+        # # Lazy load semantic service - DISABLED for Render free tier
+        # global semantic_service
+        # if semantic_service is None:
+        #     # from semantic_service import SemanticService  # Disabled for Render free tier
+        #     semantic_service = SemanticService()
 
-        # Find similar RFPs
-        similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
+        # # Find similar RFPs
+        # similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
+        similar_rfps = []  # Disabled for Render free tier
 
         return {
             "opportunity": opportunity,
