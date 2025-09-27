@@ -17,7 +17,7 @@ class GrantsGovService:
         # Grants.gov has a search API that returns XML
         self.api_url = "https://www.grants.gov/grantsws/rest/opportunities/search/"
         # Initialize semantic service for enhanced scoring
-        self.semantic_service = SemanticService()
+        self.semantic_service = None  # Lazy loaded
 
     def search_grants_via_script(self, keywords: str = "technology workforce", limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -326,6 +326,11 @@ class GrantsGovService:
     def _calculate_enhanced_match_score(self, grant: Dict[str, Any]) -> int:
         """Calculate enhanced match score using semantic similarity with historical RFPs"""
         try:
+            # Lazy load semantic service
+            if self.semantic_service is None:
+                from semantic_service import SemanticService
+                self.semantic_service = SemanticService()
+
             # Find similar RFPs using semantic search
             grant_text = f"{grant.get('title', '')} {grant.get('description', '')}"
             similar_rfps = self.semantic_service.find_similar_rfps(grant_text, limit=3)

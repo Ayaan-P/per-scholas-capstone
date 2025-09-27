@@ -147,8 +147,8 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
-# Semantic service for RFP matching
-semantic_service = SemanticService()
+# Semantic service for RFP matching (lazy loaded to avoid startup issues)
+semantic_service = None
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -343,6 +343,12 @@ async def get_similar_rfps(opportunity_id: str):
 
         opportunity = result.data[0]
         opportunity_text = f"{opportunity['title']} {opportunity['description']}"
+
+        # Lazy load semantic service
+        global semantic_service
+        if semantic_service is None:
+            from semantic_service import SemanticService
+            semantic_service = SemanticService()
 
         # Find similar RFPs
         similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
