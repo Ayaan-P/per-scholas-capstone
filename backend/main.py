@@ -14,6 +14,7 @@ import json
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from anthropic import Anthropic
+from scheduler_service import SchedulerService
 
 load_dotenv()
 
@@ -150,6 +151,9 @@ anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY els
 # Semantic service for RFP matching (lazy loaded to avoid startup issues)
 semantic_service = None
 
+# Initialize scheduler service (will start on app startup)
+scheduler_service = None
+
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
@@ -191,9 +195,26 @@ class ProposalRequest(BaseModel):
     description: str
     requirements: List[str]
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize scheduler on startup"""
+    global scheduler_service
+    scheduler_service = SchedulerService(supabase)
+    scheduler_service.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop scheduler on shutdown"""
+    if scheduler_service:
+        scheduler_service.stop()
+
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "PerScholas Fundraising API"}
+    return {
+        "status": "healthy",
+        "service": "PerScholas Fundraising API",
+        "scheduler_running": scheduler_service is not None
+    }
 
 @app.post("/api/search-opportunities")
 async def start_opportunity_search(
@@ -236,6 +257,85 @@ async def get_opportunities():
         return {"opportunities": result.data}
     except Exception as e:
         return {"opportunities": opportunities_db}
+
+@app.get("/api/scraped-grants")
+async def get_scraped_grants(
+    source: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Get grants collected by scheduled scrapers
+
+    Args:
+        source: Filter by data source (grants_gov, state, local, etc.)
+        limit: Maximum number of grants to return
+        offset: Pagination offset
+    """
+    try:
+        query = supabase.table("scraped_grants").select("*")
+
+        if source:
+            query = query.eq("source", source)
+
+        query = query.order("created_at", desc=True)\
+                    .range(offset, offset + limit - 1)
+
+        result = query.execute()
+
+        return {
+            "grants": result.data,
+            "count": len(result.data),
+            "source": source,
+            "limit": limit,
+            "offset": offset
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch scraped grants: {str(e)}")
+
+@app.get("/api/scheduler/status")
+async def get_scheduler_status():
+    """Get status of scheduled scraping jobs"""
+    if not scheduler_service:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+
+    try:
+        jobs = scheduler_service.get_job_status()
+        scheduled_jobs = []
+
+        # Get info about scheduled jobs
+        for job in scheduler_service.scheduler.get_jobs():
+            scheduled_jobs.append({
+                "id": job.id,
+                "name": job.name,
+                "next_run": job.next_run_time.isoformat() if job.next_run_time else None
+            })
+
+        return {
+            "scheduler_running": True,
+            "recent_jobs": jobs,
+            "scheduled_jobs": scheduled_jobs
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get scheduler status: {str(e)}")
+
+@app.post("/api/scheduler/run/{job_name}")
+async def run_scheduler_job(job_name: str):
+    """Manually trigger a scheduled scraping job"""
+    if not scheduler_service:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+
+    try:
+        await scheduler_service.run_job_now(job_name)
+        return {
+            "status": "started",
+            "job_name": job_name,
+            "message": f"Job '{job_name}' triggered successfully"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to run job: {str(e)}")
 
 @app.post("/api/opportunities/{opportunity_id}/save")
 async def save_opportunity(opportunity_id: str):
