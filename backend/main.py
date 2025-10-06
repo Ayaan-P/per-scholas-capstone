@@ -337,6 +337,69 @@ async def run_scheduler_job(job_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to run job: {str(e)}")
 
+@app.post("/api/scraped-grants/{grant_id}/save")
+async def save_scraped_grant(grant_id: str):
+    """Save a scraped grant to saved_opportunities table"""
+    try:
+        # Fetch the grant from scraped_grants table
+        result = supabase.table("scraped_grants").select("*").eq("id", grant_id).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Grant not found")
+
+        grant = result.data[0]
+
+        # Check if already saved
+        existing = supabase.table("saved_opportunities").select("id").eq("opportunity_id", grant["opportunity_id"]).execute()
+
+        if existing.data:
+            return {
+                "status": "already_saved",
+                "message": "This grant is already in your pipeline"
+            }
+
+        # Save to saved_opportunities table
+        # Note: saved_at is auto-generated, no source/created_at/updated_at fields
+        saved_data = {
+            "opportunity_id": grant["opportunity_id"],
+            "title": grant["title"],
+            "funder": grant["funder"],
+            "amount": grant["amount"],
+            "deadline": grant["deadline"],
+            "match_score": grant["match_score"],
+            "description": grant["description"],
+            "requirements": grant.get("requirements", []),
+            "contact": grant.get("contact", ""),
+            "application_url": grant["application_url"]
+        }
+
+        supabase.table("saved_opportunities").insert(saved_data).execute()
+
+        # Also save to legacy opportunities table for backward compatibility
+        supabase.table("opportunities").insert({
+            "id": grant["opportunity_id"],
+            "title": grant["title"],
+            "funder": grant["funder"],
+            "amount": grant["amount"],
+            "deadline": grant["deadline"],
+            "match_score": grant["match_score"],
+            "description": grant["description"],
+            "requirements": grant.get("requirements", []),
+            "contact": grant.get("contact", ""),
+            "application_url": grant["application_url"],
+            "created_at": datetime.now().isoformat()
+        }).execute()
+
+        return {
+            "status": "saved",
+            "grant_id": grant_id,
+            "message": "Grant saved to your pipeline successfully!"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save grant: {str(e)}")
+
 @app.post("/api/opportunities/{opportunity_id}/save")
 async def save_opportunity(opportunity_id: str):
     """Save a specific opportunity to the database with RFP similarity analysis"""

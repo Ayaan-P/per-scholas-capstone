@@ -130,8 +130,12 @@ class GrantsGovService:
                     funder = re.sub(r'&[a-zA-Z0-9#]+;', '', funder)
 
                     # Use actual field names from the API response
+                    # Build the correct grants.gov URL
+                    opp_number = hit.get('number', '')
+                    grant_url = f"https://www.grants.gov/search-results-detail/{opp_number}" if opp_number else "https://www.grants.gov"
+
                     opp = {
-                        "id": hit.get('number', f"grant-{len(opportunities)+1}"),
+                        "id": opp_number or f"grant-{len(opportunities)+1}",
                         "title": title,
                         "funder": funder,
                         "amount": opportunity_details.get('amount') or 750000,  # Use real amount or default
@@ -139,8 +143,8 @@ class GrantsGovService:
                         "match_score": self._calculate_match_score(title),
                         "description": opportunity_details.get('description') or self._clean_html_entities(f"Grant opportunity: {hit.get('title', 'Federal funding opportunity')}. Agency: {hit.get('agency', 'Federal Agency')}. Status: {hit.get('oppStatus', 'Posted')}."),
                         "requirements": self._extract_requirements(opportunity_details.get('description', hit.get('title', '') + ' ' + hit.get('agency', ''))),
-                        "contact": opportunity_details.get('contact', f"Contact via grants.gov for opportunity {hit.get('number', '')}"),
-                        "application_url": f"https://grants.gov/view-opportunity/{hit.get('number', 'opportunity')}"
+                        "contact": opportunity_details.get('contact', f"Contact via grants.gov for opportunity {opp_number}"),
+                        "application_url": grant_url
                     }
                     opportunities.append(opp)
 

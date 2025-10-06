@@ -62,5 +62,18 @@ export const api = {
 
   // Analytics
   getAnalytics: (timeRange: string) =>
-    fetch(`${API_BASE_URL}/api/analytics?range=${timeRange}`)
+    fetch(`${API_BASE_URL}/api/analytics?range=${timeRange}`),
+
+  // Scraped Grants
+  getScrapedGrants: (params?: { source?: string; limit?: number; offset?: number }) =>
+    fetch(`${API_BASE_URL}/api/scraped-grants?${new URLSearchParams(params as any).toString()}`),
+
+  saveScrapedGrant: (grantId: string) =>
+    fetch(`${API_BASE_URL}/api/scraped-grants/${grantId}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }),
+
+  getSchedulerStatus: () =>
+    fetch(`${API_BASE_URL}/api/scheduler/status`)
 }

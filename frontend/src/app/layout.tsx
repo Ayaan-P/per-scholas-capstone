@@ -18,7 +18,7 @@ export default function RootLayout({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-6">
               <div className="flex items-center space-x-4">
-                <a href="/" className="flex items-center space-x-4">
+                <a href="/dashboard" className="flex items-center space-x-4">
                   <h1 className="text-3xl font-bold text-perscholas-primary">Per Scholas</h1>
                   <div className="h-8 w-px bg-gray-300"></div>
                   <span className="text-lg font-medium text-gray-700">

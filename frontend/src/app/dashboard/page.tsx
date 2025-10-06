@@ -3,56 +3,77 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../utils/api'
 
-interface DashboardStats {
-  totalOpportunities: number
-  totalProposals: number
-  totalFunding: number
-  recentSearches: number
-  avgMatchScore: number
-}
-
-interface RecentActivity {
+interface ScrapedGrant {
   id: string
-  type: 'search' | 'save' | 'proposal'
+  opportunity_id: string
+  title: string
+  funder: string
+  amount: number
+  deadline: string
+  match_score: number
   description: string
-  timestamp: string
+  requirements: any[]
+  contact: string
+  application_url: string
+  source: string
+  status: string
+  created_at: string
+  updated_at: string
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalOpportunities: 0,
-    totalProposals: 0,
-    totalFunding: 0,
-    recentSearches: 0,
-    avgMatchScore: 0
-  })
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [grants, setGrants] = useState<ScrapedGrant[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<string>('all')
+  const [savingGrants, setSavingGrants] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    fetchGrants()
+  }, [filter])
 
-  const fetchDashboardData = async () => {
+  const fetchGrants = async () => {
     try {
-      const [statsResponse, activityResponse] = await Promise.all([
-        api.getDashboardStats(),
-        api.getDashboardActivity()
-      ])
+      setLoading(true)
+      const params = filter !== 'all' ? { source: filter } : {}
+      const response = await api.getScrapedGrants(params)
 
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json()
-        setStats(statsData)
-      }
-
-      if (activityResponse.ok) {
-        const activityData = await activityResponse.json()
-        setRecentActivity(activityData.activities)
+      if (response.ok) {
+        const data = await response.json()
+        // Sort by match score descending
+        const sortedGrants = (data.grants || []).sort((a: ScrapedGrant, b: ScrapedGrant) => b.match_score - a.match_score)
+        setGrants(sortedGrants)
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
+      console.error('Failed to fetch grants:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSaveGrant = async (grantId: string) => {
+    try {
+      setSavingGrants(prev => new Set(prev).add(grantId))
+      const response = await api.saveScrapedGrant(grantId)
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.status === 'already_saved') {
+          alert(data.message)
+        } else {
+          alert('Grant saved to your pipeline!')
+        }
+      } else {
+        alert('Failed to save grant')
+      }
+    } catch (error) {
+      console.error('Failed to save grant:', error)
+      alert('Failed to save grant')
+    } finally {
+      setSavingGrants(prev => {
+        const next = new Set(prev)
+        next.delete(grantId)
+        return next
+      })
     }
   }
 
@@ -65,233 +86,195 @@ export default function Dashboard() {
     }).format(amount)
   }
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'search':
-        return (
-          <div className="bg-blue-100 p-2 rounded-lg">
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        )
-      case 'save':
-        return (
-          <div className="bg-green-100 p-2 rounded-lg">
-            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        )
-      case 'proposal':
-        return (
-          <div className="bg-purple-100 p-2 rounded-lg">
-            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-        )
-      default:
-        return null
+  const formatDate = (dateStr: string) => {
+    if (!dateStr || dateStr === 'Historical') return dateStr
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const getMatchColor = (score: number) => {
+    if (score >= 85) return 'bg-green-100 text-green-800'
+    if (score >= 70) return 'bg-yellow-100 text-yellow-800'
+    return 'bg-gray-100 text-gray-800'
+  }
+
+  const getSourceBadge = (source: string) => {
+    const sourceColors: { [key: string]: string } = {
+      'grants_gov': 'bg-blue-100 text-blue-800',
+      'sam_gov': 'bg-purple-100 text-purple-800',
+      'state': 'bg-green-100 text-green-800',
+      'local': 'bg-orange-100 text-orange-800',
     }
+    return sourceColors[source] || 'bg-gray-100 text-gray-800'
+  }
+
+  const getSourceLabel = (source: string) => {
+    const labels: { [key: string]: string } = {
+      'grants_gov': 'Grants.gov',
+      'sam_gov': 'SAM.gov',
+      'state': 'State',
+      'local': 'Local',
+    }
+    return labels[source] || source
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-perscholas-primary"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-perscholas-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading grant opportunities...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Overview of your fundraising intelligence platform</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Grant Opportunities</h1>
+          <p className="text-gray-600 text-lg">
+            Automatically discovered funding opportunities • Updated every 6-12 hours
+          </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-perscholas-primary rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Opportunities</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.totalOpportunities}</dd>
-                </dl>
-              </div>
+        {/* Stats Bar */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="text-center md:text-left">
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Total Opportunities</p>
+              <p className="text-3xl font-bold text-gray-900">{grants.length}</p>
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Proposals Generated</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.totalProposals}</dd>
-                </dl>
-              </div>
+            <div className="text-center md:text-left">
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Total Funding</p>
+              <p className="text-3xl font-bold text-perscholas-primary">
+                {formatCurrency(grants.reduce((sum, g) => sum + (g.amount || 0), 0))}
+              </p>
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Funding Value</dt>
-                  <dd className="text-lg font-medium text-gray-900">{formatCurrency(stats.totalFunding)}</dd>
-                </dl>
-              </div>
+            <div className="text-center md:text-left">
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">High Match</p>
+              <p className="text-3xl font-bold text-green-600">
+                {grants.filter(g => g.match_score >= 85).length}
+              </p>
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Recent Searches</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.recentSearches}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Avg Match Score</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.avgMatchScore}%</dd>
-                </dl>
-              </div>
+            <div className="text-center md:text-left">
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Avg Match</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {grants.length > 0
+                  ? Math.round(grants.reduce((sum, g) => sum + g.match_score, 0) / grants.length)
+                  : 0}%
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Activity */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
-            {recentActivity.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No recent activity</p>
-            ) : (
-              <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3">
-                    {getActivityIcon(activity.type)}
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{activity.description}</p>
-                      <p className="text-xs text-gray-500">{new Date(activity.timestamp).toLocaleString()}</p>
+        {/* Filters */}
+        <div className="mb-8 flex items-center space-x-4">
+          <label className="text-sm font-semibold text-gray-700">Filter by source:</label>
+          <div className="flex flex-wrap gap-2">
+            {['all', 'grants_gov', 'sam_gov', 'state', 'local'].map((src) => (
+              <button
+                key={src}
+                onClick={() => setFilter(src)}
+                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                  filter === src
+                    ? 'bg-perscholas-primary text-white shadow-md'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:border-perscholas-primary hover:bg-gray-50'
+                }`}
+              >
+                {src === 'all' ? 'All Sources' : getSourceLabel(src)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Grant List */}
+        {grants.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-16 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+              <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">No grants found</h3>
+            <p className="text-gray-600 text-lg">The automated scraper is running. Check back soon for new opportunities.</p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {grants.map((grant) => (
+              <div
+                key={grant.id}
+                className="bg-white rounded-xl shadow-md border border-gray-200 p-8 hover:shadow-xl hover:border-perscholas-primary/30 transition-all duration-200"
+              >
+                <div className="flex justify-between items-start mb-5">
+                  <div className="flex-1 pr-8">
+                    <div className="mb-3">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">{grant.title}</h3>
+                      <p className="text-base text-gray-600 font-medium">{grant.funder}</p>
                     </div>
                   </div>
-                ))}
+                  <div className="flex flex-col items-end space-y-2">
+                    <span className={`px-4 py-2 rounded-lg text-sm font-bold shadow-sm ${getMatchColor(grant.match_score)}`}>
+                      {grant.match_score}% Match
+                    </span>
+                    <p className="text-3xl font-bold text-perscholas-primary">
+                      {formatCurrency(grant.amount)}
+                    </p>
+                    <p className="text-sm text-gray-500 font-medium">
+                      Due {formatDate(grant.deadline)}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-gray-700 mb-5 leading-relaxed line-clamp-2">{grant.description}</p>
+
+                {grant.requirements && grant.requirements.length > 0 && (
+                  <div className="mb-5 bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">Key Requirements:</p>
+                    <ul className="space-y-1.5">
+                      {grant.requirements.slice(0, 3).map((req: string, idx: number) => (
+                        <li key={idx} className="text-sm text-gray-600 flex items-start">
+                          <span className="text-perscholas-primary mr-2 mt-0.5">•</span>
+                          <span>{req}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-5 border-t border-gray-200">
+                  <div className="flex items-center space-x-3">
+                    <span className={`px-3 py-1.5 rounded-lg text-xs font-bold ${getSourceBadge(grant.source)}`}>
+                      {getSourceLabel(grant.source)}
+                    </span>
+                    <span className="text-xs text-gray-500 font-medium">
+                      Added {formatDate(grant.created_at)}
+                    </span>
+                  </div>
+                  <div className="flex space-x-3">
+                    <a
+                      href={grant.application_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all text-sm font-semibold"
+                    >
+                      View Details
+                    </a>
+                    <button
+                      onClick={() => handleSaveGrant(grant.id)}
+                      disabled={savingGrants.has(grant.id)}
+                      className="px-6 py-2.5 bg-gradient-to-r from-perscholas-primary to-blue-600 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    >
+                      {savingGrants.has(grant.id) ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="space-y-4">
-              <a
-                href="/"
-                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 bg-perscholas-primary rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-medium text-gray-900">Start New Search</h3>
-                  <p className="text-sm text-gray-500">Discover new funding opportunities</p>
-                </div>
-              </a>
-
-              <a
-                href="/opportunities"
-                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-medium text-gray-900">View Opportunities</h3>
-                  <p className="text-sm text-gray-500">Browse saved funding opportunities</p>
-                </div>
-              </a>
-
-              <a
-                href="/proposals"
-                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-medium text-gray-900">Manage Proposals</h3>
-                  <p className="text-sm text-gray-500">View and edit grant proposals</p>
-                </div>
-              </a>
-
-              <a
-                href="/analytics"
-                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="font-medium text-gray-900">View Analytics</h3>
-                  <p className="text-sm text-gray-500">Track success metrics and trends</p>
-                </div>
-              </a>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )
