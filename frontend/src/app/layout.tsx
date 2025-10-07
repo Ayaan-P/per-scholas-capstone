@@ -34,12 +34,6 @@ export default function RootLayout({
                   <a href="/opportunities" className="text-gray-600 hover:text-perscholas-primary font-medium">
                     Opportunities
                   </a>
-                  <a href="/proposals" className="text-gray-600 hover:text-perscholas-primary font-medium">
-                    Proposals
-                  </a>
-                  <a href="/analytics" className="text-gray-600 hover:text-perscholas-primary font-medium">
-                    Analytics
-                  </a>
                 </nav>
               </div>
             </div>

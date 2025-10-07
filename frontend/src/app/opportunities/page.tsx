@@ -220,23 +220,19 @@ export default function OpportunitiesPage() {
                     </span>
                   </div>
                   <div className="flex space-x-3">
+                    <a
+                      href={opp.application_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all text-sm font-semibold"
+                    >
+                      View Details
+                    </a>
                     <button
                       onClick={() => handleAction(opp.id, 'dismiss')}
-                      className="px-5 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-red-400 hover:bg-red-50 hover:text-red-700 transition-all text-sm font-semibold"
+                      className="px-5 py-2.5 bg-white border-2 border-red-300 text-red-700 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all text-sm font-semibold"
                     >
                       Dismiss
-                    </button>
-                    <button
-                      onClick={() => handleAction(opp.id, 'assign')}
-                      className="px-5 py-2.5 bg-white border-2 border-perscholas-primary text-perscholas-primary rounded-lg hover:bg-perscholas-primary hover:text-white transition-all text-sm font-semibold"
-                    >
-                      Assign
-                    </button>
-                    <button
-                      onClick={() => handleAction(opp.id, 'pursue')}
-                      className="px-6 py-2.5 bg-gradient-to-r from-perscholas-primary to-blue-600 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all text-sm font-semibold"
-                    >
-                      Pursue
                     </button>
                   </div>
                 </div>

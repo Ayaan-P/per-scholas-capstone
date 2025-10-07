@@ -130,9 +130,10 @@ class GrantsGovService:
                     funder = re.sub(r'&[a-zA-Z0-9#]+;', '', funder)
 
                     # Use actual field names from the API response
-                    # Build the correct grants.gov URL
+                    # Build the correct grants.gov URL using the ID (not the number)
+                    opp_id = hit.get('id', '')
                     opp_number = hit.get('number', '')
-                    grant_url = f"https://www.grants.gov/search-results-detail/{opp_number}" if opp_number else "https://www.grants.gov"
+                    grant_url = f"https://www.grants.gov/search-results-detail/{opp_id}" if opp_id else "https://www.grants.gov"
 
                     opp = {
                         "id": opp_number or f"grant-{len(opportunities)+1}",
