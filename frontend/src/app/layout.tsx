@@ -29,7 +29,7 @@ export default function RootLayout({
               <div className="flex items-center space-x-6">
                 <nav className="flex space-x-6">
                   <a href="/dashboard" className="text-gray-600 hover:text-perscholas-primary font-medium">
-                    Dashboard
+                    Discover
                   </a>
                   <a href="/opportunities" className="text-gray-600 hover:text-perscholas-primary font-medium">
                     Opportunities
