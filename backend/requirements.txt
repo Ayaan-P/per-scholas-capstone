@@ -10,3 +10,12 @@ huggingface_hub<0.17.0
 PyPDF2==3.0.1
 numpy==1.24.3
 apscheduler==3.10.4
+
+# Gmail API dependencies
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+google-api-python-client==2.108.0
+
+# Email parsing dependencies
+beautifulsoup4==4.12.2
+python-dateutil==2.8.2

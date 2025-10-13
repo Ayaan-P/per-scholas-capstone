@@ -16,6 +16,7 @@ from supabase import Client
 from scrapers.grants_gov_scraper import GrantsGovScraper
 from scrapers.state_scrapers import CaliforniaGrantsScraper, NewYorkGrantsScraper
 from scrapers.federal_scrapers import SAMGovScraper, USASpendingScraper
+from scrapers.gmail_scraper import GmailInboxScraper
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,13 +33,24 @@ class SchedulerService:
 
     def _initialize_scrapers(self):
         """Initialize all data source scrapers"""
-        return {
+        scrapers = {
             'grants_gov': GrantsGovScraper(),
             'california': CaliforniaGrantsScraper(),
             'new_york': NewYorkGrantsScraper(),
             'sam_gov': SAMGovScraper(),
             'usa_spending': USASpendingScraper()
         }
+
+        # Initialize Gmail scraper if token exists
+        try:
+            scrapers['gmail_inbox'] = GmailInboxScraper()
+            logger.info("Gmail inbox scraper initialized successfully")
+        except FileNotFoundError:
+            logger.warning("Gmail token not found - skipping Gmail inbox scraper")
+        except Exception as e:
+            logger.error(f"Failed to initialize Gmail scraper: {e}")
+
+        return scrapers
 
     def start(self):
         """Start the scheduler with all configured jobs"""
@@ -80,6 +92,17 @@ class SchedulerService:
             replace_existing=True
         )
 
+        # Gmail inbox - run every 15 minutes (if available)
+        if 'gmail_inbox' in self.scrapers:
+            self.scheduler.add_job(
+                self._scrape_gmail_inbox,
+                trigger=IntervalTrigger(minutes=15),
+                id='gmail_inbox_job',
+                name='Scrape Gmail Inbox',
+                replace_existing=True
+            )
+            logger.info("Gmail inbox scraping job scheduled (every 15 minutes)")
+
         # Cleanup old grants - run weekly on Sunday at 4 AM
         self.scheduler.add_job(
             self._cleanup_expired_grants,
@@ -100,6 +123,11 @@ class SchedulerService:
         logger.info("Running initial scrape...")
         await asyncio.sleep(5)  # Wait for system to fully initialize
         await self._scrape_grants_gov()
+
+        # Also scrape Gmail if available
+        if 'gmail_inbox' in self.scrapers:
+            await self._scrape_gmail_inbox()
+
         logger.info("Initial scrape completed")
 
     async def _scrape_grants_gov(self):
@@ -201,6 +229,35 @@ class SchedulerService:
             logger.error(f"Local grants scrape failed: {e}")
             self._update_job_record(job_id, 'failed', 0, str(e))
 
+    async def _scrape_gmail_inbox(self):
+        """Scrape grant opportunities from Gmail inbox"""
+        job_id = self._create_job_record('gmail_inbox', 'running')
+
+        try:
+            logger.info("Starting Gmail inbox scrape...")
+            scraper = self.scrapers.get('gmail_inbox')
+
+            if not scraper:
+                logger.warning("Gmail scraper not available")
+                self._update_job_record(job_id, 'skipped', 0, 'Scraper not initialized')
+                return
+
+            # Scrape unread emails (limit to 50 per run to avoid rate limits)
+            raw_grants = await scraper.scrape(max_results=50)
+
+            # Deduplicate by email_id
+            grants = self._deduplicate_grants(raw_grants, 'email_id')
+
+            # Store grants with proper format
+            saved_count = await self._store_gmail_grants(grants)
+
+            logger.info(f"Gmail inbox scrape completed: {saved_count} grants saved from {len(raw_grants)} emails")
+            self._update_job_record(job_id, 'completed', saved_count)
+
+        except Exception as e:
+            logger.error(f"Gmail inbox scrape failed: {e}")
+            self._update_job_record(job_id, 'failed', 0, str(e))
+
     async def _cleanup_expired_grants(self):
         """Remove grants with past deadlines"""
         try:
@@ -278,6 +335,61 @@ class SchedulerService:
 
         return saved_count
 
+    async def _store_gmail_grants(self, grants: List[Dict[str, Any]]) -> int:
+        """Store Gmail-scraped grants with special handling for email-specific data"""
+        if not grants:
+            return 0
+
+        saved_count = 0
+
+        for grant in grants:
+            try:
+                # Use email_id as opportunity_id for Gmail grants
+                opportunity_id = grant.get('email_id', f"gmail_{datetime.now().timestamp()}")
+
+                # Check if grant already exists
+                existing = self.supabase.table("scraped_grants")\
+                    .select("id")\
+                    .eq("opportunity_id", opportunity_id)\
+                    .execute()
+
+                grant_data = {
+                    "title": grant.get("title"),
+                    "funder": grant.get("organization", "Unknown"),
+                    "amount": grant.get("amount"),
+                    "deadline": grant.get("deadline"),
+                    "description": grant.get("description"),
+                    "requirements": grant.get("eligibility", []),
+                    "contact": grant.get("email_sender"),
+                    "application_url": grant.get("source_url"),
+                    "match_score": 0,  # Will be calculated later
+                    "updated_at": datetime.now().isoformat()
+                }
+
+                if existing.data:
+                    # Update existing grant
+                    self.supabase.table("scraped_grants")\
+                        .update(grant_data)\
+                        .eq("opportunity_id", opportunity_id)\
+                        .execute()
+                else:
+                    # Insert new grant
+                    grant_data.update({
+                        "opportunity_id": opportunity_id,
+                        "source": "gmail_inbox",
+                        "status": "active",
+                        "created_at": datetime.now().isoformat()
+                    })
+                    self.supabase.table("scraped_grants").insert(grant_data).execute()
+
+                saved_count += 1
+
+            except Exception as e:
+                logger.error(f"Failed to store Gmail grant: {e}")
+                continue
+
+        return saved_count
+
     def _deduplicate_grants(self, grants: List[Dict[str, Any]], key: str) -> List[Dict[str, Any]]:
         """Remove duplicate grants based on key"""
         seen = set()
@@ -329,7 +441,8 @@ class SchedulerService:
             'grants_gov': self._scrape_grants_gov,
             'sam_gov': self._scrape_sam_gov,
             'state_grants': self._scrape_state_grants,
-            'local_grants': self._scrape_local_grants
+            'local_grants': self._scrape_local_grants,
+            'gmail_inbox': self._scrape_gmail_inbox
         }
 
         if job_name in job_map:
