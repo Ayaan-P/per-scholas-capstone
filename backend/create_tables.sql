@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS opportunities (
     requirements TEXT[],
     contact TEXT,
     application_url TEXT,
+    llm_summary TEXT,
+    detailed_match_reasoning TEXT,
+    tags TEXT[],
+    similar_past_proposals JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

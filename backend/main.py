@@ -339,7 +339,7 @@ async def run_scheduler_job(job_name: str):
 
 @app.post("/api/scraped-grants/{grant_id}/save")
 async def save_scraped_grant(grant_id: str):
-    """Save a scraped grant to saved_opportunities table"""
+    """Start LLM enhancement job for a scraped grant (async with progress tracking)"""
     try:
         # Fetch the grant from scraped_grants table
         result = supabase.table("scraped_grants").select("*").eq("id", grant_id).execute()
@@ -350,7 +350,7 @@ async def save_scraped_grant(grant_id: str):
         grant = result.data[0]
 
         # Check if already saved
-        existing = supabase.table("saved_opportunities").select("id").eq("opportunity_id", grant["opportunity_id"]).execute()
+        existing = supabase.table("opportunities").select("id").eq("id", grant["opportunity_id"]).execute()
 
         if existing.data:
             return {
@@ -358,47 +358,34 @@ async def save_scraped_grant(grant_id: str):
                 "message": "This grant is already in your pipeline"
             }
 
-        # Save to saved_opportunities table
-        # Note: saved_at is auto-generated, no source/created_at/updated_at fields
-        saved_data = {
-            "opportunity_id": grant["opportunity_id"],
-            "title": grant["title"],
-            "funder": grant["funder"],
-            "amount": grant["amount"],
-            "deadline": grant["deadline"],
-            "match_score": grant["match_score"],
-            "description": grant["description"],
-            "requirements": grant.get("requirements", []),
-            "contact": grant.get("contact", ""),
-            "application_url": grant["application_url"]
+        # Create background job for LLM enhancement
+        job_id = str(uuid.uuid4())
+
+        jobs_db[job_id] = {
+            "job_id": job_id,
+            "status": "running",
+            "progress": 0,
+            "current_task": "Starting LLM enhancement...",
+            "result": None,
+            "error": None,
+            "created_at": datetime.now().isoformat(),
+            "grant_id": grant_id,
+            "grant_title": grant.get("title")
         }
 
-        supabase.table("saved_opportunities").insert(saved_data).execute()
-
-        # Also save to legacy opportunities table for backward compatibility
-        supabase.table("opportunities").insert({
-            "id": grant["opportunity_id"],
-            "title": grant["title"],
-            "funder": grant["funder"],
-            "amount": grant["amount"],
-            "deadline": grant["deadline"],
-            "match_score": grant["match_score"],
-            "description": grant["description"],
-            "requirements": grant.get("requirements", []),
-            "contact": grant.get("contact", ""),
-            "application_url": grant["application_url"],
-            "created_at": datetime.now().isoformat()
-        }).execute()
+        # Start background task
+        asyncio.create_task(run_llm_enhancement(job_id, grant_id))
 
         return {
-            "status": "saved",
-            "grant_id": grant_id,
-            "message": "Grant saved to your pipeline successfully!"
+            "status": "processing",
+            "job_id": job_id,
+            "message": "Grant is being enhanced with AI insights...",
+            "grant_title": grant.get("title")
         }
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save grant: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start enhancement: {str(e)}")
 
 @app.post("/api/opportunities/{opportunity_id}/save")
 async def save_opportunity(opportunity_id: str):
@@ -670,6 +657,43 @@ async def get_analytics(range: str = "30d"):
             {"name": "Google.org", "opportunityCount": 1, "totalFunding": 75000}
         ]
     }
+
+async def run_llm_enhancement(job_id: str, grant_id: str):
+    """Background task for LLM enhancement with progress updates"""
+    job = jobs_db[job_id]
+
+    try:
+        from llm_enhancement_service import enhance_and_save_grant
+
+        # Update progress
+        job["current_task"] = "Generating AI summary..."
+        job["progress"] = 25
+
+        # Run LLM enhancement
+        enhanced_grant = await enhance_and_save_grant(grant_id, supabase)
+
+        # Update progress
+        job["current_task"] = "Extracting tags and reasoning..."
+        job["progress"] = 75
+
+        # Mark complete
+        job["status"] = "completed"
+        job["progress"] = 100
+        job["current_task"] = "Grant saved with AI insights!"
+        job["result"] = {
+            "grant_id": grant_id,
+            "opportunity_id": enhanced_grant.get("opportunity_id"),
+            "llm_summary": enhanced_grant.get("llm_summary"),
+            "tags": enhanced_grant.get("tags", []),
+            "detailed_reasoning": enhanced_grant.get("detailed_match_reasoning"),
+            "completed_at": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        job["status"] = "failed"
+        job["error"] = str(e)
+        job["current_task"] = f"Error: {str(e)}"
+        print(f"[LLM Enhancement Job] Failed: {e}")
 
 async def run_opportunity_search(job_id: str, criteria: SearchCriteria):
     """Execute Claude Code fundraising-cro agent for opportunity discovery"""
