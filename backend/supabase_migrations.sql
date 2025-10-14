@@ -134,3 +134,6 @@ CREATE TRIGGER update_proposals_updated_at BEFORE UPDATE ON proposals
 
 -- Insert some sample data (if needed for testing)
 -- This would be replaced by actual RFP loading process
+
+-- Add source column to saved_opportunities table (migration)
+ALTER TABLE saved_opportunities ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'grants_gov';

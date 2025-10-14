@@ -253,10 +253,16 @@ async def get_job_status(job_id: str):
 async def get_opportunities():
     """Get all saved opportunities from database"""
     try:
-        result = supabase.table("opportunities").select("*").execute()
+        # Query from saved_opportunities table which has the source field
+        result = supabase.table("saved_opportunities").select("*").order("saved_at", desc=True).execute()
         return {"opportunities": result.data}
     except Exception as e:
-        return {"opportunities": opportunities_db}
+        # Fallback to opportunities table if saved_opportunities doesn't exist
+        try:
+            result = supabase.table("opportunities").select("*").execute()
+            return {"opportunities": result.data}
+        except:
+            return {"opportunities": opportunities_db}
 
 @app.get("/api/scraped-grants")
 async def get_scraped_grants(
@@ -370,7 +376,8 @@ async def save_scraped_grant(grant_id: str):
             "error": None,
             "created_at": datetime.now().isoformat(),
             "grant_id": grant_id,
-            "grant_title": grant.get("title")
+            "grant_title": grant.get("title"),
+            "source": grant.get("source", "grants_gov")  # Include source field for LLM enhancement
         }
 
         # Start background task
@@ -386,6 +393,111 @@ async def save_scraped_grant(grant_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start enhancement: {str(e)}")
+
+@app.post("/api/opportunities/{opportunity_id}/generate-summary")
+async def generate_opportunity_summary(opportunity_id: str):
+    """Generate an AI-powered summary for a saved opportunity"""
+    try:
+        # Fetch the opportunity from saved_opportunities
+        result = supabase.table("saved_opportunities").select("*").eq("id", opportunity_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+        
+        opportunity = result.data[0]
+        
+        # Check if we have an Anthropic API key
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not anthropic_key or anthropic_key == "your_anthropic_key_here_if_you_have_one":
+            # Return a structured summary without AI
+            description = opportunity.get("description", "No description available")
+            requirements = opportunity.get("requirements", [])
+            
+            return {
+                "summary": {
+                    "overview": description[:500] + ("..." if len(description) > 500 else ""),
+                    "key_details": [
+                        f"💰 Funding Amount: ${opportunity.get('amount', 0):,}",
+                        f"🏢 Funder: {opportunity.get('funder', 'N/A')}",
+                        f"📅 Deadline: {opportunity.get('deadline', 'N/A')}",
+                        f"📊 Match Score: {opportunity.get('match_score', 0)}%",
+                        f"📋 Requirements: {len(requirements)} listed" if requirements else "Requirements: See full description"
+                    ],
+                    "funding_priorities": [
+                        "AI analysis not available - API key required",
+                        "Review the full description for detailed funding priorities",
+                        "Check the funder's website for additional context"
+                    ]
+                }
+            }
+        
+        # Use Anthropic Claude to generate summary
+        client = Anthropic(api_key=anthropic_key)
+        
+        prompt = f"""Analyze this grant opportunity and provide a comprehensive understanding of what this RFP offers.
+
+Grant Details:
+- Title: {opportunity.get('title', 'N/A')}
+- Funder: {opportunity.get('funder', 'N/A')}
+- Amount: ${opportunity.get('amount', 0):,}
+- Deadline: {opportunity.get('deadline', 'N/A')}
+- Match Score: {opportunity.get('match_score', 0)}%
+- Description: {opportunity.get('description', 'N/A')}
+- Requirements: {json.dumps(opportunity.get('requirements', []))}
+
+Provide a structured analysis in JSON format with these sections:
+
+1. "overview": A comprehensive 4-6 sentence summary that explains:
+   - What this grant is funding (the main purpose and scope)
+   - Who the intended beneficiaries are
+   - What types of projects or activities are eligible
+   - Any unique aspects or special focus areas
+
+2. "key_details": Array of 6-8 specific, factual bullet points about:
+   - Funding amount and award structure
+   - Eligibility requirements
+   - Application requirements or process details
+   - Timeline and deadline information
+   - Geographic restrictions or preferences
+   - Priority areas or evaluation criteria
+   - Matching funds requirements (if any)
+   - Any other important conditions or constraints
+
+3. "funding_priorities": Array of 3-5 bullet points describing what the funder is specifically looking to support or achieve with this grant
+
+Return ONLY valid JSON, no other text."""
+
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1500,
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }]
+        )
+        
+        # Parse the response
+        summary_text = response.content[0].text
+        try:
+            summary = json.loads(summary_text)
+        except:
+            # If JSON parsing fails, create a structured response from the text
+            summary = {
+                "overview": summary_text[:500],
+                "key_details": ["AI-generated insights available in overview"],
+                "funding_priorities": ["Review the overview for detailed analysis"]
+            }
+        
+        # Optionally save the summary back to the database
+        # supabase.table("saved_opportunities").update({"ai_summary": summary}).eq("id", opportunity_id).execute()
+        
+        return {"summary": summary}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error generating summary: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
 @app.post("/api/opportunities/{opportunity_id}/save")
 async def save_opportunity(opportunity_id: str):

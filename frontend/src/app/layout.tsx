@@ -1,20 +1,27 @@
-import type { Metadata } from 'next'
-import './globals.css'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Per Scholas | Fundraising Intelligence Platform',
-  description: 'Enterprise-grade AI platform for funding opportunity discovery and proposal generation',
-}
+import './globals.css'
+import { usePathname } from 'next/navigation'
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+
+  const isActive = (path: string) => {
+    return pathname === path || pathname?.startsWith(path)
+  }
+
   return (
     <html lang="en">
+      <head>
+        <title>Per Scholas | Fundraising Intelligence Platform</title>
+        <meta name="description" content="Enterprise-grade AI platform for funding opportunity discovery and proposal generation" />
+      </head>
       <body className="bg-gray-50 min-h-screen">
-        <header className="bg-white shadow-sm border-b">
+        <header className="bg-white shadow-sm border-b sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-6">
               <div className="flex items-center space-x-4">
@@ -28,10 +35,24 @@ export default function RootLayout({
               </div>
               <div className="flex items-center space-x-6">
                 <nav className="flex space-x-6">
-                  <a href="/dashboard" className="text-gray-600 hover:text-perscholas-primary font-medium">
+                  <a 
+                    href="/dashboard" 
+                    className={`font-medium transition-colors ${
+                      isActive('/dashboard') 
+                        ? 'text-indigo-600 font-bold border-b-2 border-indigo-600 pb-1' 
+                        : 'text-gray-600 hover:text-perscholas-primary'
+                    }`}
+                  >
                     Discover
                   </a>
-                  <a href="/opportunities" className="text-gray-600 hover:text-perscholas-primary font-medium">
+                  <a 
+                    href="/opportunities" 
+                    className={`font-medium transition-colors ${
+                      isActive('/opportunities') 
+                        ? 'text-indigo-600 font-bold border-b-2 border-indigo-600 pb-1' 
+                        : 'text-gray-600 hover:text-perscholas-primary'
+                    }`}
+                  >
                     Opportunities
                   </a>
                 </nav>

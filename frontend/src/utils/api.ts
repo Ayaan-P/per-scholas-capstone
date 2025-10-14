@@ -21,6 +21,12 @@ export const api = {
       body: JSON.stringify({})
     }),
 
+  generateOpportunitySummary: (opportunityId: string) =>
+    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/generate-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }),
+
   getSimilarRfps: (opportunityId: string) =>
     fetch(`${API_BASE_URL}/api/rfps/similar/${opportunityId}`),
 
