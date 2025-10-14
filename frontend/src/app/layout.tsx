@@ -35,21 +35,21 @@ export default function RootLayout({
               </div>
               <div className="flex items-center space-x-6">
                 <nav className="flex space-x-6">
-                  <a 
-                    href="/dashboard" 
+                  <a
+                    href="/dashboard"
                     className={`font-medium transition-colors ${
-                      isActive('/dashboard') 
-                        ? 'text-indigo-600 font-bold border-b-2 border-indigo-600 pb-1' 
+                      isActive('/dashboard')
+                        ? 'text-perscholas-primary font-bold border-b-2 border-perscholas-primary pb-1'
                         : 'text-gray-600 hover:text-perscholas-primary'
                     }`}
                   >
                     Discover
                   </a>
-                  <a 
-                    href="/opportunities" 
+                  <a
+                    href="/opportunities"
                     className={`font-medium transition-colors ${
-                      isActive('/opportunities') 
-                        ? 'text-indigo-600 font-bold border-b-2 border-indigo-600 pb-1' 
+                      isActive('/opportunities')
+                        ? 'text-perscholas-primary font-bold border-b-2 border-perscholas-primary pb-1'
                         : 'text-gray-600 hover:text-perscholas-primary'
                     }`}
                   >

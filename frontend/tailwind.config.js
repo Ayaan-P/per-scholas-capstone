@@ -9,9 +9,10 @@ module.exports = {
     extend: {
       colors: {
         'perscholas': {
-          'primary': '#0066CC',    // Per Scholas blue
-          'secondary': '#004499',  // Darker blue
-          'accent': '#FF9900',     // Orange accent
+          'primary': '#006fb4',    // Medium blue (buttons)
+          'dark': '#00476e',       // Dark blue (tags)
+          'secondary': '#009ee0',  // Light blue accent
+          'accent': '#fec14f',     // Yellow
           'light': '#f8fafc',      // Light background
         }
       },

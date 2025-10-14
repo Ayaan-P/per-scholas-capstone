@@ -253,16 +253,12 @@ async def get_job_status(job_id: str):
 async def get_opportunities():
     """Get all saved opportunities from database"""
     try:
-        # Query from saved_opportunities table which has the source field
+        # Query from unified saved_opportunities table
         result = supabase.table("saved_opportunities").select("*").order("saved_at", desc=True).execute()
         return {"opportunities": result.data}
     except Exception as e:
-        # Fallback to opportunities table if saved_opportunities doesn't exist
-        try:
-            result = supabase.table("opportunities").select("*").execute()
-            return {"opportunities": result.data}
-        except:
-            return {"opportunities": opportunities_db}
+        # Fallback to in-memory cache if database is unavailable
+        return {"opportunities": opportunities_db}
 
 @app.get("/api/scraped-grants")
 async def get_scraped_grants(
@@ -355,8 +351,8 @@ async def save_scraped_grant(grant_id: str):
 
         grant = result.data[0]
 
-        # Check if already saved
-        existing = supabase.table("opportunities").select("id").eq("id", grant["opportunity_id"]).execute()
+        # Check if already saved in unified table
+        existing = supabase.table("saved_opportunities").select("id").eq("opportunity_id", grant["opportunity_id"]).execute()
 
         if existing.data:
             return {
@@ -541,22 +537,8 @@ async def save_opportunity(opportunity_id: str):
         if embedding:
             saved_data["embedding"] = embedding
 
+        # Save to unified saved_opportunities table (no more double writes)
         supabase.table("saved_opportunities").insert(saved_data).execute()
-
-        # Also save to legacy table for backward compatibility
-        supabase.table("opportunities").insert({
-            "id": opportunity["id"],
-            "title": opportunity["title"],
-            "funder": opportunity["funder"],
-            "amount": opportunity["amount"],
-            "deadline": opportunity["deadline"],
-            "match_score": opportunity["match_score"],
-            "description": opportunity["description"],
-            "requirements": opportunity["requirements"],
-            "contact": opportunity["contact"],
-            "application_url": opportunity["application_url"],
-            "created_at": datetime.now().isoformat()
-        }).execute()
 
         # Also add to local cache
         opportunities_db.append(opportunity)
@@ -680,8 +662,8 @@ async def update_proposal_status(proposal_id: str, status_update: dict):
 async def get_dashboard_stats():
     """Get dashboard statistics"""
     try:
-        # Get opportunities count and funding
-        opportunities_result = supabase.table("opportunities").select("amount").execute()
+        # Get opportunities count and funding from unified table
+        opportunities_result = supabase.table("saved_opportunities").select("amount").execute()
         opportunities = opportunities_result.data
 
         # Get proposals count
@@ -878,9 +860,9 @@ Priority should be given to opportunities with deadlines in the next 3-6 months 
 
         # Use the new Claude Code session creation
         try:
-            # Get existing opportunities to avoid duplicates
+            # Get existing opportunities to avoid duplicates from unified table
             try:
-                existing_result = supabase.table("opportunities").select("title, funder").execute()
+                existing_result = supabase.table("saved_opportunities").select("title, funder").execute()
                 existing_opps = [f"{opp['title']} - {opp['funder']}" for opp in existing_result.data]
                 existing_list = "; ".join(existing_opps) if existing_opps else "None"
             except:

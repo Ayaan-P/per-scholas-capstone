@@ -127,21 +127,25 @@ Focus on: alignment with tech workforce training, target demographics, and progr
 
     async def _find_similar_proposals(self, grant: Dict[str, Any]) -> List[Dict]:
         """Find similar past proposals using PGVector similarity search."""
-        try:
-            # Query PGVector DB for similar proposals
-            # This requires the pgvector extension and proper setup
-            result = self.supabase.rpc('match_proposals', {
-                'query_text': f"{grant.get('title')} {grant.get('description', '')}",
-                'match_count': 3
-            }).execute()
+        # DISABLED: Similarity search temporarily disabled
+        # TODO: Re-enable when match_proposals function is properly set up in Supabase
+        return []
 
-            if hasattr(result, 'data') and result.data:
-                return result.data
+        # try:
+        #     # Query PGVector DB for similar proposals
+        #     # This requires the pgvector extension and proper setup
+        #     result = self.supabase.rpc('match_proposals', {
+        #         'query_text': f"{grant.get('title')} {grant.get('description', '')}",
+        #         'match_count': 3
+        #     }).execute()
 
-            return []
-        except Exception as e:
-            print(f"[LLM ENHANCEMENT] Similarity search error: {e}")
-            return []
+        #     if hasattr(result, 'data') and result.data:
+        #         return result.data
+
+        #     return []
+        # except Exception as e:
+        #     print(f"[LLM ENHANCEMENT] Similarity search error: {e}")
+        #     return []
 
 
 # Convenience function for API endpoint
@@ -154,7 +158,7 @@ async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, A
         supabase: Supabase client
 
     Returns:
-        Enhanced grant data saved to opportunities table
+        Enhanced grant data saved to unified saved_opportunities table
     """
     # 1. Fetch grant from scraped_grants
     result = supabase.table('scraped_grants').select('*').eq('id', grant_id).execute()
@@ -167,9 +171,9 @@ async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, A
     service = LLMEnhancementService()
     enhanced = await service.enhance_grant(grant)
 
-    # 3. Save to opportunities table
+    # 3. Save to unified saved_opportunities table
     opp_data = {
-        'id': enhanced.get('opportunity_id'),  # Use opportunity_id field from scraped_grants
+        'opportunity_id': enhanced.get('opportunity_id'),  # Use opportunity_id field from scraped_grants
         'title': enhanced.get('title'),
         'funder': enhanced.get('funder'),
         'amount': enhanced.get('amount'),
@@ -179,13 +183,15 @@ async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, A
         'requirements': enhanced.get('requirements', []),
         'contact': enhanced.get('contact', ''),
         'application_url': enhanced.get('application_url', ''),
+        'source': enhanced.get('source', 'grants_gov'),
         'llm_summary': enhanced.get('llm_summary'),
         'detailed_match_reasoning': enhanced.get('detailed_match_reasoning'),
         'tags': enhanced.get('tags', []),
-        'similar_past_proposals': enhanced.get('similar_past_proposals', [])
-        # created_at is auto-generated
+        'similar_past_proposals': enhanced.get('similar_past_proposals', []),
+        'status': 'active'
+        # saved_at, created_at, updated_at are auto-generated
     }
 
-    supabase.table('opportunities').insert(opp_data).execute()
+    supabase.table('saved_opportunities').insert(opp_data).execute()
 
     return enhanced

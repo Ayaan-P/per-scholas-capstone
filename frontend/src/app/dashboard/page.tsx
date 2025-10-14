@@ -168,9 +168,9 @@ export default function Dashboard() {
   }
 
   const getMatchColor = (score: number) => {
-    if (score >= 85) return 'bg-green-100 text-green-800'
-    if (score >= 70) return 'bg-yellow-100 text-yellow-800'
-    return 'bg-gray-100 text-gray-800'
+    if (score >= 85) return 'bg-green-50 text-green-700 border border-green-200'
+    if (score >= 70) return 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+    return 'bg-red-50 text-red-700 border border-red-200'
   }
 
   const getSourceBadge = (source: string) => {
@@ -208,69 +208,63 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading grant opportunities...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-perscholas-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading grant opportunities...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="bg-white rounded-2xl px-6 py-10 text-center shadow-sm border border-gray-100">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
-                <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900">Discover Grant Opportunities</h1>
-            </div>
-            <p className="max-w-3xl mx-auto text-lg md:text-xl text-slate-700 mb-6 leading-relaxed">
-              We surface funding opportunities matched to your organization automatically. Results refresh periodically —
-              use the filters to narrow results, sort by match or funding, and save opportunities to your pipeline.
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Discover Grant Opportunities
+            </h2>
+            <p className="text-gray-600">
+              AI-powered funding discovery. We surface opportunities matched to your organization automatically.
+              Use filters to narrow results and save opportunities to your pipeline.
             </p>
-            {/* Buttons removed as requested */}
-            <p className="text-sm text-gray-500 mt-6">Tip: try "High match only" to surface the best-fit opportunities first.</p>
           </div>
         </div>
 
         {/* Stats Bar */}
-  <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-8 w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-stretch">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
             {/* Total Opportunities */}
-            <div className="bg-indigo-50/60 rounded-lg p-4 flex flex-col justify-center items-center md:items-start border border-transparent">
-              <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-1">Total Opportunities</p>
-              <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{filteredGrants.length}</p>
-              <p className="text-sm text-slate-500 mt-1">Opportunities discovered</p>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Total Opportunities</p>
+              <p className="text-3xl font-bold text-gray-900">{filteredGrants.length}</p>
+              <p className="text-sm text-gray-500 mt-1">Discovered</p>
             </div>
 
             {/* Total Funding */}
-            <div className="bg-white rounded-lg p-4 flex flex-col justify-center items-center md:items-start border-l-4 border-indigo-100 pl-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Funding</p>
-              <p className="text-2xl md:text-3xl font-extrabold text-indigo-700">{formatCurrency(filteredGrants.reduce((sum, g) => sum + (g.amount || 0), 0))}</p>
-              <p className="text-sm text-slate-500 mt-1">Across all displayed opportunities</p>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Total Funding</p>
+              <p className="text-3xl font-bold text-green-600">{formatCurrency(filteredGrants.reduce((sum, g) => sum + (g.amount || 0), 0))}</p>
+              <p className="text-sm text-gray-500 mt-1">Available</p>
             </div>
 
             {/* High Match Count */}
-            <div className="bg-white rounded-lg p-4 flex flex-col justify-center items-center md:items-start border-l-4 border-green-100 pl-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">High Match</p>
-              <p className="text-2xl md:text-3xl font-extrabold text-green-600">{filteredGrants.filter(g => g.match_score >= 85).length}</p>
-              <p className="text-sm text-slate-500 mt-1">Opportunities ≥ 85% match</p>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">High Match</p>
+              <p className="text-3xl font-bold" style={{ color: '#fec14f' }}>{filteredGrants.filter(g => g.match_score >= 85).length}</p>
+              <p className="text-sm text-gray-500 mt-1">≥ 85% fit</p>
             </div>
 
-            {/* High-match Funding */}
-            <div className="bg-white rounded-lg p-4 flex flex-col justify-center items-center md:items-start border-l-4 border-green-100 pl-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">High-match Funding</p>
-              <p className="text-2xl md:text-3xl font-extrabold text-green-600">{formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}</p>
-              <p className="text-sm text-slate-500 mt-1">Funding for top-fit opportunities</p>
+            {/* High Match Funding */}
+            <div>
+              <p className="text-sm text-gray-500 mb-1">High Match Funding</p>
+              <p className="text-3xl font-bold" style={{ color: '#fec14f' }}>
+                {formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">≥ 85% fit</p>
             </div>
-
           </div>
         </div>
 
@@ -284,7 +278,7 @@ export default function Dashboard() {
                 <select
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-indigo-100"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-gray-200"
                 >
                   <option value="all">All Sources</option>
                   <option value="grants_gov">Grants.gov</option>
@@ -301,7 +295,7 @@ export default function Dashboard() {
                   type="text"
                   value={keywordSearch}
                   onChange={(e) => setKeywordSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
                   placeholder="Search in title, description, funder..."
                 />
                 {keywordSearch && (
@@ -328,14 +322,14 @@ export default function Dashboard() {
                     value={fundingMin ?? ''}
                     onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
                     placeholder="Min"
-                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
                   />
                   <input
                     type="number"
                     value={fundingMax ?? ''}
                     onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
                     placeholder="Max"
-                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
                   />
                 </div>
               </div>
@@ -347,7 +341,7 @@ export default function Dashboard() {
                   type="number"
                   value={dueInDays ?? ''}
                   onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
                   placeholder="e.g. 30"
                 />
               </div>
@@ -370,7 +364,7 @@ export default function Dashboard() {
               <div></div>
               <div className="flex items-center space-x-3">
                 <label className="text-sm text-gray-600">Sort by</label>
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100">
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200">
                   <option value="match">Match Score</option>
                   <option value="amount">Funding Amount</option>
                   <option value="deadline">Due Date</option>
@@ -391,54 +385,60 @@ export default function Dashboard() {
               <div className="max-w-4xl mx-auto w-full">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {paged.map((grant) => (
-                    <div key={grant.id} className={`bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-lg hover:border-indigo-300 transition-all duration-200 ${grant.match_score >= 85 ? 'border-l-4 border-green-200 pl-5' : ''}`}>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1 pr-4">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">{grant.title}</h3>
-                          <p className="text-sm text-gray-600 font-medium">{grant.funder}</p>
+                    <div key={grant.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow bg-white flex flex-col h-full">
+                      <div className="mb-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1 pr-3 min-w-0">
+                            <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 leading-tight">{grant.title}</h3>
+                          </div>
+                          <div className="flex flex-col items-end space-y-1.5 flex-shrink-0">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getMatchColor(grant.match_score)}`}
+                              title="Match score"
+                            >
+                              {grant.match_score}%
+                            </span>
+                            <div className="text-lg font-bold text-green-600">
+                              {formatCurrency(grant.amount)}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end space-y-1">
-                          <span
-                            className={`px-3 py-1 rounded-md text-xs font-bold ${getMatchColor(grant.match_score)}`}
-                            title="Estimated match score"
-                            aria-label={`Approximate match ${grant.match_score} percent`}
-                          >
-                            ≈{grant.match_score}%
-                          </span>
-                          <p className="text-xl font-bold text-indigo-700">
-                            {formatCurrency(grant.amount)}
-                          </p>
-                          <p className="text-xs text-gray-500 font-medium">{formatDate(grant.deadline)}</p>
+                        <div className="flex justify-between items-center">
+                          <div className="text-xs text-gray-600 font-medium truncate">{grant.funder}</div>
+                          <div className="text-xs text-gray-500 flex-shrink-0 ml-3">
+                            <span className="font-medium">Due:</span> {formatDate(grant.deadline)}
+                          </div>
                         </div>
                       </div>
 
-                      <p className="text-sm text-gray-700 mb-3 leading-relaxed line-clamp-3">{grant.description}</p>
+                      <div className="bg-gray-50 p-3 rounded-lg mb-3 flex-grow">
+                        <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">{grant.description}</p>
+                      </div>
 
-                      <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                        <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${getSourceBadge(grant.source)}`}>
-                            {getSourceLabel(grant.source)}
-                          </span>
-                          <span className="text-xs text-gray-500">{formatDate(grant.created_at)}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <a
-                            href={grant.application_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-white border border-indigo-100 text-indigo-600 rounded-md hover:bg-indigo-50 text-xs font-semibold"
-                          >
-                            <span className="inline-flex items-center space-x-2">
-                              <span>Learn More</span>
-                              <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
-                              </svg>
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
+                          {grant.source && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${getSourceBadge(grant.source)}`}>
+                              {getSourceLabel(grant.source)}
                             </span>
-                          </a>
+                          )}
+                          <span className="truncate">Added {formatDate(grant.created_at)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {grant.application_url && (
+                            <a
+                              href={grant.application_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="border border-perscholas-primary text-perscholas-primary px-4 py-1.5 rounded-full text-xs font-medium hover:bg-gray-50 transition-colors whitespace-nowrap"
+                            >
+                              Learn More
+                            </a>
+                          )}
                           <button
                             onClick={() => handleSaveGrant(grant.id)}
                             disabled={savingGrants.has(grant.id)}
-                            className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-md hover:shadow-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="bg-perscholas-primary text-white px-4 py-1.5 rounded-full text-xs font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                           >
                             {savingGrants.has(grant.id) ? 'Saving...' : 'Save'}
                           </button>
@@ -467,7 +467,7 @@ export default function Dashboard() {
                       <button
                         key={p}
                         onClick={() => setCurrentPage(p)}
-                        className={`px-3 py-1 rounded-md text-sm border ${p === currentPage ? 'bg-indigo-600 text-white' : 'bg-white'}`}
+                        className={`px-3 py-1 rounded-md text-sm border ${p === currentPage ? 'bg-perscholas-primary text-white border-perscholas-primary' : 'bg-white border-gray-200'}`}
                       >
                         {p}
                       </button>
@@ -496,7 +496,7 @@ export default function Dashboard() {
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
+          className="fixed bottom-8 right-8 bg-perscholas-primary text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
           aria-label="Back to top"
         >
           <svg className="w-6 h-6 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
