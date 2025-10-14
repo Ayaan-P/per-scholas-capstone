@@ -25,7 +25,7 @@ export default function Dashboard() {
   const [rawGrants, setRawGrants] = useState<ScrapedGrant[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
-  const [selectedStates, setSelectedStates] = useState<string[]>([])
+  const [keywordSearch, setKeywordSearch] = useState<string>('')
   const [highMatchOnly, setHighMatchOnly] = useState(false)
   const [fundingMin, setFundingMin] = useState<number | undefined>(undefined)
   const [fundingMax, setFundingMax] = useState<number | undefined>(undefined)
@@ -34,17 +34,30 @@ export default function Dashboard() {
   const [savingGrants, setSavingGrants] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState<number>(1)
   const itemsPerPage = 12
+  const [showBackToTop, setShowBackToTop] = useState(false)
 
   useEffect(() => {
     fetchGrants()
   }, [])
 
-  // Re-apply filters/sorting whenever raw data or filter controls change
-  // Also reset to page 1 whenever a filter/sort/raw data changes
+  // Show/hide back to top button based on scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 400)
+    }
+    
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   // Reset page to 1 when any filter/sort/raw data changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [rawGrants, filter, selectedStates, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
+  }, [rawGrants, filter, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
 
   const fetchGrants = async () => {
     try {
@@ -71,11 +84,12 @@ export default function Dashboard() {
 
     if (filter !== 'all') list = list.filter(g => g.source === filter)
 
-    if (selectedStates.length > 0) {
-      const lowerStates = selectedStates.map(s => s.toLowerCase())
+    // Apply keyword search filter
+    if (keywordSearch.trim()) {
+      const keywords = keywordSearch.toLowerCase().trim()
       list = list.filter(g => {
-        const text = `${g.description || ''} ${g.contact || ''}`.toLowerCase()
-        return lowerStates.some(s => text.includes(s) || (g.funder || '').toLowerCase().includes(s))
+        const searchText = `${g.title || ''} ${g.description || ''} ${g.funder || ''} ${g.contact || ''}`.toLowerCase()
+        return searchText.includes(keywords)
       })
     }
 
@@ -107,7 +121,7 @@ export default function Dashboard() {
     }
 
     return list
-  }, [rawGrants, filter, selectedStates, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
+  }, [rawGrants, filter, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
 
   const handleSaveGrant = async (grantId: string) => {
     try {
@@ -209,7 +223,14 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-8">
           <div className="bg-white rounded-2xl px-6 py-10 text-center shadow-sm border border-gray-100">
-            <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-4">Discover Grant Opportunities</h1>
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
+                <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900">Discover Grant Opportunities</h1>
+            </div>
             <p className="max-w-3xl mx-auto text-lg md:text-xl text-slate-700 mb-6 leading-relaxed">
               We surface funding opportunities matched to your organization automatically. Results refresh periodically —
               use the filters to narrow results, sort by match or funding, and save opportunities to your pipeline.
@@ -257,8 +278,9 @@ export default function Dashboard() {
           {/* Left sidebar - Filters */}
           <aside className="w-full lg:w-72 flex-shrink-0">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Filter by source</h4>
-              <div className="mb-4">
+              {/* Source Filter */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Filter by source</h4>
                 <select
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
@@ -272,55 +294,73 @@ export default function Dashboard() {
                 </select>
               </div>
 
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Filter by state</h4>
-              <p className="text-xs text-gray-500 mb-2">Type state abbreviations or names, comma separated</p>
-              <input
-                value={selectedStates.join(', ')}
-                onChange={(e) => setSelectedStates(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm mb-4 focus:ring-1 focus:ring-indigo-100"
-                placeholder="e.g. CA, NY, Texas"
-              />
-
-              <label className="flex items-center space-x-2 text-sm mb-3">
-                <input type="checkbox" checked={highMatchOnly} onChange={(e) => setHighMatchOnly(e.target.checked)} className="h-4 w-4" />
-                <span className="text-gray-700">High match only (85%+)</span>
-              </label>
-
-              <div className="mb-2 text-sm font-medium text-gray-700">Funding range</div>
-              <div className="grid grid-cols-2 gap-2 mb-3">
+              {/* Keyword Search */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Keyword search</h4>
                 <input
-                  type="number"
-                  value={fundingMin ?? ''}
-                  onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
-                  placeholder="Min"
-                  className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                  type="text"
+                  value={keywordSearch}
+                  onChange={(e) => setKeywordSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                  placeholder="Search in title, description, funder..."
                 />
-                <input
-                  type="number"
-                  value={fundingMax ?? ''}
-                  onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
-                  placeholder="Max"
-                  className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
-                />
+                {keywordSearch && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Searching across grant content...
+                  </p>
+                )}
               </div>
 
+              {/* High Match Filter */}
+              <div className="mb-6">
+                <label className="flex items-center space-x-2 text-sm">
+                  <input type="checkbox" checked={highMatchOnly} onChange={(e) => setHighMatchOnly(e.target.checked)} className="h-4 w-4" />
+                  <span className="text-gray-700">High match only (85%+)</span>
+                </label>
+              </div>
+
+              {/* Funding Range */}
+              <div className="mb-6">
+                <div className="mb-2 text-sm font-medium text-gray-700">Funding range</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={fundingMin ?? ''}
+                    onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
+                    placeholder="Min"
+                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                  />
+                  <input
+                    type="number"
+                    value={fundingMax ?? ''}
+                    onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
+                    placeholder="Max"
+                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
+                  />
+                </div>
+              </div>
+
+              {/* Due Date Filter */}
               <div className="mb-4">
-                <label className="text-sm font-medium text-gray-700">Due in (days)</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Due in (days)</label>
                 <input
                   type="number"
                   value={dueInDays ?? ''}
                   onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-md text-sm"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-1 focus:ring-indigo-100"
                   placeholder="e.g. 30"
                 />
               </div>
-
-              {/* Sort moved to top-right of results */}
             </div>
 
-            {/* Optional: other sidebar content (legend, tips) */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-sm text-slate-600">
-              Tip: click a grant to view details or use Save to add it to your pipeline.
+              <p className="mb-2 font-semibold text-gray-700">💡 Filter Tips:</p>
+              <ul className="space-y-1 text-xs">
+                <li>• Use keyword search to find specific terms</li>
+                <li>• Filter by match score to prioritize</li>
+                <li>• Set funding range to match your needs</li>
+                <li>• Check "Due in" for upcoming deadlines</li>
+              </ul>
             </div>
           </aside>
 
@@ -451,6 +491,19 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Back to Top Button */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
+          aria-label="Back to top"
+        >
+          <svg className="w-6 h-6 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
