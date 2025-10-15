@@ -552,6 +552,30 @@ async def save_opportunity(opportunity_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save opportunity: {str(e)}")
 
+@app.delete("/api/opportunities/{opportunity_id}")
+async def delete_opportunity(opportunity_id: str):
+    """Delete a saved opportunity from the database"""
+    try:
+        # Delete from saved_opportunities table
+        result = supabase.table("saved_opportunities").delete().eq("id", opportunity_id).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+
+        # Also remove from local cache if exists
+        global opportunities_db
+        opportunities_db = [opp for opp in opportunities_db if opp.get("id") != opportunity_id]
+
+        return {
+            "status": "deleted",
+            "opportunity_id": opportunity_id,
+            "message": "Opportunity successfully removed"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete opportunity: {str(e)}")
+
 @app.post("/api/rfps/load")
 async def load_rfps():
     """Load RFPs from directory into database (admin endpoint)"""

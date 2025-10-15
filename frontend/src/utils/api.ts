@@ -21,6 +21,12 @@ export const api = {
       body: JSON.stringify({})
     }),
 
+  deleteOpportunity: (opportunityId: string) =>
+    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    }),
+
   generateOpportunitySummary: (opportunityId: string) =>
     fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/generate-summary`, {
       method: 'POST',

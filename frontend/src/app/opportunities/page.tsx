@@ -157,6 +157,26 @@ export default function OpportunitiesPage() {
     // In real implementation, would call API to update status
   }
 
+  const handleDismiss = async (opportunityId: string) => {
+    if (!confirm('Are you sure you want to dismiss this opportunity?')) {
+      return
+    }
+
+    try {
+      const response = await api.deleteOpportunity(opportunityId)
+
+      if (response.ok) {
+        // Remove from local state
+        setRawOpportunities(prev => prev.filter(opp => opp.id !== opportunityId))
+      } else {
+        alert('Failed to dismiss opportunity')
+      }
+    } catch (error) {
+      console.error('Failed to dismiss opportunity:', error)
+      alert('Failed to dismiss opportunity')
+    }
+  }
+
   const toggleSummary = async (opportunityId: string) => {
     if (expandedOpportunity === opportunityId) {
       setExpandedOpportunity(null)
@@ -185,31 +205,31 @@ export default function OpportunitiesPage() {
     }
   }
 
-  const generateProposal = async (opportunity: Opportunity) => {
-    try {
-      const response = await api.generateProposal({
-        opportunity_id: opportunity.id,
-        opportunity_title: opportunity.title,
-        funder: opportunity.funder,
-        funding_amount: opportunity.amount,
-        deadline: opportunity.deadline,
-        description: opportunity.description,
-        requirements: opportunity.requirements
-      })
+  // const generateProposal = async (opportunity: Opportunity) => {
+  //   try {
+  //     const response = await api.generateProposal({
+  //       opportunity_id: opportunity.id,
+  //       opportunity_title: opportunity.title,
+  //       funder: opportunity.funder,
+  //       funding_amount: opportunity.amount,
+  //       deadline: opportunity.deadline,
+  //       description: opportunity.description,
+  //       requirements: opportunity.requirements
+  //     })
 
-      if (response.ok) {
-        const data = await response.json()
-        alert(`Proposal generation started! Job ID: ${data.job_id}`)
-        // Could redirect to proposals page or show progress
-        window.location.href = '/proposals'
-      } else {
-        alert('Failed to start proposal generation')
-      }
-    } catch (error) {
-      console.error('Failed to generate proposal:', error)
-      alert('Failed to generate proposal')
-    }
-  }
+  //     if (response.ok) {
+  //       const data = await response.json()
+  //       alert(`Proposal generation started! Job ID: ${data.job_id}`)
+  //       // Could redirect to proposals page or show progress
+  //       window.location.href = '/proposals'
+  //     } else {
+  //       alert('Failed to start proposal generation')
+  //     }
+  //   } catch (error) {
+  //     console.error('Failed to generate proposal:', error)
+  //     alert('Failed to generate proposal')
+  //   }
+  // }
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredOpportunities.length / itemsPerPage))
@@ -667,22 +687,19 @@ export default function OpportunitiesPage() {
                           <span className="truncate">Saved {formatDate(opportunity.saved_at || opportunity.created_at || '')}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          {opportunity.application_url && (
-                            <a
-                              href={opportunity.application_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="border border-perscholas-primary text-perscholas-primary px-4 py-1.5 rounded-full text-xs font-medium hover:bg-gray-50 transition-colors whitespace-nowrap"
-                            >
-                              Learn More
-                            </a>
-                          )}
                           <button
-                            onClick={() => generateProposal(opportunity)}
-                            className="bg-perscholas-primary text-white px-4 py-1.5 rounded-full text-xs font-medium hover:bg-opacity-90 transition-colors whitespace-nowrap"
+                            onClick={() => handleDismiss(opportunity.id)}
+                            className="border border-red-500 text-red-500 px-4 py-1.5 rounded-full text-xs font-medium hover:bg-red-50 transition-colors whitespace-nowrap"
+                          >
+                            Dismiss
+                          </button>
+                          {/* <button
+                            disabled
+                            className="bg-gray-300 text-gray-500 px-4 py-1.5 rounded-full text-xs font-medium cursor-not-allowed whitespace-nowrap"
+                            title="Proposal generation disabled"
                           >
                             Generate
-                          </button>
+                          </button> */}
                         </div>
                       </div>
                     </div>
