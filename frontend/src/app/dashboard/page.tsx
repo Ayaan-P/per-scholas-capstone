@@ -176,6 +176,7 @@ export default function Dashboard() {
   const getSourceBadge = (source: string) => {
     const sourceColors: { [key: string]: string } = {
       'grants_gov': 'bg-blue-100 text-blue-800',
+      'california': 'bg-amber-100 text-amber-800',
       'sam_gov': 'bg-purple-100 text-purple-800',
       'state': 'bg-green-100 text-green-800',
       'local': 'bg-orange-100 text-orange-800',
@@ -186,6 +187,7 @@ export default function Dashboard() {
   const getSourceLabel = (source: string) => {
     const labels: { [key: string]: string } = {
       'grants_gov': 'Grants.gov',
+      'california': 'California',
       'sam_gov': 'SAM.gov',
       'state': 'State',
       'local': 'Local',
@@ -282,8 +284,9 @@ export default function Dashboard() {
                 >
                   <option value="all">All Sources</option>
                   <option value="grants_gov">Grants.gov</option>
+                  <option value="california">California Grants Portal</option>
                   <option value="sam_gov">SAM.gov</option>
-                  <option value="state">State</option>
+                  <option value="state">Other State</option>
                   <option value="local">Local</option>
                 </select>
               </div>
