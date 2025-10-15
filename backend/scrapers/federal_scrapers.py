@@ -143,12 +143,22 @@ class SAMGovScraper:
             pass
         return (datetime.now() + timedelta(days=60)).strftime('%Y-%m-%d')
 
-    def _calculate_match_score(self, title: str) -> int:
-        """Calculate relevance score"""
-        keywords = ['technology', 'workforce', 'training', 'education', 'STEM', 'digital', 'cyber']
-        title_lower = title.lower()
-        matches = sum(1 for kw in keywords if kw.lower() in title_lower)
-        return min(95, 70 + (matches * 5))
+    def _calculate_match_score(self, title: str, description: str = '') -> int:
+        """Calculate relevance score using enhanced scoring"""
+        try:
+            from match_scoring import calculate_match_score
+            grant_data = {
+                'title': title,
+                'description': description,
+                'amount': 0  # Will be scored separately
+            }
+            return calculate_match_score(grant_data, [])
+        except Exception as e:
+            # Fallback to simple scoring
+            keywords = ['technology', 'workforce', 'training', 'education', 'STEM', 'digital', 'cyber']
+            title_lower = title.lower()
+            matches = sum(1 for kw in keywords if kw.lower() in title_lower)
+            return min(95, 70 + (matches * 5))
 
     def _clean_description(self, desc: str) -> str:
         """Clean HTML and extra whitespace from description"""

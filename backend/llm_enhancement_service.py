@@ -82,14 +82,16 @@ class LLMEnhancementService:
     async def _generate_summary(self, grant: Dict[str, Any]) -> str:
         """Generate concise LLM summary."""
         try:
-            prompt = f"""Summarize this grant opportunity for Per Scholas (technology workforce training nonprofit):
+            prompt = f"""Summarize this grant opportunity:
 
 Title: {grant.get('title')}
 Funder: {grant.get('funder')}
 Amount: ${grant.get('amount', 0):,}
-Description: {grant.get('description', '')[:500]}
 
-Write 2-3 sentences explaining why this is a good match and what the opportunity is."""
+Full Description:
+{grant.get('description', '')}
+
+Write a clear 2-3 sentence summary of what this grant is for and what it funds."""
 
             response = self.model.generate_content(prompt)
             return response.text.strip()
@@ -100,6 +102,9 @@ Write 2-3 sentences explaining why this is a good match and what the opportunity
     async def _generate_reasoning(self, grant: Dict[str, Any]) -> Optional[Dict]:
         """Generate detailed LLM reasoning with tags."""
         try:
+            # Get score breakdown for context
+            score_breakdown = self._get_score_breakdown(grant)
+
             prompt = f"""Analyze this grant for Per Scholas. Return ONLY valid JSON:
 
 {{
@@ -109,9 +114,27 @@ Write 2-3 sentences explaining why this is a good match and what the opportunity
 
 Grant: {grant.get('title')}
 Funder: {grant.get('funder')}
+Amount: ${grant.get('amount', 0):,}
+Match Score: {grant.get('match_score', 0)}%
 Description: {grant.get('description', '')[:500]}
 
-Focus on: alignment with tech workforce training, target demographics, and program fit."""
+Score Breakdown:
+- Base Score: {score_breakdown['components']['base_score']}
+- Keyword Match Score: {score_breakdown['components']['keyword_score']}/40
+- Amount Alignment Score: {score_breakdown['components']['amount_score']}/15
+- Deadline Score: {score_breakdown['components']['deadline_score']}/5
+- Total (before penalties): {score_breakdown['total_before_penalty']}
+
+Matched Keywords:
+- Core: {', '.join(score_breakdown['matches']['core_keywords'])}
+- Context: {', '.join(score_breakdown['matches']['context_keywords'])}
+
+Domain Penalties: {score_breakdown['penalties']['domain_penalty']} points
+{f"⚠️ Non-relevant domains found: {', '.join(score_breakdown['penalties']['excluded_domains_found'])}" if score_breakdown['penalties']['excluded_domains_found'] else "✓ No domain penalties"}
+
+Focus on: alignment with tech workforce training, target demographics, and program fit.
+Use the score breakdown to explain specific strengths and weaknesses.
+Generate 3-5 relevant tags based on the matched keywords and grant focus."""
 
             response = self.model.generate_content(prompt)
 
@@ -124,6 +147,36 @@ Focus on: alignment with tech workforce training, target demographics, and progr
         except Exception as e:
             print(f"[LLM ENHANCEMENT] Reasoning error: {e}")
             return None
+
+    def _get_score_breakdown(self, grant: Dict[str, Any]) -> Dict[str, Any]:
+        """Get detailed score breakdown for context."""
+        try:
+            from match_scoring import get_score_breakdown
+            return get_score_breakdown(grant, [])
+        except Exception as e:
+            print(f"[LLM ENHANCEMENT] Error getting score breakdown: {e}")
+            # Return minimal breakdown
+            return {
+                'final_score': grant.get('match_score', 0),
+                'components': {
+                    'base_score': 10,
+                    'keyword_score': 0,
+                    'semantic_score': 0,
+                    'amount_score': 0,
+                    'deadline_score': 5,
+                },
+                'penalties': {
+                    'domain_penalty': 0,
+                    'excluded_domains_found': []
+                },
+                'matches': {
+                    'core_keywords': [],
+                    'context_keywords': [],
+                    'core_count': 0,
+                    'context_count': 0
+                },
+                'total_before_penalty': 15
+            }
 
     async def _find_similar_proposals(self, grant: Dict[str, Any]) -> List[Dict]:
         """Find similar past proposals using PGVector similarity search."""

@@ -141,12 +141,13 @@ class GrantsGovService:
                         "funder": funder,
                         "amount": opportunity_details.get('amount') or 750000,  # Use real amount or default
                         "deadline": self._parse_date(hit.get('closeDate', '')),
-                        "match_score": self._calculate_match_score(title),
                         "description": opportunity_details.get('description') or self._clean_html_entities(f"Grant opportunity: {hit.get('title', 'Federal funding opportunity')}. Agency: {hit.get('agency', 'Federal Agency')}. Status: {hit.get('oppStatus', 'Posted')}."),
                         "requirements": self._extract_requirements(opportunity_details.get('description', hit.get('title', '') + ' ' + hit.get('agency', ''))),
                         "contact": opportunity_details.get('contact', f"Contact via grants.gov for opportunity {opp_number}"),
                         "application_url": grant_url
                     }
+                    # Calculate enhanced match score after building the full opportunity
+                    opp["match_score"] = self._calculate_enhanced_match_score(opp)
                     opportunities.append(opp)
 
                 print(f"[GRANTS SERVICE] Found {len(opportunities)} opportunities")
@@ -249,12 +250,13 @@ class GrantsGovService:
                     "funder": opp.get('agencyName', opp.get('organizationName', 'Federal Agency')),
                     "amount": amount,
                     "deadline": deadline,
-                    "match_score": self._calculate_match_score(opp.get('opportunityTitle', '')),
                     "description": opp.get('description', opp.get('synopsis', 'Federal grant opportunity for technology workforce development')),
                     "requirements": self._extract_requirements(opp.get('description', '')),
                     "contact": opp.get('contactEmail', 'grants@agency.gov'),
                     "application_url": opp.get('link', f"https://grants.gov/view/{opp.get('opportunityNumber', 'opportunity')}")
                 }
+                # Calculate enhanced match score after building the full grant
+                grant["match_score"] = self._calculate_enhanced_match_score(grant)
 
                 grants.append(grant)
 
@@ -324,27 +326,27 @@ class GrantsGovService:
         return min(95, base_score)
 
     def _calculate_enhanced_match_score(self, grant: Dict[str, Any]) -> int:
-        """Calculate enhanced match score using semantic similarity with historical RFPs"""
-        # try:
-        #     # Lazy load semantic service
-        #     if self.semantic_service is None:
-        #         from semantic_service import SemanticService
-        #         self.semantic_service = SemanticService()
+        """Calculate enhanced match score using the standalone match scoring service"""
+        try:
+            # Import the standalone scoring service (no model loading!)
+            from match_scoring import calculate_match_score
 
-        #     # Find similar RFPs using semantic search
-        #     grant_text = f"{grant.get('title', '')} {grant.get('description', '')}"
-        #     similar_rfps = self.semantic_service.find_similar_rfps(grant_text, limit=3)
+            # Use enhanced scoring without semantic similarity (pass empty list)
+            # This gives us better scoring based on:
+            # - Core keywords (40 pts)
+            # - Context keywords
+            # - Funding amount alignment (15 pts)
+            # - Deadline feasibility (5 pts)
+            # - Domain penalties for non-relevant grants
+            enhanced_score = calculate_match_score(grant, [])
 
-        #     # Use semantic service to calculate enhanced score
-        #     enhanced_score = self.semantic_service.calculate_enhanced_match_score(grant, similar_rfps)
+            print(f"[GRANTS] Enhanced match score for '{grant.get('title', 'Unknown')}': {enhanced_score}%")
+            return enhanced_score
 
-        #     print(f"[GRANTS] Enhanced match score for '{grant.get('title', 'Unknown')}': {enhanced_score}%")
-        #     return enhanced_score
-
-        # except Exception as e:
-        #     print(f"[GRANTS] Error calculating enhanced match score: {e}")
-        #     # Fallback to legacy scoring
-        return self._calculate_match_score(grant.get('title', ''))
+        except Exception as e:
+            print(f"[GRANTS] Error calculating enhanced match score: {e}")
+            # Fallback to legacy scoring
+            return self._calculate_match_score(grant.get('title', ''))
 
     def _extract_requirements(self, description: str) -> List[str]:
         """Extract requirements from description"""
