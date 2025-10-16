@@ -353,16 +353,32 @@ class SchedulerService:
                     .eq("opportunity_id", opportunity_id)\
                     .execute()
 
+                # Parse amount - could be string like "$3,000,000" or None
+                raw_amount = grant.get("amount")
+                parsed_amount = self._parse_amount_string(raw_amount) if raw_amount else None
+
+                # Build grant dict for match scoring
+                grant_for_scoring = {
+                    "title": grant.get("title"),
+                    "funder": grant.get("organization", "Unknown"),
+                    "amount": parsed_amount,
+                    "deadline": grant.get("deadline"),
+                    "description": grant.get("description"),
+                }
+
+                # Calculate match score
+                match_score = self._calculate_match_score_for_grant(grant_for_scoring)
+
                 grant_data = {
                     "title": grant.get("title"),
                     "funder": grant.get("organization", "Unknown"),
-                    "amount": grant.get("amount"),
+                    "amount": parsed_amount,
                     "deadline": grant.get("deadline"),
                     "description": grant.get("description"),
                     "requirements": grant.get("eligibility", []),
                     "contact": grant.get("email_sender"),
                     "application_url": grant.get("source_url"),
-                    "match_score": 0,  # Will be calculated later
+                    "match_score": match_score,
                     "updated_at": datetime.now().isoformat()
                 }
 
@@ -389,6 +405,37 @@ class SchedulerService:
                 continue
 
         return saved_count
+
+    def _parse_amount_string(self, amount_str: str) -> int:
+        """Parse amount string like '$3,000,000' into integer"""
+        import re
+        try:
+            # Remove $ and commas
+            clean = re.sub(r'[^\d.]', '', str(amount_str))
+            if clean:
+                return int(float(clean))
+            return None
+        except (ValueError, AttributeError):
+            return None
+
+    def _calculate_match_score_for_grant(self, grant: Dict[str, Any]) -> int:
+        """Calculate enhanced match score for a grant"""
+        try:
+            from match_scoring import calculate_match_score
+            # Use enhanced scoring without semantic similarity
+            enhanced_score = calculate_match_score(grant, [])
+            logger.info(f"[GMAIL] Enhanced match score for '{grant.get('title', 'Unknown')}': {enhanced_score}%")
+            return enhanced_score
+        except Exception as e:
+            logger.error(f"Error calculating enhanced match score: {e}")
+            # Fallback to basic keyword matching
+            title = grant.get("title", "").lower()
+            description = grant.get("description", "").lower()
+            combined = f"{title} {description}"
+
+            keywords = ['technology', 'workforce', 'training', 'education', 'stem', 'coding', 'cyber', 'digital']
+            matches = sum(1 for kw in keywords if kw in combined)
+            return min(70 + (matches * 5), 95)
 
     def _deduplicate_grants(self, grants: List[Dict[str, Any]], key: str) -> List[Dict[str, Any]]:
         """Remove duplicate grants based on key"""
