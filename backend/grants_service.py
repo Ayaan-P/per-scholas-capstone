@@ -9,15 +9,20 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import xml.etree.ElementTree as ET
 import re
-# from semantic_service import SemanticService  # Disabled for Render free tier
+from semantic_service import SemanticService
 
 class GrantsGovService:
     def __init__(self):
         self.base_url = "https://www.grants.gov/web/grants/search-grants.html"
         # Grants.gov has a search API that returns XML
         self.api_url = "https://www.grants.gov/grantsws/rest/opportunities/search/"
-        # Initialize semantic service for enhanced scoring
-        # self.semantic_service = None  # Disabled for Render free tier
+        # Initialize semantic service for enhanced scoring with RFP similarity
+        try:
+            self.semantic_service = SemanticService()
+            print("[GRANTS] Semantic service initialized for RFP similarity matching")
+        except Exception as e:
+            print(f"[GRANTS] Could not initialize semantic service: {e}")
+            self.semantic_service = None
 
     def search_grants_via_script(self, keywords: str = "technology workforce", limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -326,21 +331,35 @@ class GrantsGovService:
         return min(95, base_score)
 
     def _calculate_enhanced_match_score(self, grant: Dict[str, Any]) -> int:
-        """Calculate enhanced match score using the standalone match scoring service"""
+        """Calculate enhanced match score using semantic similarity with historical RFPs"""
         try:
-            # Import the standalone scoring service (no model loading!)
+            # Import the standalone scoring service
             from match_scoring import calculate_match_score
 
-            # Use enhanced scoring without semantic similarity (pass empty list)
+            # Find similar RFPs using semantic search if available
+            rfp_similarities = []
+            if self.semantic_service:
+                try:
+                    grant_text = f"{grant.get('title', '')} {grant.get('description', '')}"
+                    rfp_similarities = self.semantic_service.find_similar_rfps(grant_text, limit=3)
+
+                    if rfp_similarities:
+                        print(f"[GRANTS] Found {len(rfp_similarities)} similar RFPs for '{grant.get('title', 'Unknown')[:50]}...'")
+                        for rfp in rfp_similarities:
+                            print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+                except Exception as e:
+                    print(f"[GRANTS] Could not find similar RFPs: {e}")
+
+            # Calculate enhanced score with semantic similarity
             # This gives us better scoring based on:
             # - Core keywords (40 pts)
-            # - Context keywords
+            # - Semantic similarity with historical RFPs (30 pts) ← NEW!
             # - Funding amount alignment (15 pts)
             # - Deadline feasibility (5 pts)
             # - Domain penalties for non-relevant grants
-            enhanced_score = calculate_match_score(grant, [])
+            enhanced_score = calculate_match_score(grant, rfp_similarities)
 
-            print(f"[GRANTS] Enhanced match score for '{grant.get('title', 'Unknown')}': {enhanced_score}%")
+            print(f"[GRANTS] Enhanced match score for '{grant.get('title', 'Unknown')[:60]}...': {enhanced_score}%")
             return enhanced_score
 
         except Exception as e:

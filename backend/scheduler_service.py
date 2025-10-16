@@ -31,6 +31,15 @@ class SchedulerService:
         self.scrapers = self._initialize_scrapers()
         self.job_history = []
 
+        # Initialize semantic service for enhanced match scoring
+        try:
+            from semantic_service import SemanticService
+            self.semantic_service = SemanticService()
+            logger.info("Semantic service initialized for enhanced match scoring")
+        except Exception as e:
+            logger.warning(f"Could not initialize semantic service: {e}")
+            self.semantic_service = None
+
     def _initialize_scrapers(self):
         """Initialize all data source scrapers"""
         scrapers = {
@@ -419,13 +428,29 @@ class SchedulerService:
             return None
 
     def _calculate_match_score_for_grant(self, grant: Dict[str, Any]) -> int:
-        """Calculate enhanced match score for a grant"""
+        """Calculate enhanced match score using semantic similarity with historical RFPs"""
         try:
             from match_scoring import calculate_match_score
-            # Use enhanced scoring without semantic similarity
-            enhanced_score = calculate_match_score(grant, [])
-            logger.info(f"[GMAIL] Enhanced match score for '{grant.get('title', 'Unknown')}': {enhanced_score}%")
+
+            # Find similar RFPs using semantic search if available
+            rfp_similarities = []
+            if self.semantic_service:
+                try:
+                    grant_text = f"{grant.get('title', '')} {grant.get('description', '')}"
+                    rfp_similarities = self.semantic_service.find_similar_rfps(grant_text, limit=3)
+
+                    if rfp_similarities:
+                        logger.info(f"[SCHEDULER] Found {len(rfp_similarities)} similar RFPs for '{grant.get('title', 'Unknown')[:50]}...'")
+                        for rfp in rfp_similarities:
+                            logger.info(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+                except Exception as e:
+                    logger.warning(f"Could not find similar RFPs: {e}")
+
+            # Use enhanced scoring with semantic similarity
+            enhanced_score = calculate_match_score(grant, rfp_similarities)
+            logger.info(f"[SCHEDULER] Enhanced match score for '{grant.get('title', 'Unknown')[:60]}...': {enhanced_score}%")
             return enhanced_score
+
         except Exception as e:
             logger.error(f"Error calculating enhanced match score: {e}")
             # Fallback to basic keyword matching

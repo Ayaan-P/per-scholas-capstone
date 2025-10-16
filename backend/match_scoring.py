@@ -59,17 +59,35 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
     else:
         keyword_score = 0  # No core keywords = very low relevance
 
-    # Semantic similarity with historical RFPs (30 points max)
+    # Semantic similarity with historical RFPs (50 points max - INCREASED from 30)
     # Only applied if rfp_similarities are provided
     semantic_score = 0
     if rfp_similarities:
-        # Use the best similarity score but be more conservative
+        # Use the best similarity score - calibrated to empirical RFP self-match data
         best_similarity = max(rfp.get('similarity_score', 0) for rfp in rfp_similarities)
-        # Only give significant points for very high similarity (>0.7)
-        if best_similarity > 0.7:
-            semantic_score = min(30, int((best_similarity - 0.5) * 60))
-        else:
-            semantic_score = min(10, int(best_similarity * 20))
+
+        # RECALIBRATED scoring curve based on actual RFP self-matching:
+        # Empirical data shows RFPs match themselves at 0.82-0.97 similarity
+        # 0.85+ = excellent/perfect match (45-50 pts) - same or very similar RFP
+        # 0.70-0.85 = very good match (35-45 pts) - highly relevant
+        # 0.55-0.70 = good match (25-35 pts) - relevant
+        # 0.40-0.55 = moderate match (15-25 pts) - somewhat relevant
+        # 0.25-0.40 = weak match (5-15 pts) - minimal relevance
+        if best_similarity >= 0.85:
+            # Perfect match territory - map 0.85-1.0 to 45-50 points
+            semantic_score = min(50, int(45 + (best_similarity - 0.85) * 33))
+        elif best_similarity >= 0.70:
+            # Very good match - map 0.70-0.85 to 35-45 points
+            semantic_score = min(45, int(35 + (best_similarity - 0.70) * 66))
+        elif best_similarity >= 0.55:
+            # Good match - map 0.55-0.70 to 25-35 points
+            semantic_score = min(35, int(25 + (best_similarity - 0.55) * 66))
+        elif best_similarity >= 0.40:
+            # Moderate match - map 0.40-0.55 to 15-25 points
+            semantic_score = min(25, int(15 + (best_similarity - 0.40) * 66))
+        elif best_similarity >= 0.25:
+            # Weak match - map 0.25-0.40 to 5-15 points
+            semantic_score = min(15, int(5 + (best_similarity - 0.25) * 66))
 
     # Funding amount alignment (15 points max)
     amount = grant.get('amount', 0)
@@ -143,12 +161,20 @@ def get_score_breakdown(grant: Dict[str, Any], rfp_similarities: List[Dict[str, 
         keyword_score = 0
 
     semantic_score = 0
+    best_similarity = 0
     if rfp_similarities:
         best_similarity = max(rfp.get('similarity_score', 0) for rfp in rfp_similarities)
-        if best_similarity > 0.7:
-            semantic_score = min(30, int((best_similarity - 0.5) * 60))
-        else:
-            semantic_score = min(10, int(best_similarity * 20))
+        # Match the same curve as calculate_match_score (RECALIBRATED)
+        if best_similarity >= 0.85:
+            semantic_score = min(50, int(45 + (best_similarity - 0.85) * 33))
+        elif best_similarity >= 0.70:
+            semantic_score = min(45, int(35 + (best_similarity - 0.70) * 66))
+        elif best_similarity >= 0.55:
+            semantic_score = min(35, int(25 + (best_similarity - 0.55) * 66))
+        elif best_similarity >= 0.40:
+            semantic_score = min(25, int(15 + (best_similarity - 0.40) * 66))
+        elif best_similarity >= 0.25:
+            semantic_score = min(15, int(5 + (best_similarity - 0.25) * 66))
 
     amount = grant.get('amount', 0)
     if 100000 <= amount <= 2000000:
@@ -191,6 +217,10 @@ def get_score_breakdown(grant: Dict[str, Any], rfp_similarities: List[Dict[str, 
             'context_keywords': matched_context,
             'core_count': core_matches,
             'context_count': context_matches
+        },
+        'semantic': {
+            'best_similarity': best_similarity,
+            'similarity_count': len(rfp_similarities) if rfp_similarities else 0
         },
         'total_before_penalty': total_before_penalty
     }

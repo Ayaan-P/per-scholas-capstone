@@ -148,8 +148,14 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
-# Semantic service for RFP matching (lazy loaded to avoid startup issues)
-semantic_service = None
+# Semantic service for RFP matching - initialize eagerly for better performance
+try:
+    from semantic_service import SemanticService
+    semantic_service = SemanticService()
+    print("[MAIN] Semantic service initialized successfully")
+except Exception as e:
+    print(f"[MAIN] Could not initialize semantic service: {e}")
+    semantic_service = None
 
 # Initialize scheduler service (will start on app startup)
 scheduler_service = None
@@ -511,14 +517,28 @@ async def save_opportunity(opportunity_id: str):
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
     try:
-        # Generate embedding for the opportunity
+        # Generate embedding and find similar RFPs using semantic service
         opportunity_text = f"{opportunity['title']} {opportunity['description']}"
-        # embedding = semantic_service.get_embedding(opportunity_text)  # Disabled for Render free tier
         embedding = None
-
-        # Find similar RFPs
-        # similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=3)  # Disabled for Render free tier
         similar_rfps = []
+
+        if semantic_service:
+            try:
+                # Generate embedding for pgvector storage
+                embedding = semantic_service.get_embedding(opportunity_text)
+                print(f"[SAVE] Generated embedding for '{opportunity['title'][:50]}...'")
+
+                # Find similar historical RFPs using semantic search
+                similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
+
+                if similar_rfps:
+                    print(f"[SAVE] Found {len(similar_rfps)} similar RFPs:")
+                    for rfp in similar_rfps:
+                        print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+                else:
+                    print("[SAVE] No similar RFPs found in database")
+            except Exception as e:
+                print(f"[SAVE] Error with semantic service: {e}")
 
         # Save to saved_opportunities table with embedding
         saved_data = {
@@ -536,8 +556,9 @@ async def save_opportunity(opportunity_id: str):
 
         if embedding:
             saved_data["embedding"] = embedding
+            print(f"[SAVE] Saved with embedding for future similarity searches")
 
-        # Save to unified saved_opportunities table (no more double writes)
+        # Save to unified saved_opportunities table
         supabase.table("saved_opportunities").insert(saved_data).execute()
 
         # Also add to local cache
@@ -547,7 +568,7 @@ async def save_opportunity(opportunity_id: str):
             "status": "saved",
             "opportunity_id": opportunity_id,
             "similar_rfps": similar_rfps,
-            "message": f"Opportunity saved! Found {len(similar_rfps)} similar historical RFPs."
+            "message": f"Opportunity saved! Found {len(similar_rfps)} similar historical RFPs." if similar_rfps else "Opportunity saved!"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save opportunity: {str(e)}")
@@ -605,7 +626,7 @@ async def load_rfps():
 
 @app.get("/api/rfps/similar/{opportunity_id}")
 async def get_similar_rfps(opportunity_id: str):
-    """Get similar RFPs for a saved opportunity"""
+    """Get similar RFPs for a saved opportunity using semantic search"""
     try:
         # Find opportunity in saved opportunities
         result = supabase.table("saved_opportunities").select("*").eq("opportunity_id", opportunity_id).execute()
@@ -616,15 +637,20 @@ async def get_similar_rfps(opportunity_id: str):
         opportunity = result.data[0]
         opportunity_text = f"{opportunity['title']} {opportunity['description']}"
 
-        # # Lazy load semantic service - DISABLED for Render free tier
-        # global semantic_service
-        # if semantic_service is None:
-        #     # from semantic_service import SemanticService  # Disabled for Render free tier
-        #     semantic_service = SemanticService()
+        # Find similar RFPs using semantic service
+        similar_rfps = []
+        if semantic_service:
+            try:
+                similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
 
-        # # Find similar RFPs
-        # similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
-        similar_rfps = []  # Disabled for Render free tier
+                if similar_rfps:
+                    print(f"[SIMILAR_RFPS] Found {len(similar_rfps)} similar RFPs for opportunity {opportunity_id}")
+                    for rfp in similar_rfps:
+                        print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+                else:
+                    print(f"[SIMILAR_RFPS] No similar RFPs found for opportunity {opportunity_id}")
+            except Exception as e:
+                print(f"[SIMILAR_RFPS] Error finding similar RFPs: {e}")
 
         return {
             "opportunity": opportunity,
