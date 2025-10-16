@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
 
 interface ScrapedGrant {
@@ -33,19 +33,19 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState<'match' | 'amount' | 'deadline'>('match')
   const [savingGrants, setSavingGrants] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState<number>(1)
-  const itemsPerPage = 12
+  const itemsPerPage = 9
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const [selectedDescription, setSelectedDescription] = useState<{ title: string; description: string } | null>(null)
 
   useEffect(() => {
     fetchGrants()
   }, [])
 
-  // Show/hide back to top button based on scroll position
   useEffect(() => {
     const handleScroll = () => {
       setShowBackToTop(window.scrollY > 400)
     }
-    
+
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
@@ -54,7 +54,6 @@ export default function Dashboard() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // Reset page to 1 when any filter/sort/raw data changes
   useEffect(() => {
     setCurrentPage(1)
   }, [rawGrants, filter, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
@@ -62,13 +61,11 @@ export default function Dashboard() {
   const fetchGrants = async () => {
     try {
       setLoading(true)
-      // Fetch all scraped grants and apply client-side filters
       const response = await api.getScrapedGrants({ limit: 200 })
 
       if (response.ok) {
         const data = await response.json()
         const fetched: ScrapedGrant[] = data.grants || []
-        // store raw grants for client-side filtering
         setRawGrants(fetched)
       }
     } catch (error) {
@@ -78,13 +75,11 @@ export default function Dashboard() {
     }
   }
 
-  // Compute filtered + sorted grants on demand (no duplicate state)
   const filteredGrants = useMemo(() => {
     let list = [...rawGrants]
 
     if (filter !== 'all') list = list.filter(g => g.source === filter)
 
-    // Apply keyword search filter
     if (keywordSearch.trim()) {
       const keywords = keywordSearch.toLowerCase().trim()
       list = list.filter(g => {
@@ -130,7 +125,6 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json()
-        // remove from rawGrants so it won't appear in filtered results
         setRawGrants(prev => prev.filter(g => g.id !== grantId))
         if (data.status === 'already_saved') {
           alert(data.message)
@@ -168,19 +162,19 @@ export default function Dashboard() {
   }
 
   const getMatchColor = (score: number) => {
-    if (score >= 85) return 'bg-green-50 text-green-700 border border-green-200'
-    if (score >= 70) return 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-    return 'bg-red-50 text-red-700 border border-red-200'
+    if (score >= 85) return 'bg-green-600'
+    if (score >= 70) return 'bg-perscholas-accent'
+    return 'bg-gray-400'
   }
 
   const getSourceBadge = (source: string) => {
     const sourceColors: { [key: string]: string } = {
-      'grants_gov': 'bg-blue-100 text-blue-800',
-      'sam_gov': 'bg-purple-100 text-purple-800',
-      'state': 'bg-green-100 text-green-800',
-      'local': 'bg-orange-100 text-orange-800',
+      'grants_gov': 'bg-blue-50 text-blue-700 border-blue-200',
+      'sam_gov': 'bg-purple-50 text-purple-700 border-purple-200',
+      'state': 'bg-green-50 text-green-700 border-green-200',
+      'local': 'bg-orange-50 text-orange-700 border-orange-200',
     }
-    return sourceColors[source] || 'bg-gray-100 text-gray-800'
+    return sourceColors[source] || 'bg-gray-50 text-gray-700 border-gray-200'
   }
 
   const getSourceLabel = (source: string) => {
@@ -193,7 +187,6 @@ export default function Dashboard() {
     return labels[source] || source
   }
 
-  // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredGrants.length / itemsPerPage))
   const startIndex = (currentPage - 1) * itemsPerPage
   const paged = filteredGrants.slice(startIndex, startIndex + itemsPerPage)
@@ -210,8 +203,8 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-perscholas-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading grant opportunities...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-perscholas-primary mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Discovering opportunities...</p>
         </div>
       </div>
     )
@@ -219,269 +212,307 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-[1600px] mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              Discover Grant Opportunities
-            </h2>
-            <p className="text-gray-600">
-              AI-powered funding discovery. We surface opportunities matched to your organization automatically.
-              Use filters to narrow results and save opportunities to your pipeline.
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-perscholas-primary p-2.5 rounded-xl">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900">
+                Discover Funding
+              </h2>
+            </div>
+            <p className="text-gray-600 text-lg">
+              Browse opportunities matched to your organization. Save promising grants to unlock AI-powered insights.
             </p>
           </div>
         </div>
 
         {/* Stats Bar */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {/* Total Opportunities */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Opportunities</p>
-              <p className="text-3xl font-bold text-gray-900">{filteredGrants.length}</p>
-              <p className="text-sm text-gray-500 mt-1">Discovered</p>
-            </div>
+        <div className="mb-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">Opportunities</p>
+            <p className="text-3xl font-bold text-gray-900">{filteredGrants.length}</p>
+          </div>
 
-            {/* Total Funding */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Funding</p>
-              <p className="text-3xl font-bold text-green-600">{formatCurrency(filteredGrants.reduce((sum, g) => sum + (g.amount || 0), 0))}</p>
-              <p className="text-sm text-gray-500 mt-1">Available</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">Total Value</p>
+            <p className="text-3xl font-bold text-green-600">{formatCurrency(filteredGrants.reduce((sum, g) => sum + (g.amount || 0), 0))}</p>
+          </div>
 
-            {/* High Match Count */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">High Match</p>
-              <p className="text-3xl font-bold" style={{ color: '#fec14f' }}>{filteredGrants.filter(g => g.match_score >= 85).length}</p>
-              <p className="text-sm text-gray-500 mt-1">≥ 85% fit</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">High Match</p>
+            <p className="text-3xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 85).length}</p>
+          </div>
 
-            {/* High Match Funding */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">High Match Funding</p>
-              <p className="text-3xl font-bold" style={{ color: '#fec14f' }}>
-                {formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">≥ 85% fit</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">High Match $</p>
+            <p className="text-3xl font-bold text-perscholas-secondary">
+              {formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}
+            </p>
           </div>
         </div>
 
-        <div className="lg:flex lg:items-start lg:space-x-8">
-          {/* Left sidebar - Filters */}
-          <aside className="w-full lg:w-72 flex-shrink-0">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-              {/* Source Filter */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Filter by source</h4>
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-gray-200"
-                >
-                  <option value="all">All Sources</option>
-                  <option value="grants_gov">Grants.gov</option>
-                  <option value="sam_gov">SAM.gov</option>
-                  <option value="state">State</option>
-                  <option value="local">Local</option>
-                </select>
-              </div>
+        <div className="lg:flex lg:gap-6">
+          {/* Left Sidebar */}
+          <aside className="lg:w-80 flex-shrink-0 mb-6 lg:mb-0">
+            <div className="sticky top-6 space-y-4">
+              {/* Filters Card */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  Quick Filters
+                </h3>
 
-              {/* Keyword Search */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Keyword search</h4>
-                <input
-                  type="text"
-                  value={keywordSearch}
-                  onChange={(e) => setKeywordSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  placeholder="Search in title, description, funder..."
-                />
-                {keywordSearch && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    Searching across grant content...
-                  </p>
-                )}
-              </div>
+                <div className="space-y-4">
+                  {/* High Match Toggle */}
+                  <label className="flex items-center justify-between p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                    <span className="text-sm font-medium text-gray-700">High Match Only</span>
+                    <input
+                      type="checkbox"
+                      checked={highMatchOnly}
+                      onChange={(e) => setHighMatchOnly(e.target.checked)}
+                      className="w-4 h-4 text-perscholas-primary rounded focus:ring-2 focus:ring-perscholas-primary/20"
+                    />
+                  </label>
 
-              {/* High Match Filter */}
-              <div className="mb-6">
-                <label className="flex items-center space-x-2 text-sm">
-                  <input type="checkbox" checked={highMatchOnly} onChange={(e) => setHighMatchOnly(e.target.checked)} className="h-4 w-4" />
-                  <span className="text-gray-700">High match only (85%+)</span>
-                </label>
-              </div>
+                  {/* Source Filter */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Source</label>
+                    <select
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary bg-white"
+                    >
+                      <option value="all">All Sources</option>
+                      <option value="grants_gov">Grants.gov</option>
+                      <option value="sam_gov">SAM.gov</option>
+                      <option value="state">State</option>
+                      <option value="local">Local</option>
+                    </select>
+                  </div>
 
-              {/* Funding Range */}
-              <div className="mb-6">
-                <div className="mb-2 text-sm font-medium text-gray-700">Funding range</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    value={fundingMin ?? ''}
-                    onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
-                    placeholder="Min"
-                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  />
-                  <input
-                    type="number"
-                    value={fundingMax ?? ''}
-                    onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
-                    placeholder="Max"
-                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  />
+                  {/* Keyword Search */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Search</label>
+                    <div className="relative">
+                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <input
+                        type="text"
+                        value={keywordSearch}
+                        onChange={(e) => setKeywordSearch(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
+                        placeholder="Keywords..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Funding Range */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Funding Range</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        value={fundingMin ?? ''}
+                        onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder="Min"
+                        className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
+                      />
+                      <input
+                        type="number"
+                        value={fundingMax ?? ''}
+                        onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder="Max"
+                        className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Due Date */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Due Within (days)</label>
+                    <input
+                      type="number"
+                      value={dueInDays ?? ''}
+                      onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
+                      placeholder="e.g. 30"
+                    />
+                  </div>
+
+                  {/* Sort */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Sort By</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary bg-white"
+                    >
+                      <option value="match">Match Score</option>
+                      <option value="amount">Funding Amount</option>
+                      <option value="deadline">Due Date</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Due Date Filter */}
-              <div className="mb-4">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Due in (days)</label>
-                <input
-                  type="number"
-                  value={dueInDays ?? ''}
-                  onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  placeholder="e.g. 30"
-                />
+              {/* Tips */}
+              <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="bg-perscholas-secondary p-1.5 rounded-lg flex-shrink-0">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-perscholas-dark mb-1">Discovery Tips</p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Save grants to unlock AI insights, match reasoning, and semantic analysis of past RFPs.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-sm text-slate-600">
-              <p className="mb-2 font-semibold text-gray-700">💡 Filter Tips:</p>
-              <ul className="space-y-1 text-xs">
-                <li>• Use keyword search to find specific terms</li>
-                <li>• Filter by match score to prioritize</li>
-                <li>• Set funding range to match your needs</li>
-                <li>• Check "Due in" for upcoming deadlines</li>
-              </ul>
             </div>
           </aside>
 
-          {/* Main content - Grant List */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-4">
-              <div></div>
-              <div className="flex items-center space-x-3">
-                <label className="text-sm text-gray-600">Sort by</label>
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200">
-                  <option value="match">Match Score</option>
-                  <option value="amount">Funding Amount</option>
-                  <option value="deadline">Due Date</option>
-                </select>
-              </div>
-            </div>
+          {/* Main Content */}
+          <div className="flex-1 min-w-0">
             {filteredGrants.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-16 text-center max-w-4xl mx-auto">
-                <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-20 text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-2xl flex items-center justify-center">
+                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">No grants found</h3>
-                <p className="text-gray-600 text-lg">The automated scraper is running. Check back soon for new opportunities.</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">No opportunities found</h3>
+                <p className="text-gray-600 text-lg">Try adjusting your filters or check back soon for new grants.</p>
               </div>
             ) : (
-              <div className="max-w-4xl mx-auto w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 mb-8">
                   {paged.map((grant) => (
-                    <div key={grant.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow bg-white flex flex-col h-full">
-                      <div className="mb-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1 pr-3 min-w-0">
-                            <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 leading-tight">{grant.title}</h3>
-                          </div>
-                          <div className="flex flex-col items-end space-y-1.5 flex-shrink-0">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getMatchColor(grant.match_score)}`}
-                              title="Match score"
-                            >
-                              {grant.match_score}%
-                            </span>
-                            <div className="text-lg font-bold text-green-600">
-                              {formatCurrency(grant.amount)}
-                            </div>
-                          </div>
+                    <div
+                      key={grant.id}
+                      className="group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-perscholas-primary/30 transition-all duration-300 h-full flex flex-col"
+                    >
+                      {/* Title Row with Match Score */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2 leading-tight group-hover:text-perscholas-primary transition-colors">
+                            {grant.title}
+                          </h3>
+                          <p className="text-xs text-gray-600 truncate">{grant.funder}</p>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-xs text-gray-600 font-medium truncate">{grant.funder}</div>
-                          <div className="text-xs text-gray-500 flex-shrink-0 ml-3">
-                            <span className="font-medium">Due:</span> {formatDate(grant.deadline)}
-                          </div>
+                        <div className={`flex-shrink-0 ${getMatchColor(grant.match_score)} text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-sm`}>
+                          {grant.match_score}%
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 p-3 rounded-lg mb-3 flex-grow">
-                        <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">{grant.description}</p>
+                      {/* Key Metrics Grid */}
+                      <div className="grid grid-cols-3 gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Funding</p>
+                          <p className="text-sm font-bold text-green-600">{formatCurrency(grant.amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Deadline</p>
+                          <p className="text-sm font-bold text-gray-900">{formatDate(grant.deadline)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Source</p>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getSourceBadge(grant.source)}`}>
+                            {getSourceLabel(grant.source)}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
-                          {grant.source && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${getSourceBadge(grant.source)}`}>
-                              {getSourceLabel(grant.source)}
-                            </span>
-                          )}
-                          <span className="truncate">Added {formatDate(grant.created_at)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {grant.application_url && (
-                            <a
-                              href={grant.application_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="border border-perscholas-primary text-perscholas-primary px-4 py-1.5 rounded-full text-xs font-medium hover:bg-gray-50 transition-colors whitespace-nowrap"
-                            >
-                              Learn More
-                            </a>
-                          )}
+                      {/* Description */}
+                      <div className="mb-3 flex-grow">
+                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
+                          {grant.description}
+                        </p>
+                        {grant.description && grant.description.length > 200 && (
                           <button
-                            onClick={() => handleSaveGrant(grant.id)}
-                            disabled={savingGrants.has(grant.id)}
-                            className="bg-perscholas-primary text-white px-4 py-1.5 rounded-full text-xs font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            onClick={() => setSelectedDescription({ title: grant.title, description: grant.description })}
+                            className="text-xs text-perscholas-primary font-semibold hover:text-perscholas-dark mt-1 inline-block"
                           >
-                            {savingGrants.has(grant.id) ? 'Saving...' : 'Save'}
+                            Read more
                           </button>
-                        </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        {grant.application_url && (
+                          <a
+                            href={grant.application_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 text-center border-2 border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                          >
+                            View RFP
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleSaveGrant(grant.id)}
+                          disabled={savingGrants.has(grant.id)}
+                          className="flex-1 bg-perscholas-primary text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-perscholas-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingGrants.has(grant.id) ? 'Saving...' : 'Save'}
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Pagination controls */}
-                <div className="mt-6 flex items-center justify-center space-x-2">
+                {/* Pagination */}
+                <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
 
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center gap-1">
                     {pageStart > 1 && (
-                      <button onClick={() => setCurrentPage(1)} className="px-2 py-1 rounded-md text-sm border border-gray-200 bg-white">1</button>
+                      <>
+                        <button onClick={() => setCurrentPage(1)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">1</button>
+                        {pageStart > 2 && <span className="px-2 text-gray-400">…</span>}
+                      </>
                     )}
-                    {pageStart > 2 && <span className="px-2">…</span>}
                     {pages.map(p => (
                       <button
                         key={p}
                         onClick={() => setCurrentPage(p)}
-                        className={`px-3 py-1 rounded-md text-sm border ${p === currentPage ? 'bg-perscholas-primary text-white border-perscholas-primary' : 'bg-white border-gray-200'}`}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          p === currentPage
+                            ? 'bg-perscholas-primary text-white border-perscholas-primary shadow-md'
+                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
                       >
                         {p}
                       </button>
                     ))}
-                    {pageEnd < totalPages - 1 && <span className="px-2">…</span>}
+                    {pageEnd < totalPages - 1 && <span className="px-2 text-gray-400">…</span>}
                     {pageEnd < totalPages && (
-                      <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded-md text-sm border border-gray-200 bg-white">{totalPages}</button>
+                      <button onClick={() => setCurrentPage(totalPages)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">{totalPages}</button>
                     )}
                   </div>
 
                   <button
-                    onClick={() => setCurrentPage(p => Math.min(Math.max(1, Math.ceil(filteredGrants.length / itemsPerPage)), p + 1))}
-                    disabled={currentPage >= Math.ceil(filteredGrants.length / itemsPerPage)}
-                    className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm disabled:opacity-50"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
                   </button>
@@ -492,17 +523,47 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Back to Top Button */}
+      {/* Back to Top */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 bg-perscholas-primary text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
+          className="fixed bottom-8 right-8 bg-perscholas-primary text-white p-4 rounded-full shadow-2xl hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
           aria-label="Back to top"
         >
-          <svg className="w-6 h-6 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          <svg className="w-5 h-5 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
           </svg>
         </button>
+      )}
+
+      {/* Description Modal */}
+      {selectedDescription && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedDescription(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-start justify-between">
+              <h3 className="text-lg font-bold text-gray-900 pr-8">{selectedDescription.title}</h3>
+              <button
+                onClick={() => setSelectedDescription(null)}
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {selectedDescription.description}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

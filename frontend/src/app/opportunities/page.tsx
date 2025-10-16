@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
 
 interface Opportunity {
@@ -19,20 +19,11 @@ interface Opportunity {
   created_at?: string
   saved_at?: string
   status?: string
-  // LLM Enhancement fields from saved_opportunities table
   llm_summary?: string
   detailed_match_reasoning?: string
   tags?: string[]
   similar_past_proposals?: any[]
   llm_enhanced_at?: string
-}
-
-interface SimilarRfp {
-  id: number
-  title: string
-  category: string
-  content: string
-  similarity_score: number
 }
 
 interface OpportunitySummary {
@@ -52,9 +43,8 @@ export default function OpportunitiesPage() {
   const [keywordSearch, setKeywordSearch] = useState<string>('')
   const [sortBy, setSortBy] = useState<'match' | 'amount' | 'deadline'>('match')
   const [currentPage, setCurrentPage] = useState<number>(1)
-  const itemsPerPage = 12
+  const itemsPerPage = 6
   const [expandedOpportunity, setExpandedOpportunity] = useState<string | null>(null)
-  const [expandedSummaries, setExpandedSummaries] = useState<{ [key: string]: boolean }>({})
   const [summaries, setSummaries] = useState<{ [key: string]: OpportunitySummary }>({})
   const [loadingSummary, setLoadingSummary] = useState<{ [key: string]: boolean }>({})
   const [showBackToTop, setShowBackToTop] = useState(false)
@@ -63,17 +53,15 @@ export default function OpportunitiesPage() {
     fetchOpportunities()
   }, [])
 
-  // Reset page to 1 when any filter/sort/raw data changes
   useEffect(() => {
     setCurrentPage(1)
   }, [rawOpportunities, filter, highMatchOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
 
-  // Show/hide back to top button based on scroll position
   useEffect(() => {
     const handleScroll = () => {
       setShowBackToTop(window.scrollY > 400)
     }
-    
+
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
@@ -103,16 +91,13 @@ export default function OpportunitiesPage() {
     }
   }
 
-  // Compute filtered + sorted opportunities on demand
   const filteredOpportunities = useMemo(() => {
     let list = [...rawOpportunities]
 
-    // Apply source filter
     if (filter !== 'all') {
       list = list.filter(o => o.source === filter)
     }
 
-    // Apply keyword search filter
     if (keywordSearch.trim()) {
       const keywords = keywordSearch.toLowerCase().trim()
       list = list.filter(o => {
@@ -151,12 +136,6 @@ export default function OpportunitiesPage() {
     return list
   }, [rawOpportunities, filter, highMatchOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
 
-  const handleAction = async (opportunityId: string, action: 'pursue' | 'assign' | 'dismiss') => {
-    // Mock action for demo
-    alert(`Action "${action}" on opportunity ${opportunityId}`)
-    // In real implementation, would call API to update status
-  }
-
   const handleDismiss = async (opportunityId: string) => {
     if (!confirm('Are you sure you want to dismiss this opportunity?')) {
       return
@@ -166,7 +145,6 @@ export default function OpportunitiesPage() {
       const response = await api.deleteOpportunity(opportunityId)
 
       if (response.ok) {
-        // Remove from local state
         setRawOpportunities(prev => prev.filter(opp => opp.id !== opportunityId))
       } else {
         alert('Failed to dismiss opportunity')
@@ -177,7 +155,7 @@ export default function OpportunitiesPage() {
     }
   }
 
-  const toggleSummary = async (opportunityId: string) => {
+  const toggleExpanded = async (opportunityId: string) => {
     if (expandedOpportunity === opportunityId) {
       setExpandedOpportunity(null)
       return
@@ -185,10 +163,9 @@ export default function OpportunitiesPage() {
 
     setExpandedOpportunity(opportunityId)
 
-    // If we don't have the summary yet, fetch it
     if (!summaries[opportunityId]) {
       setLoadingSummary({ ...loadingSummary, [opportunityId]: true })
-      
+
       try {
         const response = await api.generateOpportunitySummary(opportunityId)
         if (response.ok) {
@@ -205,59 +182,20 @@ export default function OpportunitiesPage() {
     }
   }
 
-  // const generateProposal = async (opportunity: Opportunity) => {
-  //   try {
-  //     const response = await api.generateProposal({
-  //       opportunity_id: opportunity.id,
-  //       opportunity_title: opportunity.title,
-  //       funder: opportunity.funder,
-  //       funding_amount: opportunity.amount,
-  //       deadline: opportunity.deadline,
-  //       description: opportunity.description,
-  //       requirements: opportunity.requirements
-  //     })
-
-  //     if (response.ok) {
-  //       const data = await response.json()
-  //       alert(`Proposal generation started! Job ID: ${data.job_id}`)
-  //       // Could redirect to proposals page or show progress
-  //       window.location.href = '/proposals'
-  //     } else {
-  //       alert('Failed to start proposal generation')
-  //     }
-  //   } catch (error) {
-  //     console.error('Failed to generate proposal:', error)
-  //     alert('Failed to generate proposal')
-  //   }
-  // }
-
-  // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredOpportunities.length / itemsPerPage))
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const paged = filteredOpportunities.slice(startIndex, startIndex + itemsPerPage)
-  const windowSize = 5
-  let pageStart = Math.max(1, currentPage - Math.floor(windowSize / 2))
-  let pageEnd = Math.min(totalPages, pageStart + windowSize - 1)
-  if (pageEnd - pageStart < windowSize - 1) {
-    pageStart = Math.max(1, pageEnd - windowSize + 1)
-  }
-  const pages: number[] = []
-  for (let i = pageStart; i <= pageEnd; i++) pages.push(i)
-
   const getMatchColor = (score: number) => {
-    if (score >= 85) return 'bg-green-50 text-green-700 border border-green-200'
-    if (score >= 70) return 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-    return 'bg-red-50 text-red-700 border border-red-200'
+    if (score >= 85) return { bg: 'bg-green-600', text: 'text-green-700', border: 'border-green-200', lightBg: 'bg-green-50' }
+    if (score >= 70) return { bg: 'bg-perscholas-accent', text: 'text-yellow-700', border: 'border-yellow-200', lightBg: 'bg-yellow-50' }
+    return { bg: 'bg-gray-400', text: 'text-gray-700', border: 'border-gray-200', lightBg: 'bg-gray-50' }
   }
 
   const getSourceBadge = (source: string) => {
     const sourceColors: { [key: string]: string } = {
-      'grants_gov': 'bg-blue-100 text-blue-800',
-      'sam_gov': 'bg-purple-100 text-purple-800',
-      'state': 'bg-green-100 text-green-800',
-      'local': 'bg-orange-100 text-orange-800',
+      'grants_gov': 'bg-blue-50 text-blue-700 border-blue-200',
+      'sam_gov': 'bg-purple-50 text-purple-700 border-purple-200',
+      'state': 'bg-green-50 text-green-700 border-green-200',
+      'local': 'bg-orange-50 text-orange-700 border-orange-200',
     }
-    return sourceColors[source] || 'bg-gray-100 text-gray-800'
+    return sourceColors[source] || 'bg-gray-50 text-gray-700 border-gray-200'
   }
 
   const getSourceLabel = (source: string) => {
@@ -285,12 +223,24 @@ export default function OpportunitiesPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
+  const totalPages = Math.max(1, Math.ceil(filteredOpportunities.length / itemsPerPage))
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paged = filteredOpportunities.slice(startIndex, startIndex + itemsPerPage)
+  const windowSize = 5
+  let pageStart = Math.max(1, currentPage - Math.floor(windowSize / 2))
+  let pageEnd = Math.min(totalPages, pageStart + windowSize - 1)
+  if (pageEnd - pageStart < windowSize - 1) {
+    pageStart = Math.max(1, pageEnd - windowSize + 1)
+  }
+  const pages: number[] = []
+  for (let i = pageStart; i <= pageEnd; i++) pages.push(i)
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-perscholas-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading saved opportunities...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-perscholas-secondary mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading your pipeline...</p>
         </div>
       </div>
     )
@@ -298,448 +248,489 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-[1600px] mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              My Saved Opportunities
-            </h2>
-            <p className="text-gray-600">
-              Your curated funding pipeline. Filter, sort, and manage opportunities you've saved from the discovery dashboard.
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-perscholas-secondary p-2.5 rounded-xl">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900">
+                My Pipeline
+              </h2>
+            </div>
+            <p className="text-gray-600 text-lg">
+              Deep dive into saved opportunities with AI-powered insights, match analysis, and similar past RFPs.
             </p>
           </div>
         </div>
 
         {/* Stats Bar */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {/* Total Saved */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Saved</p>
-              <p className="text-3xl font-bold text-gray-900">{filteredOpportunities.length}</p>
-              <p className="text-sm text-gray-500 mt-1">Opportunities</p>
-            </div>
+        <div className="mb-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">Pipeline</p>
+            <p className="text-3xl font-bold text-gray-900">{filteredOpportunities.length}</p>
+          </div>
 
-            {/* Total Funding */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Funding</p>
-              <p className="text-3xl font-bold text-green-600">{formatCurrency(filteredOpportunities.reduce((sum, o) => sum + (o.amount || 0), 0))}</p>
-              <p className="text-sm text-gray-500 mt-1">Available</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">Total Value</p>
+            <p className="text-3xl font-bold text-green-600">{formatCurrency(filteredOpportunities.reduce((sum, o) => sum + (o.amount || 0), 0))}</p>
+          </div>
 
-            {/* High Match Count */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">High Match</p>
-              <p className="text-3xl font-bold" style={{ color: '#fec14f' }}>{filteredOpportunities.filter(o => o.match_score >= 85).length}</p>
-              <p className="text-sm text-gray-500 mt-1">≥ 85% fit</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">High Match</p>
+            <p className="text-3xl font-bold text-perscholas-accent">{filteredOpportunities.filter(o => o.match_score >= 85).length}</p>
+          </div>
 
-            {/* Average Match */}
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Avg Match Score</p>
-              <p className="text-3xl font-bold" style={{
-                color: filteredOpportunities.length > 0
-                  ? Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length) >= 85
-                    ? '#10b981'
-                    : Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length) >= 70
-                      ? '#fec14f'
-                      : '#ef4444'
-                  : '#111827'
-              }}>
-                {filteredOpportunities.length > 0
-                  ? Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length)
-                  : 0}%
-              </p>
-              <p className="text-sm text-gray-500 mt-1">Overall</p>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-sm font-medium text-gray-600 mb-2">Avg Match</p>
+            <p className="text-3xl font-bold text-perscholas-primary">
+              {filteredOpportunities.length > 0
+                ? Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length)
+                : 0}%
+            </p>
           </div>
         </div>
 
-        <div className="lg:flex lg:items-start lg:space-x-8">
-          {/* Left sidebar - Filters */}
-          <aside className="w-full lg:w-72 flex-shrink-0">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-              {/* Source Filter */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Filter by source</h4>
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-2 focus:ring-gray-200"
-                >
-                  <option value="all">All Sources</option>
-                  <option value="grants_gov">Grants.gov</option>
-                  <option value="sam_gov">SAM.gov</option>
-                  <option value="state">State</option>
-                  <option value="local">Local</option>
-                </select>
-              </div>
+        <div className="lg:flex lg:gap-6">
+          {/* Left Sidebar */}
+          <aside className="lg:w-80 flex-shrink-0 mb-6 lg:mb-0">
+            <div className="sticky top-6 space-y-4">
+              {/* Filters */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  Refine Pipeline
+                </h3>
 
-              {/* Keyword Search */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Keyword search</h4>
-                <input
-                  type="text"
-                  value={keywordSearch}
-                  onChange={(e) => setKeywordSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  placeholder="Search in title, description, funder..."
-                />
-                {keywordSearch && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    Searching across opportunity content...
-                  </p>
-                )}
-              </div>
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                    <span className="text-sm font-medium text-gray-700">High Match Only</span>
+                    <input
+                      type="checkbox"
+                      checked={highMatchOnly}
+                      onChange={(e) => setHighMatchOnly(e.target.checked)}
+                      className="w-4 h-4 text-perscholas-secondary rounded focus:ring-2 focus:ring-perscholas-secondary/20"
+                    />
+                  </label>
 
-              {/* High Match Filter */}
-              <div className="mb-6">
-                <label className="flex items-center space-x-2 text-sm">
-                  <input type="checkbox" checked={highMatchOnly} onChange={(e) => setHighMatchOnly(e.target.checked)} className="h-4 w-4" />
-                  <span className="text-gray-700">High match only (85%+)</span>
-                </label>
-              </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Source</label>
+                    <select
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary bg-white"
+                    >
+                      <option value="all">All Sources</option>
+                      <option value="grants_gov">Grants.gov</option>
+                      <option value="sam_gov">SAM.gov</option>
+                      <option value="state">State</option>
+                      <option value="local">Local</option>
+                    </select>
+                  </div>
 
-              {/* Funding Range */}
-              <div className="mb-6">
-                <div className="mb-2 text-sm font-medium text-gray-700">Funding range</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    value={fundingMin ?? ''}
-                    onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
-                    placeholder="Min"
-                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  />
-                  <input
-                    type="number"
-                    value={fundingMax ?? ''}
-                    onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
-                    placeholder="Max"
-                    className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  />
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Search</label>
+                    <div className="relative">
+                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <input
+                        type="text"
+                        value={keywordSearch}
+                        onChange={(e) => setKeywordSearch(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary"
+                        placeholder="Keywords..."
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Funding Range</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        value={fundingMin ?? ''}
+                        onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder="Min"
+                        className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary"
+                      />
+                      <input
+                        type="number"
+                        value={fundingMax ?? ''}
+                        onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder="Max"
+                        className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Due Within (days)</label>
+                    <input
+                      type="number"
+                      value={dueInDays ?? ''}
+                      onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary"
+                      placeholder="e.g. 30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Sort By</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary bg-white"
+                    >
+                      <option value="match">Match Score</option>
+                      <option value="amount">Funding Amount</option>
+                      <option value="deadline">Due Date</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Due Date Filter */}
-              <div className="mb-4">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Due in (days)</label>
-                <input
-                  type="number"
-                  value={dueInDays ?? ''}
-                  onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200"
-                  placeholder="e.g. 30"
-                />
+              {/* AI Insights Info */}
+              <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="bg-perscholas-secondary p-1.5 rounded-lg flex-shrink-0">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-perscholas-dark mb-1">AI Analysis Active</p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Expand opportunities to view AI summaries, match reasoning, and similar RFPs.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 text-sm text-slate-600">
-              <p className="mb-2 font-semibold text-gray-700">💡 Filter Tips:</p>
-              <ul className="space-y-1 text-xs">
-                <li>• Use keyword search to find specific terms</li>
-                <li>• Filter by match score to prioritize</li>
-                <li>• Set funding range to match your needs</li>
-                <li>• Check "Due in" for upcoming deadlines</li>
-              </ul>
             </div>
           </aside>
 
-          {/* Main content - Opportunity List */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-4">
-              <div></div>
-              <div className="flex items-center space-x-3">
-                <label className="text-sm text-gray-600">Sort by</label>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="px-3 py-2 border border-slate-200 rounded-md text-sm focus:ring-1 focus:ring-gray-200">
-                  <option value="match">Match Score</option>
-                  <option value="amount">Funding Amount</option>
-                  <option value="deadline">Due Date</option>
-                </select>
-              </div>
-            </div>
+          {/* Main Content */}
+          <div className="flex-1 min-w-0">
             {filteredOpportunities.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-16 text-center max-w-4xl mx-auto">
-                <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-20 text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-2xl flex items-center justify-center">
+                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">No saved opportunities yet</h3>
-                <p className="text-gray-600 text-lg mb-8">Save grants from the dashboard to track them here</p>
+                <p className="text-gray-600 text-lg mb-8">Save grants from the dashboard to analyze them here</p>
                 <a
                   href="/dashboard"
-                  className="inline-block bg-perscholas-primary text-white px-8 py-3 rounded-full font-semibold hover:bg-opacity-90 transition-all"
+                  className="inline-flex items-center gap-2 bg-perscholas-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-perscholas-dark transition-all"
                 >
-                  Go to Dashboard
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Discover Grants
                 </a>
               </div>
             ) : (
-              <div className="max-w-4xl mx-auto w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {paged.map((opportunity) => (
-                    <div key={opportunity.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow bg-white flex flex-col h-full">
-                      {/* Header with title, funder, and key metrics */}
-                      <div className="mb-3">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1 pr-3 min-w-0">
-                            <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 leading-tight">{opportunity.title}</h3>
+              <div>
+                <div className="space-y-6 mb-8">
+                  {paged.map((opportunity) => {
+                    const isExpanded = expandedOpportunity === opportunity.id
+                    const colors = getMatchColor(opportunity.match_score)
+
+                    return (
+                      <div
+                        key={opportunity.id}
+                        className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 ${
+                          isExpanded ? 'border-perscholas-secondary shadow-lg' : 'border-gray-200'
+                        }`}
+                      >
+                        {/* Card Header */}
+                        <div className="p-6">
+                          {/* Title Row with Match Score */}
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-xl font-bold text-gray-900 leading-tight mb-1">
+                                {opportunity.title}
+                              </h3>
+                              <p className="text-sm text-gray-600">{opportunity.funder}</p>
+                            </div>
+                            <div className={`flex-shrink-0 ${colors.bg} text-white px-4 py-2 rounded-full shadow-sm`}>
+                              <span className="font-bold">{opportunity.match_score}%</span>
+                            </div>
                           </div>
-                          <div className="flex flex-col items-end space-y-1.5 flex-shrink-0">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getMatchColor(opportunity.match_score)}`}
-                              title="Match score"
+
+                          {/* Key Metrics - Simplified Grid */}
+                          <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Funding</p>
+                              <p className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Deadline</p>
+                              <p className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</p>
+                            </div>
+                            {opportunity.source && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">Source</p>
+                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${getSourceBadge(opportunity.source)}`}>
+                                  {getSourceLabel(opportunity.source)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* AI Summary - Always Full Display */}
+                          {opportunity.llm_summary && (
+                            <div className={`${colors.lightBg} border ${colors.border} rounded-xl p-4 mb-4`}>
+                              <div className="flex items-start gap-2 mb-2">
+                                <svg className="w-4 h-4 text-perscholas-secondary flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                                <p className="text-xs font-bold text-perscholas-dark">AI INSIGHT</p>
+                              </div>
+                              <p className={`text-sm ${colors.text} leading-relaxed`}>
+                                {opportunity.llm_summary}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Tags */}
+                          {opportunity.tags && opportunity.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {opportunity.tags.slice(0, isExpanded ? undefined : 5).map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-perscholas-dark border border-perscholas-dark"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                              {!isExpanded && opportunity.tags.length > 5 && (
+                                <span className="px-3 py-1 bg-gray-100 text-gray-600 border border-gray-200 rounded-full text-xs font-medium">
+                                  +{opportunity.tags.length - 5} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+                            <button
+                              onClick={() => toggleExpanded(opportunity.id)}
+                              className="flex-1 flex items-center justify-center gap-2 bg-perscholas-secondary text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-perscholas-primary hover:shadow-lg transition-all"
                             >
-                              {opportunity.match_score}%
-                            </span>
-                            <div className="text-lg font-bold text-green-600">
-                              {formatCurrency(opportunity.amount)}
-                            </div>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isExpanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                              </svg>
+                              {isExpanded ? 'Hide Reasoning' : 'View Reasoning'}
+                            </button>
+                            {opportunity.application_url && (
+                              <a
+                                href={opportunity.application_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 border-2 border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                Open
+                              </a>
+                            )}
+                            <button
+                              onClick={() => handleDismiss(opportunity.id)}
+                              className="border-2 border-red-300 text-red-600 px-5 py-2.5 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                            >
+                              Dismiss
+                            </button>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-xs text-gray-600 font-medium truncate">{opportunity.funder}</div>
-                          <div className="text-xs text-gray-500 flex-shrink-0 ml-3">
-                            <span className="font-medium">Due:</span> {formatDate(opportunity.deadline)}
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* AI Summary - Expandable */}
-                      <div className="bg-gray-50 p-3 rounded-lg mb-2">
-                        {opportunity.llm_summary && (
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <svg className="w-3.5 h-3.5" style={{ color: '#009ee0' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                            </svg>
-                            <span className="text-xs font-semibold" style={{ color: '#009ee0' }}>AI SUMMARY</span>
-                          </div>
-                        )}
-                        <p className={`text-xs text-gray-700 leading-relaxed ${!expandedSummaries[opportunity.id] ? 'line-clamp-3' : ''}`}>
-                          {opportunity.llm_summary || opportunity.description}
-                        </p>
-                        {opportunity.llm_summary && opportunity.llm_summary.length > 200 && (
-                          <button
-                            onClick={() => setExpandedSummaries({ ...expandedSummaries, [opportunity.id]: !expandedSummaries[opportunity.id] })}
-                            className="text-xs hover:underline mt-1.5 font-medium"
-                            style={{ color: '#009ee0' }}
-                          >
-                            {expandedSummaries[opportunity.id] ? '← Show less' : 'Read more →'}
-                          </button>
-                        )}
-                      </div>
+                        {/* Expanded Analysis */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-100 bg-gray-50 p-6">
+                            {/* Match Reasoning */}
+                            {opportunity.detailed_match_reasoning && (
+                              <div className="mb-6">
+                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Why This Matches Your Organization
+                                </h4>
+                                <div className="bg-white rounded-xl p-5 border border-gray-200 space-y-3">
+                                  {opportunity.detailed_match_reasoning.split('\n').map((paragraph, idx) => {
+                                    const isBullet = paragraph.trim().match(/^[-•*]\s+/)
+                                    const isNumbered = paragraph.trim().match(/^\d+\.\s+/)
+                                    const isHeader = paragraph.trim().match(/^[A-Z][^.!?]*:$/) || paragraph.trim().match(/^#{1,3}\s+/)
 
-                      {/* Tags */}
-                      {opportunity.tags && opportunity.tags.length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-1.5">
-                          {opportunity.tags.slice(0, 3).map((tag, idx) => (
-                            <span key={idx} className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#e0f2fe', color: '#00476e', borderColor: '#00476e', borderWidth: '1px' }}>
-                              {tag}
-                            </span>
-                          ))}
-                          {opportunity.tags.length > 3 && (
-                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 border border-gray-200 rounded-full text-xs">
-                              +{opportunity.tags.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      )}
+                                    if (!paragraph.trim()) return null
 
-                      {/* Match Reasoning - Inline Expandable */}
-                      {opportunity.detailed_match_reasoning && (
-                        <div className="mb-2">
-                          <button
-                            onClick={() => toggleSummary(opportunity.id)}
-                            className="text-xs font-medium flex items-center gap-1 hover:underline"
-                            style={{ color: '#009ee0' }}
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {expandedOpportunity === opportunity.id ? 'Hide' : 'Why this matches'}
-                          </button>
-                          {expandedOpportunity === opportunity.id && (
-                            <div className="mt-2 p-3 rounded-lg space-y-2" style={{ backgroundColor: '#e0f2fe', borderColor: '#009ee0', borderWidth: '1px' }}>
-                              {opportunity.detailed_match_reasoning.split('\n').map((paragraph, idx) => {
-                                // Check if it's a bullet point or numbered list
-                                const isBullet = paragraph.trim().match(/^[-•*]\s+/)
-                                const isNumbered = paragraph.trim().match(/^\d+\.\s+/)
-                                const isHeader = paragraph.trim().match(/^[A-Z][^.!?]*:$/) || paragraph.trim().match(/^#{1,3}\s+/)
-
-                                if (!paragraph.trim()) return null
-
-                                // Function to render text with bold formatting
-                                const renderWithBold = (text: string) => {
-                                  const parts = text.split(/(\*\*.*?\*\*)/)
-                                  return parts.map((part, i) => {
-                                    if (part.startsWith('**') && part.endsWith('**')) {
-                                      return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
+                                    const renderWithBold = (text: string) => {
+                                      const parts = text.split(/(\*\*.*?\*\*)/)
+                                      return parts.map((part, i) => {
+                                        if (part.startsWith('**') && part.endsWith('**')) {
+                                          return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
+                                        }
+                                        return part
+                                      })
                                     }
-                                    return part
-                                  })
-                                }
 
-                                if (isHeader) {
-                                  return (
-                                    <p key={idx} className="text-xs font-semibold text-gray-900 mt-2 first:mt-0">
-                                      {renderWithBold(paragraph.replace(/^#{1,3}\s+/, ''))}
-                                    </p>
-                                  )
-                                } else if (isBullet) {
-                                  return (
-                                    <div key={idx} className="flex gap-2 text-xs text-gray-700 leading-relaxed">
-                                      <span className="flex-shrink-0" style={{ color: '#009ee0' }}>•</span>
-                                      <span>{renderWithBold(paragraph.replace(/^[-•*]\s+/, ''))}</span>
+                                    if (isHeader) {
+                                      return (
+                                        <p key={idx} className="text-sm font-bold text-perscholas-dark mt-3 first:mt-0">
+                                          {renderWithBold(paragraph.replace(/^#{1,3}\s+/, ''))}
+                                        </p>
+                                      )
+                                    } else if (isBullet) {
+                                      return (
+                                        <div key={idx} className="flex gap-3 text-sm text-gray-700 leading-relaxed">
+                                          <span className="flex-shrink-0 text-perscholas-secondary font-bold">•</span>
+                                          <span>{renderWithBold(paragraph.replace(/^[-•*]\s+/, ''))}</span>
+                                        </div>
+                                      )
+                                    } else if (isNumbered) {
+                                      return (
+                                        <div key={idx} className="flex gap-3 text-sm text-gray-700 leading-relaxed">
+                                          <span className="flex-shrink-0 font-bold text-perscholas-secondary">{paragraph.match(/^\d+\./)?.[0]}</span>
+                                          <span>{renderWithBold(paragraph.replace(/^\d+\.\s+/, ''))}</span>
+                                        </div>
+                                      )
+                                    } else {
+                                      return (
+                                        <p key={idx} className="text-sm text-gray-700 leading-relaxed">
+                                          {renderWithBold(paragraph)}
+                                        </p>
+                                      )
+                                    }
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Fallback: Legacy Summary */}
+                            {!opportunity.detailed_match_reasoning && (
+                              <div className="mb-6">
+                                {loadingSummary[opportunity.id] ? (
+                                  <div className="flex items-center justify-center py-12 bg-white rounded-xl border border-gray-200">
+                                    <div className="text-center">
+                                      <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-perscholas-secondary mx-auto mb-3"></div>
+                                      <p className="text-sm text-perscholas-secondary font-medium">Generating AI analysis...</p>
                                     </div>
-                                  )
-                                } else if (isNumbered) {
-                                  return (
-                                    <div key={idx} className="flex gap-2 text-xs text-gray-700 leading-relaxed mt-1">
-                                      <span className="flex-shrink-0 font-medium" style={{ color: '#009ee0' }}>{paragraph.match(/^\d+\./)?.[0]}</span>
-                                      <span>{renderWithBold(paragraph.replace(/^\d+\.\s+/, ''))}</span>
+                                  </div>
+                                ) : summaries[opportunity.id] ? (
+                                  <div className="bg-white rounded-xl p-5 border border-gray-200 space-y-4">
+                                    <div>
+                                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Overview
+                                      </h4>
+                                      <p className="text-sm text-gray-700 leading-relaxed">{summaries[opportunity.id].overview}</p>
                                     </div>
-                                  )
-                                } else {
-                                  return (
-                                    <p key={idx} className="text-xs text-gray-700 leading-relaxed">
-                                      {renderWithBold(paragraph)}
-                                    </p>
-                                  )
-                                }
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Fallback: Old AI Summary for opportunities without LLM enhancement */}
-                      {!opportunity.detailed_match_reasoning && expandedOpportunity === opportunity.id && (
-                        <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                          {loadingSummary[opportunity.id] ? (
-                            <div className="flex items-center justify-center py-8">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                              <p className="ml-3 text-blue-600 font-medium">Generating AI summary...</p>
-                            </div>
-                          ) : summaries[opportunity.id] ? (
-                            <div className="space-y-4">
-                              {/* Overview */}
-                              <div>
-                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
-                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  What This Grant Funds
-                                </h4>
-                                <p className="text-sm text-gray-700 leading-relaxed">{summaries[opportunity.id].overview}</p>
+                                    <div>
+                                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                        </svg>
+                                        Key Details
+                                      </h4>
+                                      <ul className="space-y-2">
+                                        {summaries[opportunity.id].key_details.map((detail, idx) => (
+                                          <li key={idx} className="text-sm text-gray-700 flex gap-2">
+                                            <span className="text-perscholas-secondary">•</span>
+                                            <span>{detail}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div>
+                                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                        </svg>
+                                        Funding Priorities
+                                      </h4>
+                                      <ul className="space-y-2">
+                                        {summaries[opportunity.id].funding_priorities.map((priority, idx) => (
+                                          <li key={idx} className="text-sm text-gray-700 flex gap-2">
+                                            <span className="text-perscholas-secondary">→</span>
+                                            <span>{priority}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
+                            )}
 
-                              {/* Key Details */}
-                              <div>
-                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
-                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                  </svg>
-                                  Key Details & Requirements
-                                </h4>
-                                <ul className="space-y-2">
-                                  {summaries[opportunity.id].key_details.map((detail, idx) => (
-                                    <li key={idx} className="text-sm text-gray-700 flex items-start">
-                                      <span className="text-blue-600 mr-2 mt-0.5">•</span>
-                                      <span>{detail}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-
-                              {/* Funding Priorities */}
-                              <div>
-                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
-                                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                  </svg>
-                                  Funding Priorities
-                                </h4>
-                                <ul className="space-y-2">
-                                  {summaries[opportunity.id].funding_priorities.map((priority, idx) => (
-                                    <li key={idx} className="text-sm text-gray-700 flex items-start">
-                                      <span className="text-blue-600 mr-2 mt-0.5">→</span>
-                                      <span>{priority}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
+                            {/* Similar RFPs Placeholder */}
+                            <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+                              <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-perscholas-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                                Similar Past RFPs
+                              </h4>
+                              <p className="text-sm text-gray-700">
+                                Semantic analysis of past proposals coming soon. This will surface similar RFPs you've worked on, success patterns, and proposal templates.
+                              </p>
                             </div>
-                          ) : (
-                            <p className="text-sm text-gray-600 text-center py-4">Unable to load summary. Please try again.</p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Bottom section with metadata and actions */}
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-100 mt-auto">
-                        <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
-                          {opportunity.source && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${getSourceBadge(opportunity.source)}`}>
-                              {getSourceLabel(opportunity.source)}
-                            </span>
-                          )}
-                          <span className="truncate">Saved {formatDate(opportunity.saved_at || opportunity.created_at || '')}</span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <button
-                            onClick={() => handleDismiss(opportunity.id)}
-                            className="border border-red-500 text-red-500 px-4 py-1.5 rounded-full text-xs font-medium hover:bg-red-50 transition-colors whitespace-nowrap"
-                          >
-                            Dismiss
-                          </button>
-                          {/* <button
-                            disabled
-                            className="bg-gray-300 text-gray-500 px-4 py-1.5 rounded-full text-xs font-medium cursor-not-allowed whitespace-nowrap"
-                            title="Proposal generation disabled"
-                          >
-                            Generate
-                          </button> */}
-                        </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
-                {/* Pagination controls */}
-                <div className="mt-6 flex items-center justify-center space-x-2">
+                {/* Pagination */}
+                <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
 
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center gap-1">
                     {pageStart > 1 && (
-                      <button onClick={() => setCurrentPage(1)} className="px-2 py-1 rounded-md text-sm border border-gray-200 bg-white">1</button>
+                      <>
+                        <button onClick={() => setCurrentPage(1)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">1</button>
+                        {pageStart > 2 && <span className="px-2 text-gray-400">…</span>}
+                      </>
                     )}
-                    {pageStart > 2 && <span className="px-2">…</span>}
                     {pages.map(p => (
                       <button
                         key={p}
                         onClick={() => setCurrentPage(p)}
-                        className={`px-3 py-1 rounded-md text-sm border ${p === currentPage ? 'bg-perscholas-primary text-white border-perscholas-primary' : 'bg-white border-gray-200'}`}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          p === currentPage
+                            ? 'bg-perscholas-secondary text-white border-perscholas-secondary shadow-md'
+                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
                       >
                         {p}
                       </button>
                     ))}
-                    {pageEnd < totalPages - 1 && <span className="px-2">…</span>}
+                    {pageEnd < totalPages - 1 && <span className="px-2 text-gray-400">…</span>}
                     {pageEnd < totalPages && (
-                      <button onClick={() => setCurrentPage(totalPages)} className="px-2 py-1 rounded-md text-sm border border-gray-200 bg-white">{totalPages}</button>
+                      <button onClick={() => setCurrentPage(totalPages)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">{totalPages}</button>
                     )}
                   </div>
 
                   <button
-                    onClick={() => setCurrentPage(p => Math.min(Math.max(1, Math.ceil(filteredOpportunities.length / itemsPerPage)), p + 1))}
-                    disabled={currentPage >= Math.ceil(filteredOpportunities.length / itemsPerPage)}
-                    className="px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm disabled:opacity-50"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
                   </button>
@@ -750,15 +741,15 @@ export default function OpportunitiesPage() {
         </div>
       </div>
 
-      {/* Back to Top Button */}
+      {/* Back to Top */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 bg-perscholas-primary text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
+          className="fixed bottom-8 right-8 bg-perscholas-secondary text-white p-4 rounded-full shadow-2xl hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
           aria-label="Back to top"
         >
-          <svg className="w-6 h-6 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          <svg className="w-5 h-5 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
           </svg>
         </button>
       )}
