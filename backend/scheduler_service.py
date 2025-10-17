@@ -18,6 +18,9 @@ from scrapers.state_scrapers import CaliforniaGrantsScraper, NewYorkGrantsScrape
 from scrapers.federal_scrapers import SAMGovScraper, USASpendingScraper
 from scrapers.gmail_scraper import GmailInboxScraper
 
+# Import centralized keyword configuration
+from search_keywords import get_keywords_for_source, get_high_priority_keywords
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -140,26 +143,27 @@ class SchedulerService:
         logger.info("Initial scrape completed")
 
     async def _scrape_grants_gov(self):
-        """Scrape federal grants from Grants.gov"""
+        """Scrape federal grants from Grants.gov using centralized keywords"""
         job_id = self._create_job_record('grants_gov', 'running')
 
         try:
-            logger.info("Starting Grants.gov scrape...")
+            logger.info("Starting Grants.gov multi-keyword scrape...")
             scraper = self.scrapers['grants_gov']
 
-            # Scrape multiple technology-related keywords
-            keywords = [
-                "technology workforce development",
-                "STEM education",
-                "digital skills training",
-                "cybersecurity training",
-                "software development education"
-            ]
+            # Get keywords from centralized configuration
+            keywords = get_keywords_for_source('grants_gov')
+            logger.info(f"Using {len(keywords)} keywords for Grants.gov search: {keywords}")
 
             all_grants = []
             for keyword in keywords:
-                grants = await scraper.scrape(keyword, limit=5)
-                all_grants.extend(grants)
+                try:
+                    logger.info(f"Searching Grants.gov with keyword: '{keyword}'")
+                    grants = await scraper.scrape(keyword, limit=5)
+                    all_grants.extend(grants)
+                    logger.info(f"Found {len(grants)} opportunities for keyword '{keyword}'")
+                except Exception as e:
+                    logger.warning(f"Failed to scrape Grants.gov with keyword '{keyword}': {e}")
+                    continue
 
             # Deduplicate by opportunity ID
             unique_grants = self._deduplicate_grants(all_grants, 'id')
@@ -167,7 +171,7 @@ class SchedulerService:
             # Store in database
             saved_count = await self._store_grants(unique_grants, 'grants_gov')
 
-            logger.info(f"Grants.gov scrape completed: {saved_count} grants saved")
+            logger.info(f"Grants.gov multi-keyword scrape completed: {saved_count} unique grants saved from {len(all_grants)} total opportunities")
             self._update_job_record(job_id, 'completed', saved_count)
 
         except Exception as e:
@@ -175,17 +179,42 @@ class SchedulerService:
             self._update_job_record(job_id, 'failed', 0, str(e))
 
     async def _scrape_sam_gov(self):
-        """Scrape procurement opportunities from SAM.gov"""
+        """Scrape procurement opportunities from SAM.gov using multi-keyword search"""
         job_id = self._create_job_record('sam_gov', 'running')
 
         try:
-            logger.info("Starting SAM.gov scrape...")
+            logger.info("Starting SAM.gov multi-keyword scrape...")
             scraper = self.scrapers['sam_gov']
-            grants = await scraper.scrape(limit=20)
+            
+            # Get keywords for SAM.gov
+            keywords = get_keywords_for_source('sam_gov')
+            logger.info(f"Using {len(keywords)} keywords for SAM.gov search: {keywords}")
+            
+            all_grants = []
+            
+            # Search with each keyword to maximize opportunity discovery
+            for keyword in keywords:
+                try:
+                    logger.info(f"Searching SAM.gov with keyword: '{keyword}'")
+                    keyword_grants = await scraper.scrape_with_keyword(keyword, limit=10)
+                    all_grants.extend(keyword_grants)
+                    logger.info(f"Found {len(keyword_grants)} opportunities for keyword '{keyword}'")
+                except Exception as e:
+                    logger.warning(f"Failed to scrape SAM.gov with keyword '{keyword}': {e}")
+                    continue
+            
+            # Remove duplicates based on opportunity ID
+            unique_grants = {}
+            for grant in all_grants:
+                if grant.get('opportunity_id'):
+                    unique_grants[grant['opportunity_id']] = grant
+                elif grant.get('id'):
+                    unique_grants[grant['id']] = grant
+            
+            final_grants = list(unique_grants.values())
+            saved_count = await self._store_grants(final_grants, 'sam_gov')
 
-            saved_count = await self._store_grants(grants, 'sam_gov')
-
-            logger.info(f"SAM.gov scrape completed: {saved_count} grants saved")
+            logger.info(f"SAM.gov multi-keyword scrape completed: {saved_count} unique grants saved from {len(all_grants)} total opportunities")
             self._update_job_record(job_id, 'completed', saved_count)
 
         except Exception as e:
