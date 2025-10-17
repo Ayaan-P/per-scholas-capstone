@@ -672,18 +672,63 @@ export default function OpportunitiesPage() {
                               </div>
                             )}
 
-                            {/* Similar RFPs Placeholder */}
-                            <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
-                              <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-perscholas-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                </svg>
-                                Similar Past RFPs
-                              </h4>
-                              <p className="text-sm text-gray-700">
-                                Semantic analysis of past proposals coming soon. This will surface similar RFPs you've worked on, success patterns, and proposal templates.
-                              </p>
-                            </div>
+                            {/* Similar RFPs Section */}
+                            {opportunity.similar_past_proposals && opportunity.similar_past_proposals.length > 0 ? (
+                              <div className="bg-white rounded-xl p-5 border border-gray-200">
+                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                  <svg className="w-5 h-5 text-perscholas-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                  </svg>
+                                  Similar Past RFPs
+                                </h4>
+                                <p className="text-xs text-gray-600 mb-4">
+                                  Historical proposals similar to this opportunity based on semantic analysis:
+                                </p>
+                                <div className="space-y-3">
+                                  {opportunity.similar_past_proposals.map((rfp: any, idx: number) => (
+                                    <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-perscholas-secondary transition-colors">
+                                      <div className="flex items-start justify-between gap-3 mb-2">
+                                        <h5 className="text-sm font-semibold text-gray-900 flex-1">
+                                          {rfp.title || 'Untitled Proposal'}
+                                        </h5>
+                                        {rfp.similarity_score && (
+                                          <span className="text-xs font-bold text-perscholas-secondary bg-blue-50 px-2 py-1 rounded-md">
+                                            {Math.round(rfp.similarity_score * 100)}% match
+                                          </span>
+                                        )}
+                                      </div>
+                                      {rfp.funder && (
+                                        <p className="text-xs text-gray-600 mb-1">
+                                          <span className="font-medium">Funder:</span> {rfp.funder}
+                                        </p>
+                                      )}
+                                      {rfp.amount && (
+                                        <p className="text-xs text-gray-600 mb-1">
+                                          <span className="font-medium">Amount:</span> {formatCurrency(rfp.amount)}
+                                        </p>
+                                      )}
+                                      {rfp.deadline && rfp.deadline !== 'Historical' && (
+                                        <p className="text-xs text-gray-600">
+                                          <span className="font-medium">Deadline:</span> {formatDate(rfp.deadline)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+                                <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                  <svg className="w-5 h-5 text-perscholas-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                  </svg>
+                                  Similar Past RFPs
+                                </h4>
+                                <p className="text-sm text-gray-700">
+                                  No similar historical RFPs found yet. As you save more opportunities, our semantic analysis will identify patterns and surface relevant past proposals.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

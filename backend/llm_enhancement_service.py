@@ -180,25 +180,28 @@ Generate 3-5 relevant tags based on the matched keywords and grant focus."""
 
     async def _find_similar_proposals(self, grant: Dict[str, Any]) -> List[Dict]:
         """Find similar past proposals using PGVector similarity search."""
-        # DISABLED: Similarity search temporarily disabled
-        # TODO: Re-enable when match_proposals function is properly set up in Supabase
-        return []
+        try:
+            # Import semantic service for RFP similarity search
+            from semantic_service import SemanticService
 
-        # try:
-        #     # Query PGVector DB for similar proposals
-        #     # This requires the pgvector extension and proper setup
-        #     result = self.supabase.rpc('match_proposals', {
-        #         'query_text': f"{grant.get('title')} {grant.get('description', '')}",
-        #         'match_count': 3
-        #     }).execute()
+            semantic_service = SemanticService()
 
-        #     if hasattr(result, 'data') and result.data:
-        #         return result.data
+            # Create query text from grant
+            query_text = f"{grant.get('title', '')} {grant.get('description', '')}"
 
-        #     return []
-        # except Exception as e:
-        #     print(f"[LLM ENHANCEMENT] Similarity search error: {e}")
-        #     return []
+            # Find similar RFPs (threshold 0.25 = 25% similarity minimum)
+            similar_rfps = semantic_service.find_similar_rfps(query_text, limit=5)
+
+            if similar_rfps:
+                print(f"[LLM ENHANCEMENT] Found {len(similar_rfps)} similar RFPs for '{grant.get('title', 'Unknown')[:50]}...'")
+                for rfp in similar_rfps:
+                    print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+
+            return similar_rfps
+
+        except Exception as e:
+            print(f"[LLM ENHANCEMENT] Similarity search error: {e}")
+            return []
 
 
 # Convenience function for API endpoint
