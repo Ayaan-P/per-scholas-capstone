@@ -17,8 +17,8 @@ from search_keywords import get_keywords_for_source
 class GrantsGovScraper:
     """Scraper for Grants.gov federal opportunities with multi-keyword search"""
 
-    def __init__(self):
-        self.grants_service = GrantsGovService()
+    def __init__(self, supabase_client=None):
+        self.grants_service = GrantsGovService(supabase_client=supabase_client)
 
     async def scrape(self, keywords: str = None, limit: int = 10) -> List[Dict[str, Any]]:
         """

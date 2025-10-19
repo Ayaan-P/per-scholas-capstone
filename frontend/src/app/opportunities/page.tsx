@@ -24,6 +24,29 @@ interface Opportunity {
   tags?: string[]
   similar_past_proposals?: any[]
   llm_enhanced_at?: string
+
+  // UNIVERSAL COMPREHENSIVE FIELDS (work across all grant sources)
+  contact_name?: string
+  contact_phone?: string
+  contact_description?: string
+  eligibility_explanation?: string
+  cost_sharing?: boolean
+  cost_sharing_description?: string
+  additional_info_url?: string
+  additional_info_text?: string
+  archive_date?: string
+  forecast_date?: string
+  close_date_explanation?: string
+  expected_number_of_awards?: string
+  award_floor?: number
+  award_ceiling?: number
+  attachments?: Array<{
+    title: string
+    url: string
+    type: string
+  }>
+  version?: string
+  last_updated_date?: string
 }
 
 interface OpportunitySummary {
@@ -554,7 +577,232 @@ export default function OpportunitiesPage() {
 
                         {/* Expanded Analysis */}
                         {isExpanded && (
-                          <div className="border-t border-gray-100 bg-gray-50 p-6">
+                          <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-6">
+
+                            {/* FULL DESCRIPTION - "About" Section */}
+                            {opportunity.description && (
+                              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                                <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  About This Opportunity
+                                </h4>
+                                <div className="text-sm text-gray-700 leading-relaxed space-y-3">
+                                  {opportunity.description.split('\n\n').map((para, idx) => (
+                                    <p key={idx}>{para}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* KEY DETAILS - Structured Information */}
+                            <div className="bg-white rounded-xl p-6 border border-gray-200">
+                              <h4 className="text-lg font-bold text-gray-900 mb-4">Key Details</h4>
+
+                              <div className="space-y-6">
+
+                                {/* Applicant Eligibility */}
+                                {opportunity.eligibility_explanation && (
+                                  <div className="border-l-4 border-perscholas-secondary pl-4">
+                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Applicant Eligibility</h5>
+                                    <p className="text-sm text-gray-700">{opportunity.eligibility_explanation}</p>
+                                  </div>
+                                )}
+
+                                {/* Required Registrations - Always show for federal grants */}
+                                {opportunity.source === 'grants_gov' && (
+                                  <div className="border-l-4 border-blue-500 pl-4">
+                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Required Registrations</h5>
+                                    <ul className="text-sm text-gray-700 space-y-1">
+                                      <li className="flex items-start gap-2">
+                                        <span className="text-blue-600 font-bold">•</span>
+                                        <span>Be registered in SAM prior to submission</span>
+                                      </li>
+                                      <li className="flex items-start gap-2">
+                                        <span className="text-blue-600 font-bold">•</span>
+                                        <span>Provide a valid UEI number in application</span>
+                                      </li>
+                                      <li className="flex items-start gap-2">
+                                        <span className="text-blue-600 font-bold">•</span>
+                                        <span>Obtain a CAGE Code</span>
+                                      </li>
+                                      <li className="flex items-start gap-2">
+                                        <span className="text-blue-600 font-bold">•</span>
+                                        <span>Maintain active SAM registration throughout award period</span>
+                                      </li>
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {/* Project Requirements */}
+                                {opportunity.requirements && opportunity.requirements.length > 0 && (
+                                  <div className="border-l-4 border-orange-500 pl-4">
+                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Project Requirements</h5>
+                                    <ul className="text-sm text-gray-700 space-y-1">
+                                      {opportunity.requirements.map((req: string, idx: number) => (
+                                        <li key={idx} className="flex items-start gap-2">
+                                          <span className="text-orange-600 font-bold">•</span>
+                                          <span>{req}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {/* Financing & Timeline */}
+                                <div className="border-l-4 border-green-500 pl-4">
+                                  <h5 className="text-sm font-bold text-perscholas-dark mb-2">Financing & Timeline Requirements</h5>
+                                  <div className="space-y-2 text-sm">
+                                    <div>
+                                      <span className="font-semibold text-gray-600">Submission Deadline:</span>
+                                      <span className="ml-2 text-gray-900 font-medium">{formatDate(opportunity.deadline)}</span>
+                                    </div>
+                                    {opportunity.award_floor && opportunity.award_ceiling && (
+                                      <div>
+                                        <span className="font-semibold text-gray-600">Award Range:</span>
+                                        <span className="ml-2 text-gray-900">
+                                          {formatCurrency(opportunity.award_floor)} - {formatCurrency(opportunity.award_ceiling)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {opportunity.expected_number_of_awards && (
+                                      <div>
+                                        <span className="font-semibold text-gray-600">Expected Awards:</span>
+                                        <span className="ml-2 text-gray-900">{opportunity.expected_number_of_awards}</span>
+                                      </div>
+                                    )}
+                                    {opportunity.cost_sharing !== undefined && (
+                                      <div>
+                                        <span className="font-semibold text-gray-600">Cost Sharing:</span>
+                                        <span className={`ml-2 ${opportunity.cost_sharing ? 'text-orange-600' : 'text-green-600'} font-medium`}>
+                                          {opportunity.cost_sharing ? 'Required' : 'Not Required'}
+                                        </span>
+                                        {opportunity.cost_sharing_description && (
+                                          <p className="text-gray-600 mt-1">{opportunity.cost_sharing_description}</p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Additional Information */}
+                                {opportunity.additional_info_text && (
+                                  <div className="border-l-4 border-purple-500 pl-4">
+                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Additional Information</h5>
+                                    <p className="text-sm text-gray-700">{opportunity.additional_info_text}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* TIMELINE */}
+                            {(opportunity.forecast_date || opportunity.deadline || opportunity.archive_date) && (
+                              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  Timeline
+                                </h4>
+                                <div className="space-y-3">
+                                  {opportunity.forecast_date && (
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                      <span className="text-sm font-medium text-gray-600">FOA Selection Period Opens</span>
+                                      <span className="text-sm font-bold text-gray-900">{formatDate(opportunity.forecast_date)}</span>
+                                    </div>
+                                  )}
+                                  {opportunity.deadline && (
+                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                      <span className="text-sm font-medium text-gray-600">Final Application Deadline</span>
+                                      <span className="text-sm font-bold text-perscholas-accent">{formatDate(opportunity.deadline)}</span>
+                                    </div>
+                                  )}
+                                  {opportunity.archive_date && (
+                                    <div className="flex justify-between items-center py-2">
+                                      <span className="text-sm font-medium text-gray-600">Archive Date</span>
+                                      <span className="text-sm font-bold text-gray-900">{formatDate(opportunity.archive_date)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* CONTACTS */}
+                            {(opportunity.contact || opportunity.contact_name || opportunity.contact_phone) && (
+                              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                  </svg>
+                                  Contacts
+                                </h4>
+                                <div className="space-y-2 text-sm">
+                                  {opportunity.contact_name && (
+                                    <div>
+                                      <span className="font-semibold text-gray-600">Name:</span>
+                                      <span className="ml-2 text-gray-900">{opportunity.contact_name}</span>
+                                    </div>
+                                  )}
+                                  {opportunity.contact_phone && (
+                                    <div>
+                                      <span className="font-semibold text-gray-600">Phone:</span>
+                                      <a href={`tel:${opportunity.contact_phone}`} className="ml-2 text-perscholas-secondary hover:underline">
+                                        {opportunity.contact_phone}
+                                      </a>
+                                    </div>
+                                  )}
+                                  {opportunity.contact && (
+                                    <div>
+                                      <span className="font-semibold text-gray-600">Email:</span>
+                                      <a href={`mailto:${opportunity.contact}`} className="ml-2 text-perscholas-secondary hover:underline">
+                                        {opportunity.contact}
+                                      </a>
+                                    </div>
+                                  )}
+                                  {opportunity.contact_description && (
+                                    <p className="text-gray-600 mt-2">{opportunity.contact_description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ATTACHMENTS */}
+                            {opportunity.attachments && opportunity.attachments.length > 0 && (
+                              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                  </svg>
+                                  Attachments
+                                </h4>
+                                <div className="space-y-2">
+                                  {opportunity.attachments.map((attachment, idx) => (
+                                    <a
+                                      key={idx}
+                                      href={attachment.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    >
+                                      <div className="bg-perscholas-secondary p-2 rounded">
+                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="text-sm font-semibold text-gray-900">{attachment.title}</p>
+                                        <p className="text-xs text-gray-500 uppercase">{attachment.type}</p>
+                                      </div>
+                                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                      </svg>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {/* Match Reasoning */}
                             {opportunity.detailed_match_reasoning && (
                               <div className="mb-6">

@@ -46,7 +46,7 @@ class SchedulerService:
     def _initialize_scrapers(self):
         """Initialize all data source scrapers"""
         scrapers = {
-            'grants_gov': GrantsGovScraper(),
+            'grants_gov': GrantsGovScraper(supabase_client=self.supabase),
             'california': CaliforniaGrantsScraper(),
             'new_york': NewYorkGrantsScraper(),
             'sam_gov': SAMGovScraper(),
@@ -134,7 +134,7 @@ class SchedulerService:
         """Run initial scrape on startup"""
         logger.info("Running initial scrape...")
         await asyncio.sleep(5)  # Wait for system to fully initialize
-        # await self._scrape_grants_gov()
+        await self._scrape_grants_gov()
 
         # Also scrape Gmail if available
         if 'gmail_inbox' in self.scrapers:
@@ -325,12 +325,13 @@ class SchedulerService:
             try:
                 # Check if grant already exists
                 existing = self.supabase.table("scraped_grants")\
-                    .select("id")\
+                    .select("id, match_score")\
                     .eq("opportunity_id", grant.get("id"))\
                     .execute()
 
                 if existing.data:
-                    # Update existing grant
+                    # Update existing grant - skip match score recalculation
+                    logger.info(f"Updating existing grant: {grant.get('id')} - skipping match score recalculation")
                     self.supabase.table("scraped_grants")\
                         .update({
                             "title": grant.get("title"),
@@ -341,13 +342,15 @@ class SchedulerService:
                             "requirements": grant.get("requirements", []),
                             "contact": grant.get("contact"),
                             "application_url": grant.get("application_url"),
-                            "match_score": grant.get("match_score", 0),
                             "updated_at": datetime.now().isoformat()
                         })\
                         .eq("opportunity_id", grant.get("id"))\
                         .execute()
                 else:
-                    # Insert new grant
+                    # Insert new grant - calculate match score only for new grants
+                    logger.info(f"New grant found: {grant.get('id')} - calculating match score")
+                    match_score = self._calculate_match_score_for_grant(grant)
+
                     self.supabase.table("scraped_grants").insert({
                         "opportunity_id": grant.get("id"),
                         "title": grant.get("title"),
@@ -358,11 +361,30 @@ class SchedulerService:
                         "requirements": grant.get("requirements", []),
                         "contact": grant.get("contact"),
                         "application_url": grant.get("application_url"),
-                        "match_score": grant.get("match_score", 0),
+                        "match_score": match_score,
                         "source": source,
                         "status": "active",
                         "created_at": datetime.now().isoformat(),
-                        "updated_at": datetime.now().isoformat()
+                        "updated_at": datetime.now().isoformat(),
+
+                        # UNIVERSAL COMPREHENSIVE FIELDS from grants_service
+                        "contact_name": grant.get("contact_name"),
+                        "contact_phone": grant.get("contact_phone"),
+                        "contact_description": grant.get("contact_description"),
+                        "eligibility_explanation": grant.get("eligibility_explanation"),
+                        "cost_sharing": grant.get("cost_sharing"),
+                        "cost_sharing_description": grant.get("cost_sharing_description"),
+                        "additional_info_url": grant.get("additional_info_url"),
+                        "additional_info_text": grant.get("additional_info_text"),
+                        "archive_date": grant.get("archive_date"),
+                        "forecast_date": grant.get("forecast_date"),
+                        "close_date_explanation": grant.get("close_date_explanation"),
+                        "expected_number_of_awards": grant.get("expected_number_of_awards"),
+                        "award_floor": grant.get("award_floor"),
+                        "award_ceiling": grant.get("award_ceiling"),
+                        "attachments": grant.get("attachments", []),
+                        "version": grant.get("version"),
+                        "last_updated_date": grant.get("last_updated_date")
                     }).execute()
 
                 saved_count += 1
@@ -387,25 +409,13 @@ class SchedulerService:
 
                 # Check if grant already exists
                 existing = self.supabase.table("scraped_grants")\
-                    .select("id")\
+                    .select("id, match_score")\
                     .eq("opportunity_id", opportunity_id)\
                     .execute()
 
                 # Parse amount - could be string like "$3,000,000" or None
                 raw_amount = grant.get("amount")
                 parsed_amount = self._parse_amount_string(raw_amount) if raw_amount else None
-
-                # Build grant dict for match scoring
-                grant_for_scoring = {
-                    "title": grant.get("title"),
-                    "funder": grant.get("organization", "Unknown"),
-                    "amount": parsed_amount,
-                    "deadline": grant.get("deadline"),
-                    "description": grant.get("description"),
-                }
-
-                # Calculate match score
-                match_score = self._calculate_match_score_for_grant(grant_for_scoring)
 
                 grant_data = {
                     "title": grant.get("title"),
@@ -416,22 +426,37 @@ class SchedulerService:
                     "requirements": grant.get("eligibility", []),
                     "contact": grant.get("email_sender"),
                     "application_url": grant.get("source_url"),
-                    "match_score": match_score,
                     "updated_at": datetime.now().isoformat()
                 }
 
                 if existing.data:
-                    # Update existing grant
+                    # Update existing grant - skip match score recalculation
+                    logger.info(f"Updating existing Gmail grant: {opportunity_id} - skipping match score recalculation")
                     self.supabase.table("scraped_grants")\
                         .update(grant_data)\
                         .eq("opportunity_id", opportunity_id)\
                         .execute()
                 else:
-                    # Insert new grant
+                    # Insert new grant - calculate match score only for new grants
+                    logger.info(f"New Gmail grant found: {opportunity_id} - calculating match score")
+
+                    # Build grant dict for match scoring
+                    grant_for_scoring = {
+                        "title": grant.get("title"),
+                        "funder": grant.get("organization", "Unknown"),
+                        "amount": parsed_amount,
+                        "deadline": grant.get("deadline"),
+                        "description": grant.get("description"),
+                    }
+
+                    # Calculate match score
+                    match_score = self._calculate_match_score_for_grant(grant_for_scoring)
+
                     grant_data.update({
                         "opportunity_id": opportunity_id,
                         "source": "gmail_inbox",
                         "status": "active",
+                        "match_score": match_score,
                         "created_at": datetime.now().isoformat()
                     })
                     self.supabase.table("scraped_grants").insert(grant_data).execute()

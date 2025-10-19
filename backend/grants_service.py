@@ -12,10 +12,12 @@ import re
 from semantic_service import SemanticService
 
 class GrantsGovService:
-    def __init__(self):
+    def __init__(self, supabase_client=None):
         self.base_url = "https://www.grants.gov/web/grants/search-grants.html"
         # Grants.gov has a search API that returns XML
         self.api_url = "https://www.grants.gov/grantsws/rest/opportunities/search/"
+        # Store Supabase client for caching match scores
+        self.supabase = supabase_client
         # Initialize semantic service for enhanced scoring with RFP similarity
         try:
             self.semantic_service = SemanticService()
@@ -149,7 +151,26 @@ class GrantsGovService:
                         "description": opportunity_details.get('description') or self._clean_html_entities(f"Grant opportunity: {hit.get('title', 'Federal funding opportunity')}. Agency: {hit.get('agency', 'Federal Agency')}. Status: {hit.get('oppStatus', 'Posted')}."),
                         "requirements": self._extract_requirements(opportunity_details.get('description', hit.get('title', '') + ' ' + hit.get('agency', ''))),
                         "contact": opportunity_details.get('contact', f"Contact via grants.gov for opportunity {opp_number}"),
-                        "application_url": grant_url
+                        "application_url": grant_url,
+
+                        # UNIVERSAL COMPREHENSIVE FIELDS from opportunity_details
+                        "contact_name": opportunity_details.get('contact_name'),
+                        "contact_phone": opportunity_details.get('contact_phone'),
+                        "contact_description": opportunity_details.get('contact_description'),
+                        "eligibility_explanation": opportunity_details.get('eligibility_explanation'),
+                        "cost_sharing": opportunity_details.get('cost_sharing'),
+                        "cost_sharing_description": opportunity_details.get('cost_sharing_description'),
+                        "additional_info_url": opportunity_details.get('additional_info_url'),
+                        "additional_info_text": opportunity_details.get('additional_info_text'),
+                        "archive_date": opportunity_details.get('archive_date'),
+                        "forecast_date": opportunity_details.get('forecast_date'),
+                        "close_date_explanation": opportunity_details.get('close_date_explanation'),
+                        "expected_number_of_awards": opportunity_details.get('expected_number_of_awards'),
+                        "award_floor": opportunity_details.get('award_floor'),
+                        "award_ceiling": opportunity_details.get('award_ceiling'),
+                        "attachments": opportunity_details.get('attachments', []),
+                        "version": opportunity_details.get('version'),
+                        "last_updated_date": opportunity_details.get('last_updated_date')
                     }
                     # Calculate enhanced match score after building the full opportunity
                     opp["match_score"] = self._calculate_enhanced_match_score(opp)
@@ -206,6 +227,7 @@ class GrantsGovService:
                         amount = self._parse_amount(str(award_floor))
 
                     details['amount'] = amount if amount and amount > 0 else None
+
                     # Clean HTML tags from description
                     raw_desc = synopsis.get('synopsisDesc', '').strip()
                     clean_desc = re.sub(r'<[^>]+>', '', raw_desc)  # Remove HTML tags
@@ -216,7 +238,43 @@ class GrantsGovService:
                     clean_desc = re.sub(r'&quot;', '"', clean_desc)  # Replace &quot; with "
                     clean_desc = re.sub(r'&[a-zA-Z0-9#]+;', '', clean_desc)  # Remove remaining HTML entities
                     details['description'] = clean_desc.strip()
+
+                    # EXISTING BASIC CONTACT
                     details['contact'] = synopsis.get('agencyContactEmail', '')
+
+                    # UNIVERSAL FIELDS (work for all grant sources)
+                    # Contact Information (expanded)
+                    details['contact_name'] = synopsis.get('agencyContactName', '')
+                    details['contact_phone'] = synopsis.get('agencyContactPhone', '')
+                    details['contact_description'] = self._clean_html_entities(synopsis.get('agencyContactDescription', ''))
+
+                    # Eligibility Information
+                    details['eligibility_explanation'] = self._clean_html_entities(synopsis.get('applicantEligibilityDesc', ''))
+
+                    # Cost Sharing
+                    details['cost_sharing'] = synopsis.get('costSharingOrMatchingRequirement', 'No') == 'Yes'
+                    details['cost_sharing_description'] = self._clean_html_entities(synopsis.get('costSharingDescription', ''))
+
+                    # Additional Information
+                    details['additional_info_url'] = synopsis.get('additionalInformationURL', '')
+                    details['additional_info_text'] = self._clean_html_entities(synopsis.get('additionalInformationText', ''))
+
+                    # Timeline Information
+                    details['archive_date'] = synopsis.get('archiveDate') or None
+                    details['forecast_date'] = synopsis.get('estimatedSynopsisPostDate') or None
+                    details['close_date_explanation'] = self._clean_html_entities(synopsis.get('closeDateExplanation', ''))
+
+                    # Award Information (range instead of single amount)
+                    details['expected_number_of_awards'] = synopsis.get('expectedNumberOfAwards', '')
+                    details['award_floor'] = self._parse_amount(str(award_floor)) if award_floor else None
+                    details['award_ceiling'] = self._parse_amount(str(award_ceiling)) if award_ceiling else None
+
+                    # Attachments - PDFs, solicitations, amendments
+                    details['attachments'] = self._extract_attachments(synopsis)
+
+                    # Version/Amendment Tracking
+                    details['version'] = synopsis.get('version', '')
+                    details['last_updated_date'] = synopsis.get('lastUpdatedDate', '')
 
                 return details
             else:
@@ -333,6 +391,22 @@ class GrantsGovService:
     def _calculate_enhanced_match_score(self, grant: Dict[str, Any]) -> int:
         """Calculate enhanced match score using semantic similarity with historical RFPs"""
         try:
+            # Check if this grant already exists in the database with a match score
+            opportunity_id = grant.get('id') or grant.get('opportunity_id')
+            if opportunity_id and self.supabase:
+                try:
+                    existing = self.supabase.table("scraped_grants")\
+                        .select("match_score")\
+                        .eq("opportunity_id", opportunity_id)\
+                        .execute()
+
+                    if existing.data and existing.data[0].get('match_score'):
+                        cached_score = existing.data[0]['match_score']
+                        print(f"[GRANTS] Using cached match score for '{grant.get('title', 'Unknown')[:50]}...': {cached_score}%")
+                        return cached_score
+                except Exception as e:
+                    print(f"[GRANTS] Could not check for cached score: {e}")
+
             # Import the standalone scoring service
             from match_scoring import calculate_match_score
 
@@ -424,6 +498,30 @@ class GrantsGovService:
             requirements = key_phrases[:4] if key_phrases else ["See full eligibility requirements on grants.gov"]
 
         return requirements[:4]  # Limit to 4 requirements for display
+
+    def _extract_attachments(self, synopsis: dict) -> List[Dict[str, str]]:
+        """Extract attachment information from Grants.gov synopsis"""
+        attachments = []
+
+        # Grants.gov provides attachments in relatedDocuments
+        if 'relatedDocuments' in synopsis:
+            for doc in synopsis.get('relatedDocuments', []):
+                attachments.append({
+                    'title': doc.get('description', doc.get('fileName', 'Document')),
+                    'url': doc.get('url', ''),
+                    'type': doc.get('fileType', 'pdf')
+                })
+
+        # Also check for attachmentLinks (alternative field name)
+        if 'attachmentLinks' in synopsis:
+            for link in synopsis.get('attachmentLinks', []):
+                attachments.append({
+                    'title': link.get('description', 'Attachment'),
+                    'url': link.get('url', ''),
+                    'type': 'pdf'
+                })
+
+        return attachments
 
     def _get_mock_grants(self) -> List[Dict[str, Any]]:
         """Fallback mock data if API fails"""

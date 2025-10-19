@@ -959,7 +959,7 @@ Return as JSON array in "opportunities" field."""
                 search_keywords = search_keywords.strip()
                 print(f"[DEBUG] Search keywords: '{search_keywords}'")
 
-                grants_service = GrantsGovService()
+                grants_service = GrantsGovService(supabase_client=supabase)
                 real_grants = grants_service.search_grants(search_keywords, limit=10)
                 print(f"[DEBUG] Retrieved {len(real_grants)} real grants")
                 orchestration_result = json.dumps({"opportunities": real_grants})
