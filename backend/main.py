@@ -268,35 +268,29 @@ async def get_opportunities():
 
 @app.get("/api/scraped-grants")
 async def get_scraped_grants(
-    source: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0
+    source: Optional[str] = None
 ):
     """
     Get grants collected by scheduled scrapers
 
     Args:
         source: Filter by data source (grants_gov, state, local, etc.)
-        limit: Maximum number of grants to return
-        offset: Pagination offset
     """
     try:
-        query = supabase.table("scraped_grants").select("*")
+        query = supabase.table("scraped_grants").select("*", count="exact")
 
         if source:
             query = query.eq("source", source)
 
-        query = query.order("created_at", desc=True)\
-                    .range(offset, offset + limit - 1)
+        query = query.order("created_at", desc=True)
 
         result = query.execute()
 
         return {
             "grants": result.data,
             "count": len(result.data),
-            "source": source,
-            "limit": limit,
-            "offset": offset
+            "total": result.count if hasattr(result, 'count') else len(result.data),
+            "source": source
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch scraped grants: {str(e)}")
