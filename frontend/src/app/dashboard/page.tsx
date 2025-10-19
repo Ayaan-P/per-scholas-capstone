@@ -61,7 +61,7 @@ export default function Dashboard() {
   const fetchGrants = async () => {
     try {
       setLoading(true)
-      const response = await api.getScrapedGrants({ limit: 200 })
+      const response = await api.getScrapedGrants()
 
       if (response.ok) {
         const data = await response.json()

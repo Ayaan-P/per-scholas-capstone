@@ -17,8 +17,8 @@ from search_keywords import get_keywords_for_source
 class GrantsGovScraper:
     """Scraper for Grants.gov federal opportunities with multi-keyword search"""
 
-    def __init__(self):
-        self.grants_service = GrantsGovService()
+    def __init__(self, supabase_client=None):
+        self.grants_service = GrantsGovService(supabase_client=supabase_client)
 
     async def scrape(self, keywords: str = None, limit: int = 10) -> List[Dict[str, Any]]:
         """
@@ -79,36 +79,3 @@ class GrantsGovScraper:
                 unique_grants.append(grant)
         
         return unique_grants
-
-import asyncio
-from typing import List, Dict, Any
-from grants_service import GrantsGovService
-
-
-class GrantsGovScraper:
-    """Scraper for Grants.gov federal opportunities"""
-
-    def __init__(self):
-        self.grants_service = GrantsGovService()
-
-    async def scrape(self, keywords: str = "technology workforce", limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Scrape grants from Grants.gov
-
-        Args:
-            keywords: Search keywords
-            limit: Maximum number of grants to return
-
-        Returns:
-            List of grant opportunities
-        """
-        # Run the synchronous search in a thread pool
-        loop = asyncio.get_event_loop()
-        grants = await loop.run_in_executor(
-            None,
-            self.grants_service.search_grants,
-            keywords,
-            limit
-        )
-
-        return grants

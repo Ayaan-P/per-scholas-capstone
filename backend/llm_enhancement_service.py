@@ -82,14 +82,33 @@ class LLMEnhancementService:
     async def _generate_summary(self, grant: Dict[str, Any]) -> str:
         """Generate concise LLM summary."""
         try:
+            # Build comprehensive grant info for LLM
+            award_info = ""
+            if grant.get('award_floor') and grant.get('award_ceiling'):
+                award_info = f"\nAward Range: ${grant.get('award_floor'):,} - ${grant.get('award_ceiling'):,}"
+                if grant.get('expected_number_of_awards'):
+                    award_info += f"\nExpected Awards: {grant.get('expected_number_of_awards')}"
+            elif grant.get('amount'):
+                award_info = f"\nAmount: ${grant.get('amount', 0):,}"
+
+            eligibility_info = ""
+            if grant.get('eligibility_explanation'):
+                eligibility_info = f"\nEligibility: {grant.get('eligibility_explanation')[:200]}"
+
+            cost_sharing_info = ""
+            if grant.get('cost_sharing'):
+                cost_sharing_info = f"\nCost Sharing: Required"
+                if grant.get('cost_sharing_description'):
+                    cost_sharing_info += f" - {grant.get('cost_sharing_description')[:100]}"
+
             prompt = f"""Summarize this grant opportunity:
 
 Title: {grant.get('title')}
-Funder: {grant.get('funder')}
-Amount: ${grant.get('amount', 0):,}
+Funder: {grant.get('funder')}{award_info}
+Deadline: {grant.get('deadline', 'Not specified')}
 
 Full Description:
-{grant.get('description', '')}
+{grant.get('description', '')}{eligibility_info}{cost_sharing_info}
 
 Write a clear 2-3 sentence summary of what this grant is for and what it funds."""
 
@@ -105,6 +124,37 @@ Write a clear 2-3 sentence summary of what this grant is for and what it funds."
             # Get score breakdown for context
             score_breakdown = self._get_score_breakdown(grant)
 
+            # Build comprehensive grant context
+            award_details = ""
+            if grant.get('award_floor') and grant.get('award_ceiling'):
+                award_details = f"\nAward Range: ${grant.get('award_floor'):,} - ${grant.get('award_ceiling'):,}"
+                if grant.get('expected_number_of_awards'):
+                    award_details += f" (Expected Awards: {grant.get('expected_number_of_awards')})"
+            elif grant.get('amount'):
+                award_details = f"\nAmount: ${grant.get('amount', 0):,}"
+
+            eligibility_details = ""
+            if grant.get('eligibility_explanation'):
+                eligibility_details = f"\n\nEligibility Criteria:\n{grant.get('eligibility_explanation')[:300]}"
+
+            cost_sharing_details = ""
+            if grant.get('cost_sharing'):
+                cost_sharing_details = f"\n\nCost Sharing: REQUIRED"
+                if grant.get('cost_sharing_description'):
+                    cost_sharing_details += f"\n{grant.get('cost_sharing_description')[:200]}"
+
+            contact_info = ""
+            if grant.get('contact_name') or grant.get('contact_phone'):
+                contact_info = "\n\nProgram Contact:"
+                if grant.get('contact_name'):
+                    contact_info += f"\nName: {grant.get('contact_name')}"
+                if grant.get('contact_phone'):
+                    contact_info += f"\nPhone: {grant.get('contact_phone')}"
+
+            additional_context = ""
+            if grant.get('additional_info_text'):
+                additional_context = f"\n\nAdditional Information:\n{grant.get('additional_info_text')[:300]}"
+
             prompt = f"""Analyze this grant for Per Scholas. Return ONLY valid JSON:
 
 {{
@@ -113,10 +163,11 @@ Write a clear 2-3 sentence summary of what this grant is for and what it funds."
 }}
 
 Grant: {grant.get('title')}
-Funder: {grant.get('funder')}
-Amount: ${grant.get('amount', 0):,}
+Funder: {grant.get('funder')}{award_details}
+Deadline: {grant.get('deadline', 'Not specified')}
 Match Score: {grant.get('match_score', 0)}%
-Description: {grant.get('description', '')[:500]}
+
+Description: {grant.get('description', '')[:500]}{eligibility_details}{cost_sharing_details}{contact_info}{additional_context}
 
 Score Breakdown:
 - Base Score: {score_breakdown['components']['base_score']}
@@ -133,6 +184,7 @@ Domain Penalties: {score_breakdown['penalties']['domain_penalty']} points
 {f"⚠️ Non-relevant domains found: {', '.join(score_breakdown['penalties']['excluded_domains_found'])}" if score_breakdown['penalties']['excluded_domains_found'] else "✓ No domain penalties"}
 
 Focus on: alignment with tech workforce training, target demographics, and program fit.
+Consider eligibility requirements, cost sharing implications, and funding structure.
 Use the score breakdown to explain specific strengths and weaknesses.
 Generate 3-5 relevant tags based on the matched keywords and grant focus."""
 
@@ -180,25 +232,28 @@ Generate 3-5 relevant tags based on the matched keywords and grant focus."""
 
     async def _find_similar_proposals(self, grant: Dict[str, Any]) -> List[Dict]:
         """Find similar past proposals using PGVector similarity search."""
-        # DISABLED: Similarity search temporarily disabled
-        # TODO: Re-enable when match_proposals function is properly set up in Supabase
-        return []
+        try:
+            # Import semantic service for RFP similarity search
+            from semantic_service import SemanticService
 
-        # try:
-        #     # Query PGVector DB for similar proposals
-        #     # This requires the pgvector extension and proper setup
-        #     result = self.supabase.rpc('match_proposals', {
-        #         'query_text': f"{grant.get('title')} {grant.get('description', '')}",
-        #         'match_count': 3
-        #     }).execute()
+            semantic_service = SemanticService()
 
-        #     if hasattr(result, 'data') and result.data:
-        #         return result.data
+            # Create query text from grant
+            query_text = f"{grant.get('title', '')} {grant.get('description', '')}"
 
-        #     return []
-        # except Exception as e:
-        #     print(f"[LLM ENHANCEMENT] Similarity search error: {e}")
-        #     return []
+            # Find similar RFPs (threshold 0.25 = 25% similarity minimum)
+            similar_rfps = semantic_service.find_similar_rfps(query_text, limit=5)
+
+            if similar_rfps:
+                print(f"[LLM ENHANCEMENT] Found {len(similar_rfps)} similar RFPs for '{grant.get('title', 'Unknown')[:50]}...'")
+                for rfp in similar_rfps:
+                    print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+
+            return similar_rfps
+
+        except Exception as e:
+            print(f"[LLM ENHANCEMENT] Similarity search error: {e}")
+            return []
 
 
 # Convenience function for API endpoint
@@ -241,7 +296,26 @@ async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, A
         'detailed_match_reasoning': enhanced.get('detailed_match_reasoning'),
         'tags': enhanced.get('tags', []),
         'similar_past_proposals': enhanced.get('similar_past_proposals', []),
-        'status': 'active'
+        'status': 'active',
+
+        # UNIVERSAL COMPREHENSIVE FIELDS
+        'contact_name': enhanced.get('contact_name'),
+        'contact_phone': enhanced.get('contact_phone'),
+        'contact_description': enhanced.get('contact_description'),
+        'eligibility_explanation': enhanced.get('eligibility_explanation'),
+        'cost_sharing': enhanced.get('cost_sharing'),
+        'cost_sharing_description': enhanced.get('cost_sharing_description'),
+        'additional_info_url': enhanced.get('additional_info_url'),
+        'additional_info_text': enhanced.get('additional_info_text'),
+        'archive_date': enhanced.get('archive_date'),
+        'forecast_date': enhanced.get('forecast_date'),
+        'close_date_explanation': enhanced.get('close_date_explanation'),
+        'expected_number_of_awards': enhanced.get('expected_number_of_awards'),
+        'award_floor': enhanced.get('award_floor'),
+        'award_ceiling': enhanced.get('award_ceiling'),
+        'attachments': enhanced.get('attachments', []),
+        'version': enhanced.get('version'),
+        'last_updated_date': enhanced.get('last_updated_date')
         # saved_at, created_at, updated_at are auto-generated
     }
 
