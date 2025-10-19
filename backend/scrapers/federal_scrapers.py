@@ -68,13 +68,6 @@ class SAMGovScraper:
             )
 
             logger.info(f"Response status: {response.status_code}")
-            
-            # Log response content for debugging (first 500 chars)
-            try:
-                response_text = response.text[:500]
-                logger.info(f"Response preview: {response_text}")
-            except:
-                pass
 
             result = {
                 'status_code': response.status_code,
@@ -278,7 +271,6 @@ class SAMGovScraper:
 
             logger.info(f"SAM.gov API response: {response.status_code}")
             
-            # Log response details for debugging
             if response.status_code != 200:
                 logger.error(f"Response content: {response.text[:500]}")
 
@@ -465,6 +457,26 @@ class USASpendingScraper:
             logger.error(f"USASpending scraper error: {e}")
             return []
 
+    async def scrape_with_keyword(self, keyword: str, limit: int = 8) -> List[Dict[str, Any]]:
+        """
+        Scrape USASpending awards filtered by keyword
+        
+        Args:
+            keyword: Search keyword to filter awards
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of grant dictionaries
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            grants = await loop.run_in_executor(None, self._fetch_awards_with_keyword, keyword, limit)
+            return grants
+
+        except Exception as e:
+            logger.error(f"USASpending scraper error for keyword '{keyword}': {e}")
+            return []
+
     def _fetch_awards(self, limit: int) -> List[Dict[str, Any]]:
         """Fetch grant awards from USASpending API"""
         try:
@@ -523,6 +535,69 @@ class USASpendingScraper:
             logger.error(f"Error fetching USASpending awards: {e}")
             return []
 
+    def _fetch_awards_with_keyword(self, keyword: str, limit: int) -> List[Dict[str, Any]]:
+        """Fetch grant awards from USASpending API filtered by keyword"""
+        try:
+            # USASpending v2 API payload with specific keyword
+            payload = {
+                "filters": {
+                    "award_type_codes": ["02", "03", "04", "05"],  # Grant types: B, C, D, E
+                    "time_period": [
+                        {
+                            "start_date": (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'),
+                            "end_date": datetime.now().strftime('%Y-%m-%d'),
+                            "date_type": "action_date"
+                        }
+                    ],
+                    "keywords": [keyword]
+                },
+                "fields": [
+                    "Award ID",
+                    "Recipient Name",
+                    "Award Amount",
+                    "Description",
+                    "Awarding Agency",
+                    "Period of Performance Start Date",
+                    "Award Type"
+                ],
+                "page": 1,
+                "limit": min(limit, 50),
+                "sort": "Award Amount",
+                "order": "desc"
+            }
+
+            headers = {
+                'Content-Type': 'application/json',
+                'User-Agent': 'FundraisingCRO/1.0'
+            }
+
+            logger.info(f"Fetching USASpending awards for keyword: {keyword}")
+
+            response = requests.post(
+                self.search_url,
+                json=payload,
+                headers=headers,
+                timeout=30
+            )
+
+            logger.info(f"USASpending API status for '{keyword}': {response.status_code}")
+
+            if response.status_code == 200:
+                data = response.json()
+                awards = self._parse_awards(data)
+                # Add keyword context to match scores for better targeting
+                for award in awards:
+                    award['id'] = f"usa-spending-{keyword}-{award['id'].split('-')[-1]}"
+                    award['match_score'] = min(award['match_score'] + 10, 95)  # Boost score for keyword match
+                return awards
+            else:
+                logger.warning(f"USASpending API returned {response.status_code} for keyword '{keyword}'")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error fetching USASpending awards for keyword '{keyword}': {e}")
+            return []
+
     def _parse_awards(self, data: Dict) -> List[Dict[str, Any]]:
         """Parse USASpending API response into grant format"""
         grants = []
@@ -545,7 +620,7 @@ class USASpendingScraper:
                     "title": f"Historical Grant: {description[:100] if description else 'Technology Grant'}",
                     "funder": awarding_agency,
                     "amount": self._parse_amount(amount),
-                    "deadline": "Historical",  # These are past awards
+                    "deadline": "2024-01-01",  # Use a past date since these are historical
                     "match_score": 75,  # Lower score since these are historical
                     "description": f"Historical grant awarded to {recipient}. {description[:200]}",
                     "requirements": ["Historical data - for pattern analysis only"],
@@ -573,50 +648,345 @@ class USASpendingScraper:
         return 250000
 
 
-class NSFScraper:
-    """Scraper for National Science Foundation grants"""
+class DOLWorkforceScraper:
+    """
+    Scraper for Department of Labor workforce development grants and contracts
+    Focus: WIOA, YouthBuild, Apprenticeship, H-1B grants, and training contracts
+    
+    Note: DOL doesn't have a unified grants API, but has multiple program-specific endpoints
+    and RSS feeds for opportunity announcements
+    """
 
     def __init__(self):
-        self.api_url = "https://www.research.gov/awardapi-service/v1/awards.json"
+        # DOL doesn't have a single API, but has multiple data sources
+        # Focus on USASpending API for actual grant data
+        self.grants_page_url = "https://www.dol.gov/agencies/eta/grants"
+        self.wioa_page_url = "https://www.dol.gov/agencies/eta/wioa"
+        
+        # Use USASpending API to find DOL opportunities (primary source)
+        self.usa_spending_url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
+        
+        logger.info("DOL Workforce Development scraper initialized")
 
     async def scrape(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """
-        Scrape NSF grant opportunities
-
-        NSF has specific programs like ATE (Advanced Technological Education)
-        that align well with Per Scholas mission
-        """
+        """Scrape opportunities from DOL using multi-keyword search"""
         try:
             loop = asyncio.get_event_loop()
-            grants = await loop.run_in_executor(None, self._fetch_nsf_opportunities, limit)
-            return grants
+            
+            # Get DOL-specific keywords
+            keywords = get_keywords_for_source('dol')
+            if not keywords:
+                # Fallback to general keywords
+                keywords = get_keywords_for_source('general')
+            
+            logger.info(f"Using {len(keywords)} keywords for DOL search")
+            
+            all_opportunities = []
+            
+            # Search using USASpending API for DOL grants
+            for keyword in keywords[:3]:  # Limit to avoid rate limits
+                try:
+                    logger.info(f"Searching DOL opportunities with keyword: '{keyword}'")
+                    keyword_opportunities = await loop.run_in_executor(
+                        None, self._fetch_from_usa_spending, keyword, limit // len(keywords[:3]) + 1
+                    )
+                    all_opportunities.extend(keyword_opportunities)
+                    
+                    # Small delay between searches
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    logger.error(f"DOL keyword search failed for '{keyword}': {e}")
+                    continue
+            
+            # Remove duplicates based on opportunity ID
+            unique_opportunities = self._deduplicate_opportunities(all_opportunities)
+            
+            # Limit to requested number
+            final_opportunities = unique_opportunities[:limit]
+            
+            logger.info(f"DOL multi-source search completed: {len(final_opportunities)} unique opportunities found")
+            
+            return final_opportunities
 
         except Exception as e:
-            logger.error(f"NSF scraper error: {e}")
+            logger.error(f"DOL scraper error: {e}")
             return []
 
-    def _fetch_nsf_opportunities(self, limit: int) -> List[Dict[str, Any]]:
-        """Fetch NSF opportunities"""
+    async def scrape_with_keyword(self, keyword: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Scrape DOL opportunities using a specific keyword"""
         try:
-            # NSF has both an awards API (historical) and opportunity announcements
-            # For current opportunities, would typically scrape nsf.gov/funding
+            loop = asyncio.get_event_loop()
+            opportunities = await loop.run_in_executor(
+                None, self._fetch_from_usa_spending, keyword, limit
+            )
+            logger.info(f"DOL keyword '{keyword}' search: {len(opportunities)} opportunities found")
+            return opportunities
+        except Exception as e:
+            logger.error(f"DOL keyword search error for '{keyword}': {e}")
+            return []
 
-            # Return mock data for now
-            return [
-                {
-                    "id": "nsf-ate-2025",
-                    "title": "Advanced Technological Education (ATE) Program",
-                    "funder": "National Science Foundation",
-                    "amount": 600000,
-                    "deadline": (datetime.now() + timedelta(days=120)).strftime('%Y-%m-%d'),
-                    "match_score": 92,
-                    "description": "The ATE program focuses on the education of technicians for high-technology fields that drive the nation's economy.",
-                    "requirements": ["Two-year institution involvement", "STEM focus", "Industry partnerships"],
-                    "contact": "ate@nsf.gov",
-                    "application_url": "https://nsf.gov/funding/pgm_summ.jsp?pims_id=5464"
-                }
-            ]
+    def _fetch_from_usa_spending(self, keyword: str, limit: int) -> List[Dict[str, Any]]:
+        """Fetch DOL opportunities from USASpending API with keyword focus"""
+        try:
+            # USASpending v2 API payload focused on DOL grants (not contracts)
+            payload = {
+                "filters": {
+                    "agencies": [
+                        {"type": "awarding", "tier": "toptier", "name": "Department of Labor"}
+                    ],
+                    "award_type_codes": ["02", "03", "04", "05"],  # Grant types only
+                    "time_period": [
+                        {
+                            "start_date": (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'),
+                            "end_date": datetime.now().strftime('%Y-%m-%d'),
+                            "date_type": "action_date"
+                        }
+                    ]
+                },
+                "fields": [
+                    "Award ID",
+                    "Recipient Name", 
+                    "Award Amount",
+                    "Description",
+                    "Awarding Agency",
+                    "Awarding Sub Agency",
+                    "Period of Performance Start Date",
+                    "Period of Performance Current End Date",
+                    "Award Type"
+                ],
+                "page": 1,
+                "limit": min(limit, 100),
+                "sort": "Award Amount",
+                "order": "desc"
+            }
+
+            headers = {
+                'Content-Type': 'application/json',
+                'User-Agent': 'FundraisingCRO/1.0'
+            }
+
+            logger.info(f"Fetching DOL grants from USASpending for keyword: {keyword}")
+
+            response = requests.post(
+                self.usa_spending_url,
+                json=payload,
+                headers=headers,
+                timeout=30
+            )
+
+            logger.info(f"USASpending DOL API status for '{keyword}': {response.status_code}")
+
+            if response.status_code == 200:
+                data = response.json()
+                # Don't filter by keyword - we're already filtering by DOL agency
+                return self._parse_usa_spending_response(data, keyword)
+            else:
+                logger.warning(f"USASpending DOL API returned {response.status_code} for '{keyword}': {response.text[:200]}")
+                return []
 
         except Exception as e:
-            logger.error(f"Error fetching NSF opportunities: {e}")
+            logger.error(f"Error fetching DOL opportunities from USASpending for '{keyword}': {e}")
             return []
+
+    def _parse_usa_spending_response(self, data: Dict, keyword: str) -> List[Dict[str, Any]]:
+        """Parse USASpending API response for DOL opportunities"""
+        opportunities = []
+
+        try:
+            results = data.get('results', [])
+
+            for result in results:
+                # Extract award details
+                award_id = result.get('Award ID', result.get('generated_internal_id', ''))
+                recipient = result.get('Recipient Name', 'Unknown')
+                sub_agency = result.get('Awarding Sub Agency', 'DOL')
+                amount = result.get('Award Amount', result.get('total_obligation', 0))
+                description = result.get('Description', result.get('description', ''))
+                award_type = result.get('Award Type', 'Grant')
+                
+                # Determine if this is active/upcoming or historical
+                start_date = result.get('Period of Performance Start Date', '')
+                end_date = result.get('Period of Performance Current End Date', '')
+                
+                is_current = self._is_current_opportunity(start_date, end_date)
+                
+                title_prefix = "Current DOL" if is_current else "Historical DOL"
+                
+                opportunity = {
+                    "id": f"dol-usa-spending-{award_id}",
+                    "title": f"{title_prefix} {award_type}: {description[:80] if description else keyword.title()} Program",
+                    "funder": f"U.S. Department of Labor - {sub_agency}",
+                    "amount": self._parse_amount(amount),
+                    "deadline": self._calculate_deadline(end_date, is_current),
+                    "match_score": self._calculate_match_score(description, keyword) + (10 if is_current else 0),
+                    "description": f"{award_type} opportunity from DOL. {description[:300] if description else f'Department of Labor {keyword} program.'}",
+                    "requirements": self._extract_dol_requirements(description) if description else [f"{keyword} focus required"],
+                    "contact": f"Contact {sub_agency} program office",
+                    "application_url": f"https://www.usaspending.gov/award/{award_id}",
+                    "source": "USASpending DOL Data",
+                    "award_type": award_type,
+                    "recipient_example": recipient if not is_current else None,
+                    "is_current": is_current
+                }
+                opportunities.append(opportunity)
+
+        except Exception as e:
+            logger.error(f"Error parsing USASpending DOL response: {e}")
+
+        return opportunities
+
+    def _is_workforce_related(self, title: str, description: str) -> bool:
+        """Check if opportunity is related to workforce development"""
+        text = (title + ' ' + description).lower()
+        workforce_keywords = [
+            'workforce', 'training', 'employment', 'job', 'career', 'apprentice',
+            'skills', 'education', 'wioa', 'youthbuild', 'h-1b', 'technology',
+            'cybersecurity', 'digital', 'stem', 'coding', 'programming'
+        ]
+        return any(keyword in text for keyword in workforce_keywords)
+
+    def _is_current_opportunity(self, start_date: str, end_date: str) -> bool:
+        """Determine if this is a current/active opportunity"""
+        try:
+            if end_date:
+                end_dt = datetime.strptime(end_date[:10], '%Y-%m-%d')
+                return end_dt > datetime.now()
+        except:
+            pass
+        return False
+
+    def _calculate_deadline(self, end_date: str, is_current: bool) -> str:
+        """Calculate appropriate deadline"""
+        if is_current and end_date:
+            try:
+                end_dt = datetime.strptime(end_date[:10], '%Y-%m-%d')
+                return end_dt.strftime('%Y-%m-%d')
+            except:
+                pass
+        
+        if is_current:
+            # Current program, estimate application deadline
+            return (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
+        else:
+            # Use a past date for historical grants since database requires valid date
+            return "2024-01-01"
+
+    def _estimate_amount_from_title(self, title: str) -> int:
+        """Estimate funding amount from title keywords"""
+        title_lower = title.lower()
+        
+        # Look for amount indicators in title
+        if any(word in title_lower for word in ['million', '$m', 'large-scale']):
+            return 2000000
+        elif any(word in title_lower for word in ['billion', '$b']):
+            return 50000000
+        elif any(word in title_lower for word in ['initiative', 'program', 'national']):
+            return 1500000
+        elif any(word in title_lower for word in ['training', 'skills', 'apprentice']):
+            return 800000
+        else:
+            return 500000
+
+    def _parse_rss_date(self, date_str: str) -> str:
+        """Parse RSS date to YYYY-MM-DD format"""
+        try:
+            if date_str:
+                # RSS dates are often in RFC 2822 format
+                from datetime import datetime
+                import email.utils
+                
+                parsed = email.utils.parsedate_to_datetime(date_str)
+                # Assume this is announcement date, add typical application period
+                deadline = parsed + timedelta(days=60)
+                return deadline.strftime('%Y-%m-%d')
+        except:
+            pass
+        return (datetime.now() + timedelta(days=75)).strftime('%Y-%m-%d')
+
+    def _extract_dol_requirements(self, description: str) -> List[str]:
+        """Extract DOL-specific requirements from description"""
+        requirements = []
+        
+        if not description:
+            return ["See DOL program requirements"]
+        
+        desc_lower = description.lower()
+        
+        # Common DOL requirements
+        if 'wioa' in desc_lower:
+            requirements.append("WIOA compliance required")
+        if 'apprentice' in desc_lower:
+            requirements.append("Apprenticeship program involvement")
+        if 'workforce' in desc_lower or 'employment' in desc_lower:
+            requirements.append("Workforce development focus")
+        if 'underserved' in desc_lower or 'disadvantaged' in desc_lower:
+            requirements.append("Focus on underserved populations")
+        if 'outcome' in desc_lower or 'placement' in desc_lower:
+            requirements.append("Measurable employment outcomes")
+        if 'employer' in desc_lower or 'industry' in desc_lower:
+            requirements.append("Employer engagement required")
+        
+        return requirements[:4] if requirements else ["Federal workforce development compliance"]
+
+    def _deduplicate_opportunities(self, opportunities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate opportunities based on ID"""
+        seen_ids = set()
+        unique_opportunities = []
+        
+        for opp in opportunities:
+            opp_id = opp.get('id')
+            if opp_id and opp_id not in seen_ids:
+                seen_ids.add(opp_id)
+                unique_opportunities.append(opp)
+        
+        logger.info(f"DOL: Deduplicated {len(opportunities)} opportunities to {len(unique_opportunities)} unique")
+        return unique_opportunities
+
+    def _calculate_match_score(self, title: str, description: str = '') -> int:
+        """Calculate relevance score for DOL opportunities"""
+        try:
+            from match_scoring import calculate_match_score
+            grant_data = {
+                'title': title,
+                'description': description,
+                'amount': 0  # Will be scored separately
+            }
+            return calculate_match_score(grant_data, [])
+        except Exception as e:
+            # Fallback to simple scoring
+            text = (title + ' ' + description).lower()
+            
+            # DOL-specific high-value keywords
+            high_value = ['workforce development', 'technology training', 'cybersecurity', 'apprenticeship']
+            medium_value = ['training', 'employment', 'skills', 'career', 'job placement']
+            low_value = ['education', 'wioa', 'youth', 'adult']
+            
+            score = 60  # Base score
+            
+            for keyword in high_value:
+                if keyword in text:
+                    score += 15
+            
+            for keyword in medium_value:
+                if keyword in text:
+                    score += 8
+                    
+            for keyword in low_value:
+                if keyword in text:
+                    score += 3
+            
+            return min(95, score)
+
+    def _parse_amount(self, amount) -> int:
+        """Parse amount to integer"""
+        try:
+            if isinstance(amount, (int, float)):
+                return int(amount)
+            elif isinstance(amount, str):
+                import re
+                clean = re.sub(r'[^\d.]', '', amount)
+                return int(float(clean)) if clean else 500000
+        except:
+            pass
+        return 500000

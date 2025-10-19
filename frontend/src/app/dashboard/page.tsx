@@ -293,6 +293,8 @@ export default function Dashboard() {
                       <option value="all">All Sources</option>
                       <option value="grants_gov">Grants.gov</option>
                       <option value="sam_gov">SAM.gov</option>
+                      <option value="dol_workforce">DOL Workforce Development</option>
+                      <option value="usa_spending">Federal Spending Database</option>
                       <option value="state">State</option>
                       <option value="local">Local</option>
                     </select>
