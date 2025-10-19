@@ -215,6 +215,17 @@ GRANTS_GOV_KEYWORDS = [
     "project management technology"
 ]
 
+# Keywords specifically for DOL (Department of Labor workforce development)
+DOL_KEYWORDS = [
+    "workforce development technology",
+    "apprenticeship technology training",
+    "WIOA technology programs",
+    "cybersecurity workforce training",
+    "digital skills workforce development",
+    "H-1B technical skills training",
+    "YouthBuild technology training"
+]
+
 def get_keywords_for_source(source: str) -> list:
     """
     Get appropriate keywords for a specific data source
@@ -228,8 +239,10 @@ def get_keywords_for_source(source: str) -> list:
     keyword_mapping = {
         'sam_gov': SAM_GOV_KEYWORDS,
         'grants_gov': GRANTS_GOV_KEYWORDS,
+        'dol': DOL_KEYWORDS,
         'federal': FEDERAL_KEYWORDS,
         'state': STATE_KEYWORDS,
+        'general': HIGH_PRIORITY_KEYWORDS,
         'default': HIGH_PRIORITY_KEYWORDS
     }
     

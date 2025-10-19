@@ -15,7 +15,7 @@ from supabase import Client
 # Import scrapers
 from scrapers.grants_gov_scraper import GrantsGovScraper
 from scrapers.state_scrapers import CaliforniaGrantsScraper, NewYorkGrantsScraper
-from scrapers.federal_scrapers import SAMGovScraper, USASpendingScraper
+from scrapers.federal_scrapers import SAMGovScraper, USASpendingScraper, DOLWorkforceScraper
 from scrapers.gmail_scraper import GmailInboxScraper
 
 # Import centralized keyword configuration
@@ -50,7 +50,8 @@ class SchedulerService:
             'california': CaliforniaGrantsScraper(),
             'new_york': NewYorkGrantsScraper(),
             'sam_gov': SAMGovScraper(),
-            'usa_spending': USASpendingScraper()
+            'usa_spending': USASpendingScraper(),
+            'dol_workforce': DOLWorkforceScraper()
         }
 
         # Initialize Gmail scraper if token exists
@@ -68,37 +69,55 @@ class SchedulerService:
         """Start the scheduler with all configured jobs"""
         logger.info("Starting scheduler service...")
 
-        # Federal grants - run every 6 hours
+        # Federal grants - run daily at 1 AM
         self.scheduler.add_job(
             self._scrape_grants_gov,
-            trigger=IntervalTrigger(hours=6),
+            trigger=CronTrigger(hour=1, minute=0),
             id='grants_gov_job',
             name='Scrape Grants.gov',
             replace_existing=True
         )
 
-        # SAM.gov opportunities - run every 12 hours
+        # SAM.gov opportunities - run daily at 1:30 AM
         self.scheduler.add_job(
             self._scrape_sam_gov,
-            trigger=IntervalTrigger(hours=12),
+            trigger=CronTrigger(hour=1, minute=30),
             id='sam_gov_job',
             name='Scrape SAM.gov',
             replace_existing=True
         )
 
-        # State grants - run daily at 2 AM
+        # DOL workforce development - run daily at 2:30 AM
+        self.scheduler.add_job(
+            self._scrape_dol_workforce,
+            trigger=CronTrigger(hour=2, minute=30),
+            id='dol_workforce_job',
+            name='Scrape DOL Workforce Development',
+            max_instances=1
+        )
+
+        # USASpending.gov - run daily at 2:45 AM
+        self.scheduler.add_job(
+            self._scrape_usa_spending,
+            trigger=CronTrigger(hour=2, minute=45),
+            id='usa_spending_job',
+            name='Scrape USASpending.gov',
+            max_instances=1
+        )
+
+        # State grants - run daily at 3 AM
         self.scheduler.add_job(
             self._scrape_state_grants,
-            trigger=CronTrigger(hour=2, minute=0),
+            trigger=CronTrigger(hour=3, minute=0),
             id='state_grants_job',
             name='Scrape State Grants',
             replace_existing=True
         )
 
-        # City/county grants - run daily at 3 AM
+        # City/county grants - run daily at 3:30 AM
         self.scheduler.add_job(
             self._scrape_local_grants,
-            trigger=CronTrigger(hour=3, minute=0),
+            trigger=CronTrigger(hour=3, minute=30),
             id='local_grants_job',
             name='Scrape Local Grants',
             replace_existing=True
@@ -221,6 +240,92 @@ class SchedulerService:
             logger.error(f"SAM.gov scrape failed: {e}")
             self._update_job_record(job_id, 'failed', 0, str(e))
 
+    async def _scrape_dol_workforce(self):
+        """Scrape workforce development opportunities from DOL using multi-keyword search"""
+        job_id = self._create_job_record('dol_workforce', 'running')
+
+        try:
+            logger.info("Starting DOL Workforce Development multi-keyword scrape...")
+            scraper = self.scrapers['dol_workforce']
+            
+            # Get keywords for DOL
+            keywords = get_keywords_for_source('dol')
+            logger.info(f"Using {len(keywords)} keywords for DOL search: {keywords}")
+            
+            all_grants = []
+            
+            # Search with each keyword to maximize opportunity discovery
+            for keyword in keywords:
+                try:
+                    logger.info(f"Searching DOL with keyword: '{keyword}'")
+                    keyword_grants = await scraper.scrape_with_keyword(keyword, limit=10)
+                    all_grants.extend(keyword_grants)
+                    logger.info(f"Found {len(keyword_grants)} opportunities for keyword '{keyword}'")
+                except Exception as e:
+                    logger.warning(f"Failed to scrape DOL with keyword '{keyword}': {e}")
+                    continue
+            
+            # Remove duplicates based on opportunity ID
+            unique_grants = {}
+            for grant in all_grants:
+                if grant.get('opportunity_id'):
+                    unique_grants[grant['opportunity_id']] = grant
+                elif grant.get('id'):
+                    unique_grants[grant['id']] = grant
+            
+            final_grants = list(unique_grants.values())
+            saved_count = await self._store_grants(final_grants, 'dol_workforce')
+
+            logger.info(f"DOL Workforce Development multi-keyword scrape completed: {saved_count} unique grants saved from {len(all_grants)} total opportunities")
+            self._update_job_record(job_id, 'completed', saved_count)
+
+        except Exception as e:
+            logger.error(f"DOL Workforce Development scrape failed: {e}")
+            self._update_job_record(job_id, 'failed', 0, str(e))
+
+    async def _scrape_usa_spending(self):
+        """Scrape federal spending opportunities from USASpending.gov using multi-keyword search"""
+        job_id = self._create_job_record('usa_spending', 'running')
+
+        try:
+            logger.info("Starting USASpending.gov multi-keyword scrape...")
+            scraper = self.scrapers['usa_spending']
+            
+            # Get federal keywords for USASpending (historical federal awards)
+            keywords = get_keywords_for_source('federal')  # Use federal keywords for federal spending data
+            logger.info(f"Using {len(keywords)} keywords for USASpending search: {keywords}")
+            
+            all_grants = []
+            
+            # Search with each keyword to maximize opportunity discovery
+            for keyword in keywords[:5]:  # Limit to 5 keywords to manage server load
+                try:
+                    logger.info(f"Searching USASpending with keyword: '{keyword}'")
+                    keyword_grants = await scraper.scrape_with_keyword(keyword, limit=8)
+                    all_grants.extend(keyword_grants)
+                    logger.info(f"Found {len(keyword_grants)} opportunities for keyword '{keyword}'")
+                except Exception as e:
+                    logger.warning(f"Failed to scrape USASpending with keyword '{keyword}': {e}")
+                    continue
+            
+            # Remove duplicates based on opportunity ID
+            unique_grants = {}
+            for grant in all_grants:
+                if grant.get('opportunity_id'):
+                    unique_grants[grant['opportunity_id']] = grant
+                elif grant.get('id'):
+                    unique_grants[grant['id']] = grant
+            
+            final_grants = list(unique_grants.values())
+            saved_count = await self._store_grants(final_grants, 'usa_spending')
+
+            logger.info(f"USASpending.gov multi-keyword scrape completed: {saved_count} unique grants saved from {len(all_grants)} total opportunities")
+            self._update_job_record(job_id, 'completed', saved_count)
+
+        except Exception as e:
+            logger.error(f"USASpending scrape failed: {e}")
+            self._update_job_record(job_id, 'failed', 0, str(e))
+
     async def _scrape_state_grants(self):
         """Scrape state-level grant databases"""
         job_id = self._create_job_record('state_grants', 'running')
@@ -323,6 +428,9 @@ class SchedulerService:
 
         for grant in grants:
             try:
+                # Get match score for logging
+                match_score = grant.get("match_score", 0)
+
                 # Check if grant already exists
                 existing = self.supabase.table("scraped_grants")\
                     .select("id, match_score")\
@@ -342,6 +450,7 @@ class SchedulerService:
                             "requirements": grant.get("requirements", []),
                             "contact": grant.get("contact"),
                             "application_url": grant.get("application_url"),
+                            "match_score": match_score,
                             "updated_at": datetime.now().isoformat()
                         })\
                         .eq("opportunity_id", grant.get("id"))\
@@ -392,7 +501,8 @@ class SchedulerService:
             except Exception as e:
                 logger.error(f"Failed to store grant {grant.get('id')}: {e}")
                 continue
-
+        
+        logger.info(f"{source}: Saved {saved_count} grants to database")
         return saved_count
 
     async def _store_gmail_grants(self, grants: List[Dict[str, Any]]) -> int:
