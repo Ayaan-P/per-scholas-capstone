@@ -70,6 +70,7 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
 
         print(f"[Claude Code Session] Completed with return code: {result.returncode}")
         print(f"[Claude Code Session] Output length: {len(result.stdout)} chars")
+        print(f"[Claude Code Session] Stdout: {result.stdout}")
 
         if result.stderr:
             print(f"[Claude Code Session] Stderr: {result.stderr}")
@@ -88,10 +89,12 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
                 'session_type': session_type
             }
         else:
+            error_msg = result.stderr if result.stderr else result.stdout
+            print(f"[Claude Code Session] FAILED - Error: {error_msg}")
             return {
                 'success': False,
                 'output': result.stdout,
-                'error': result.stderr,
+                'error': error_msg,
                 'session_type': session_type
             }
 
@@ -594,30 +597,47 @@ async def save_opportunity(opportunity_id: str):
             except Exception as e:
                 print(f"[SAVE] Error with semantic service: {e}")
 
-        # Save to saved_opportunities table with embedding
-        saved_data = {
+        # Save to scraped_grants table first (consistent with grants.gov flow)
+        scraped_data = {
             "opportunity_id": opportunity["id"],
             "title": opportunity["title"],
             "funder": opportunity["funder"],
             "amount": opportunity["amount"],
             "deadline": opportunity["deadline"],
-            "match_score": opportunity["match_score"],
             "description": opportunity["description"],
-            "requirements": opportunity["requirements"],
-            "contact": opportunity["contact"],
-            "application_url": opportunity["application_url"]
+            "requirements": opportunity.get("requirements", []),
+            "contact": opportunity.get("contact", ""),
+            "application_url": opportunity.get("application_url", ""),
+            "source": opportunity.get("source", "Agent"),  # Mark as Agent-discovered
+            "contact_name": opportunity.get("contact_name"),
+            "contact_phone": opportunity.get("contact_phone"),
+            "contact_description": opportunity.get("contact_description"),
+            "eligibility_explanation": opportunity.get("eligibility_explanation"),
+            "cost_sharing": opportunity.get("cost_sharing", False),
+            "cost_sharing_description": opportunity.get("cost_sharing_description"),
+            "additional_info_url": opportunity.get("additional_info_url"),
+            "additional_info_text": opportunity.get("additional_info_text"),
+            "archive_date": opportunity.get("archive_date"),
+            "forecast_date": opportunity.get("forecast_date"),
+            "close_date_explanation": opportunity.get("close_date_explanation"),
+            "expected_number_of_awards": opportunity.get("expected_number_of_awards"),
+            "award_floor": opportunity.get("award_floor"),
+            "award_ceiling": opportunity.get("award_ceiling"),
+            "attachments": opportunity.get("attachments", []),
+            "version": opportunity.get("version"),
+            "last_updated_date": opportunity.get("last_updated_date")
         }
 
-        if embedding:
-            saved_data["embedding"] = embedding
-            print(f"[SAVE] Saved with embedding for future similarity searches")
+        print(f"[SAVE] Saving Agent grant to scraped_grants: {opportunity['title'][:50]}...")
 
-        # Save to unified saved_opportunities table
-        result = supabase.table("saved_opportunities").insert(saved_data).execute()
-        saved_opp_id = result.data[0]["id"] if result.data else None
+        # Save to scraped_grants table
+        result = supabase.table("scraped_grants").insert(scraped_data).execute()
+        scraped_grant_id = result.data[0]["id"] if result.data else None
 
-        if not saved_opp_id:
-            raise HTTPException(status_code=500, detail="Failed to save opportunity to database")
+        if not scraped_grant_id:
+            raise HTTPException(status_code=500, detail="Failed to save to scraped_grants")
+
+        print(f"[SAVE] Saved to scraped_grants with ID: {scraped_grant_id}")
 
         # Also add to local cache
         opportunities_db.append(opportunity)
@@ -633,13 +653,13 @@ async def save_opportunity(opportunity_id: str):
             "result": None,
             "error": None,
             "created_at": datetime.now().isoformat(),
-            "grant_id": saved_opp_id,
+            "grant_id": scraped_grant_id,
             "grant_title": opportunity.get("title"),
             "source": opportunity.get("source", "Agent")
         }
 
-        # Start background LLM enhancement task (reuses existing enhancement function)
-        asyncio.create_task(run_llm_enhancement(enhancement_job_id, saved_opp_id))
+        # Start background LLM enhancement task (will move to saved_opportunities)
+        asyncio.create_task(run_llm_enhancement(enhancement_job_id, scraped_grant_id))
 
         return {
             "status": "processing",
