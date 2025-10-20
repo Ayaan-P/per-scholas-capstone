@@ -19,6 +19,15 @@ from scheduler_service import SchedulerService
 
 load_dotenv()
 
+# Setup Claude Code authentication from environment variables on server
+try:
+    from setup_claude_auth import setup_claude_credentials
+    if os.getenv('CLAUDE_ACCESS_TOKEN'):
+        setup_claude_credentials()
+        print("[STARTUP] Claude Code authentication configured successfully")
+except Exception as e:
+    print(f"[STARTUP] Warning: Could not setup Claude Code auth: {e}")
+
 def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro", timeout: int = 900) -> dict:
     """
     Create a Claude Code session similar to iron_man_wake_hybrid.py
@@ -44,9 +53,12 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
         print(f"[Claude Code Session] Prompt length: {len(prompt)} chars")
 
         # Execute Claude Code session similar to iron_man_wake but non-interactive
-        # Using --print flag for non-interactive mode
+        # Using --print flag for non-interactive mode with WebSearch enabled
         result = subprocess.run([
-            'claude', '--print'
+            'claude',
+            '--print',
+            '--allowed-tools', 'WebSearch', 'WebFetch', 'Bash', 'Read', 'Write',
+            '--permission-mode', 'acceptEdits'
         ],
         input=prompt,
         capture_output=True,
@@ -103,18 +115,62 @@ def parse_orchestration_response(orchestration_result):
     """Parse Claude Code orchestration result to extract structured opportunities"""
     try:
         if isinstance(orchestration_result, str):
-            # Try to extract JSON from the orchestrated response
             import re
-            json_match = re.search(r'\[.*\]', orchestration_result, re.DOTALL)
-            if json_match:
-                opportunities = json.loads(json_match.group())
-                return opportunities
 
-            # Try to find JSON object with opportunities array
-            json_match = re.search(r'\{.*"opportunities".*\}', orchestration_result, re.DOTALL)
+            # Log the raw response for debugging
+            print(f"[PARSE] Raw response length: {len(orchestration_result)}")
+            print(f"[PARSE] First 500 chars: {orchestration_result[:500]}")
+
+            # First, strip markdown code blocks if present
+            # Remove ```json and ``` markers
+            clean_result = re.sub(r'```json\s*', '', orchestration_result)
+            clean_result = re.sub(r'```\s*$', '', clean_result)
+            clean_result = clean_result.strip()
+
+            # Try to find just the JSON object/array in the response
+            # Look for content between first { and last }
+            json_match = re.search(r'\{.*\}', clean_result, re.DOTALL)
             if json_match:
-                data = json.loads(json_match.group())
-                return data.get('opportunities', [])
+                try:
+                    data = json.loads(json_match.group())
+                    if 'opportunities' in data:
+                        print(f"[PARSE] Successfully parsed complete JSON with {len(data['opportunities'])} opportunities")
+                        return data['opportunities']
+                except Exception as e:
+                    print(f"[PARSE] Failed to parse extracted JSON: {e}")
+
+            # Try to extract JSON array with opportunities
+            # Look for patterns like: "opportunities": [...]
+            json_match = re.search(r'"opportunities"\s*:\s*\[.*?\](?=\s*[,}])', orchestration_result, re.DOTALL)
+            if json_match:
+                try:
+                    # Wrap in object to make valid JSON
+                    json_str = '{' + json_match.group() + '}'
+                    data = json.loads(json_str)
+                    print(f"[PARSE] Found opportunities array with {len(data['opportunities'])} items")
+                    return data.get('opportunities', [])
+                except Exception as e:
+                    print(f"[PARSE] Failed to parse opportunities object: {e}")
+
+            # Try to find complete JSON object
+            json_match = re.search(r'\{[^{}]*"opportunities"[^{}]*\[[^\]]*\][^{}]*\}', orchestration_result, re.DOTALL)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group())
+                    print(f"[PARSE] Found complete JSON object with {len(data.get('opportunities', []))} opportunities")
+                    return data.get('opportunities', [])
+                except Exception as e:
+                    print(f"[PARSE] Failed to parse complete JSON: {e}")
+
+            # Try to extract just an array
+            json_match = re.search(r'\[\s*\{.*?\}\s*\]', orchestration_result, re.DOTALL)
+            if json_match:
+                try:
+                    opportunities = json.loads(json_match.group())
+                    print(f"[PARSE] Found JSON array with {len(opportunities)} items")
+                    return opportunities
+                except Exception as e:
+                    print(f"[PARSE] Failed to parse JSON array: {e}")
 
         # If it's already structured data
         if hasattr(orchestration_result, 'get'):
@@ -122,9 +178,12 @@ def parse_orchestration_response(orchestration_result):
         elif isinstance(orchestration_result, list):
             return orchestration_result
 
+        print(f"[PARSE] No JSON found in response, returning empty list")
         return []
     except Exception as e:
-        print(f"Failed to parse orchestration response: {e}")
+        print(f"[PARSE] Failed to parse orchestration response: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def parse_proposal_orchestration_response(orchestration_result):
@@ -554,16 +613,40 @@ async def save_opportunity(opportunity_id: str):
             print(f"[SAVE] Saved with embedding for future similarity searches")
 
         # Save to unified saved_opportunities table
-        supabase.table("saved_opportunities").insert(saved_data).execute()
+        result = supabase.table("saved_opportunities").insert(saved_data).execute()
+        saved_opp_id = result.data[0]["id"] if result.data else None
+
+        if not saved_opp_id:
+            raise HTTPException(status_code=500, detail="Failed to save opportunity to database")
 
         # Also add to local cache
         opportunities_db.append(opportunity)
 
+        # Create background job for LLM enhancement (same pattern as save_scraped_grant)
+        enhancement_job_id = str(uuid.uuid4())
+
+        jobs_db[enhancement_job_id] = {
+            "job_id": enhancement_job_id,
+            "status": "running",
+            "progress": 0,
+            "current_task": "Starting LLM enhancement...",
+            "result": None,
+            "error": None,
+            "created_at": datetime.now().isoformat(),
+            "grant_id": saved_opp_id,
+            "grant_title": opportunity.get("title"),
+            "source": opportunity.get("source", "Agent")
+        }
+
+        # Start background LLM enhancement task (reuses existing enhancement function)
+        asyncio.create_task(run_llm_enhancement(enhancement_job_id, saved_opp_id))
+
         return {
-            "status": "saved",
+            "status": "processing",
             "opportunity_id": opportunity_id,
+            "enhancement_job_id": enhancement_job_id,
             "similar_rfps": similar_rfps,
-            "message": f"Opportunity saved! Found {len(similar_rfps)} similar historical RFPs." if similar_rfps else "Opportunity saved!"
+            "message": f"Opportunity saved! AI enhancement in progress... Found {len(similar_rfps)} similar historical RFPs." if similar_rfps else "Opportunity saved! AI enhancement in progress..."
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save opportunity: {str(e)}")
@@ -1008,7 +1091,7 @@ Priority should be given to opportunities with deadlines in the next 3-6 months 
                 existing_list = "None"
 
             # Create comprehensive prompt for fundraising-cro agent
-            orchestration_prompt = f"""You are a fundraising-cro agent for Per Scholas. Use your Task tool to systematically find and analyze current funding opportunities.
+            orchestration_prompt = f"""You are a fundraising-cro agent for Per Scholas. Find MULTIPLE (3-5) REAL, CURRENT funding opportunities using web search and research.
 
 Organization Context:
 {per_scholas_context}
@@ -1021,22 +1104,58 @@ Execute this multi-step process:
 2. Research foundation grants from major funders aligned with our mission
 3. Identify corporate funding programs for underserved communities
 4. Filter for opportunities with deadlines in next 3-6 months and funding >$50k
+5. Find at least 3-5 different opportunities from various sources
 
 Existing opportunities to avoid duplicates: {existing_list}
 
-For each NEW opportunity found, return structured data with:
-- id: unique identifier
-- title: opportunity title
-- funder: funding organization
-- amount: funding amount (integer)
-- deadline: application deadline (YYYY-MM-DD format)
-- match_score: 0-100 alignment score with Per Scholas mission
-- description: detailed description
-- requirements: array of key requirements
-- contact: contact information if available
-- application_url: application URL if available
+CRITICAL OUTPUT FORMAT - READ CAREFULLY:
+You MUST return ONLY raw JSON - NO markdown code blocks, NO explanatory text, NO ```json markers.
+Your response should START with {{ and END with }}.
 
-Return as JSON array in "opportunities" field."""
+Example of CORRECT output:
+{{
+  "opportunities": [
+    {{
+      "id": "unique-id-string",
+      "title": "Full grant title",
+      "funder": "Organization name",
+      "amount": 100000,
+      "deadline": "2025-12-31",
+      "description": "Detailed description of opportunity",
+      "requirements": ["Requirement 1", "Requirement 2"],
+      "contact": "email@agency.gov",
+      "application_url": "https://...",
+      "contact_name": "Contact Person Name or null",
+      "contact_phone": "555-1234 or null",
+      "contact_description": "Additional contact info or null",
+      "eligibility_explanation": "Who can apply or null",
+      "cost_sharing": false,
+      "cost_sharing_description": "Cost sharing details or null",
+      "additional_info_url": "https://... or null",
+      "additional_info_text": "Extra info or null",
+      "archive_date": "2025-12-31 or null",
+      "forecast_date": "2025-01-01 or null",
+      "close_date_explanation": "Deadline details or null",
+      "expected_number_of_awards": "5-10 or null",
+      "award_floor": 50000,
+      "award_ceiling": 250000,
+      "attachments": [],
+      "version": "1 or null",
+      "last_updated_date": "2025-01-01 or null"
+    }}
+  ]
+}}
+
+REQUIREMENTS:
+- Return ONLY the JSON object (no markdown blocks, no extra text)
+- Start with {{ and end with }}
+- All string fields use double quotes
+- amount, award_floor, award_ceiling are integers (no commas)
+- deadline dates in YYYY-MM-DD format
+- Do NOT include match_score (it will be calculated automatically)
+- requirements is array of strings
+- attachments is empty array [] (no attachment fetching)
+- Use null for optional fields if no data available"""
 
             job["current_task"] = "Creating Claude Code fundraising session..."
             job["progress"] = 50
@@ -1045,7 +1164,7 @@ Return as JSON array in "opportunities" field."""
             print(f"[Claude Code Session] Starting fundraising opportunity discovery...")
 
             # Use grants service API if available, otherwise fall back to Claude Code
-            use_api = True  # Set to False to use Claude Code instead
+            use_api = False  # Set to False to use Claude Code instead
 
             if use_api:
                 print(f"[Claude Code Session] Fetching real grants data...")
@@ -1069,11 +1188,43 @@ Return as JSON array in "opportunities" field."""
                     raise Exception(f"Claude Code session failed: {session_result['error']}")
 
                 orchestration_result = session_result['output']
+
+            # Save raw response for debugging
+            with open('/tmp/last_claude_response.txt', 'w') as f:
+                f.write(orchestration_result)
+            print(f"[DEBUG] Saved raw Claude response to /tmp/last_claude_response.txt")
+
             job["current_task"] = "Processing fundraising session results..."
             job["progress"] = 80
 
             # Parse the orchestrated response
             opportunities = parse_orchestration_response(orchestration_result)
+
+            # Score opportunities using match_scoring (Claude is just a scraper)
+            if opportunities and semantic_service:
+                from match_scoring import calculate_match_score
+                print(f"[SCORING] Scoring {len(opportunities)} opportunities from Claude agent...")
+
+                for opp in opportunities:
+                    try:
+                        # Find similar RFPs for this opportunity
+                        opp_text = f"{opp.get('title', '')} {opp.get('description', '')}"
+                        similar_rfps = semantic_service.find_similar_rfps(opp_text, limit=5)
+
+                        # Calculate real match score using similar RFPs
+                        match_score = calculate_match_score(opp, similar_rfps)
+                        opp['match_score'] = match_score
+
+                        print(f"[SCORING] {opp.get('title', 'Unknown')[:60]}... = {match_score}% (found {len(similar_rfps)} similar RFPs)")
+                    except Exception as e:
+                        print(f"[SCORING] Error scoring opportunity: {e}")
+                        opp['match_score'] = opp.get('match_score', 50)  # Keep Claude's estimate as fallback
+
+            # Tag opportunities from Claude Agent with source="Agent"
+            if not use_api and opportunities:
+                for opp in opportunities:
+                    opp['source'] = 'Agent'
+                print(f"[DEBUG] Tagged {len(opportunities)} opportunities with source='Agent'")
 
         except Exception as e:
             print(f"Orchestration failed: {e}")
@@ -1268,7 +1419,7 @@ The proposal should be compelling, data-driven, and specifically tailored to {re
             print(f"[Claude Code Session] Starting proposal generation...")
 
             # Use dummy proposal content if Claude Code not available, otherwise use Claude Code
-            use_api = True  # Set to False to use Claude Code instead
+            use_api = False  # Set to False to use Claude Code instead
 
             if use_api:
                 print(f"[Claude Code Session] Using dummy proposal template...")
