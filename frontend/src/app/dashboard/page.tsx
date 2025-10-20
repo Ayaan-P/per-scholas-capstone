@@ -36,6 +36,7 @@ export default function Dashboard() {
   const itemsPerPage = 9
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [selectedDescription, setSelectedDescription] = useState<{ title: string; description: string } | null>(null)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
   useEffect(() => {
     fetchGrants()
@@ -212,48 +213,48 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-[1600px] mx-auto px-6 py-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-perscholas-primary p-2.5 rounded-xl">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <div className="bg-perscholas-primary p-2 sm:p-2.5 rounded-xl">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 Discover Funding
               </h2>
             </div>
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-600 text-base sm:text-lg">
               Browse opportunities matched to your organization. Save promising grants to unlock AI-powered insights.
             </p>
           </div>
         </div>
 
         {/* Stats Bar */}
-        <div className="mb-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">Opportunities</p>
-            <p className="text-3xl font-bold text-gray-900">{filteredGrants.length}</p>
+        <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Opportunities</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{filteredGrants.length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">High Match $</p>
-            <p className="text-3xl font-bold text-green-600">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match $</p>
+            <p className="text-xl sm:text-3xl font-bold text-green-600 truncate">
               {formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}
             </p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">High Match</p>
-            <p className="text-3xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 85).length}</p>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match</p>
+            <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 85).length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">Avg Match Score</p>
-            <p className="text-3xl font-bold text-perscholas-secondary">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Avg Match Score</p>
+            <p className="text-2xl sm:text-3xl font-bold text-perscholas-secondary">
               {filteredGrants.length > 0
                 ? Math.round(filteredGrants.reduce((sum, g) => sum + (g.match_score || 0), 0) / filteredGrants.length)
                 : 0}%
@@ -261,10 +262,28 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Mobile Filter Button */}
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span className="font-bold text-gray-900">Filters & Search</span>
+            </div>
+            <svg className={`w-5 h-5 text-gray-600 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
         <div className="lg:flex lg:gap-6">
           {/* Left Sidebar */}
-          <aside className="lg:w-80 flex-shrink-0 mb-6 lg:mb-0">
-            <div className="sticky top-6 space-y-4">
+          <aside className={`lg:w-80 flex-shrink-0 mb-6 lg:mb-0 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
+            <div className="lg:sticky lg:top-6 space-y-4">
               {/* Filters Card */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -425,7 +444,7 @@ export default function Dashboard() {
                       </div>
 
                       {/* Key Metrics Grid */}
-                      <div className="grid grid-cols-3 gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
                         <div>
                           <p className="text-xs text-gray-500 mb-0.5">Funding</p>
                           <p className="text-sm font-bold text-green-600">{formatCurrency(grant.amount)}</p>
@@ -458,13 +477,13 @@ export default function Dashboard() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         {grant.application_url && (
                           <a
                             href={grant.application_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 text-center border-2 border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                            className="flex-1 text-center border-2 border-gray-300 text-gray-700 px-3 py-2.5 sm:py-2 rounded-lg text-xs font-semibold hover:border-gray-400 hover:bg-gray-50 transition-colors"
                           >
                             View RFP
                           </a>
@@ -472,7 +491,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => handleSaveGrant(grant.id)}
                           disabled={savingGrants.has(grant.id)}
-                          className="flex-1 bg-perscholas-primary text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-perscholas-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 bg-perscholas-primary text-white px-3 py-2.5 sm:py-2 rounded-lg text-xs font-semibold hover:bg-perscholas-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {savingGrants.has(grant.id) ? 'Saving...' : 'Save'}
                         </button>
@@ -482,11 +501,11 @@ export default function Dashboard() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 sm:px-4 py-2 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
@@ -494,15 +513,15 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1">
                     {pageStart > 1 && (
                       <>
-                        <button onClick={() => setCurrentPage(1)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">1</button>
-                        {pageStart > 2 && <span className="px-2 text-gray-400">…</span>}
+                        <button onClick={() => setCurrentPage(1)} className="px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">1</button>
+                        {pageStart > 2 && <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">…</span>}
                       </>
                     )}
                     {pages.map(p => (
                       <button
                         key={p}
                         onClick={() => setCurrentPage(p)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${
                           p === currentPage
                             ? 'bg-perscholas-primary text-white border-perscholas-primary shadow-md'
                             : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -511,16 +530,16 @@ export default function Dashboard() {
                         {p}
                       </button>
                     ))}
-                    {pageEnd < totalPages - 1 && <span className="px-2 text-gray-400">…</span>}
+                    {pageEnd < totalPages - 1 && <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">…</span>}
                     {pageEnd < totalPages && (
-                      <button onClick={() => setCurrentPage(totalPages)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">{totalPages}</button>
+                      <button onClick={() => setCurrentPage(totalPages)} className="px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">{totalPages}</button>
                     )}
                   </div>
 
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage >= totalPages}
-                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 sm:px-4 py-2 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
                   </button>

@@ -75,6 +75,7 @@ export default function OpportunitiesPage() {
   const [summaries, setSummaries] = useState<{ [key: string]: OpportunitySummary }>({})
   const [loadingSummary, setLoadingSummary] = useState<{ [key: string]: boolean }>({})
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
   useEffect(() => {
     fetchOpportunities()
@@ -275,46 +276,46 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-[1600px] mx-auto px-6 py-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-perscholas-secondary p-2.5 rounded-xl">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 My Pipeline
               </h2>
             </div>
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-600 text-base sm:text-lg">
               Deep dive into saved opportunities with AI-powered insights, match analysis, and similar past RFPs.
             </p>
           </div>
         </div>
 
         {/* Stats Bar */}
-        <div className="mb-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">Pipeline</p>
-            <p className="text-3xl font-bold text-gray-900">{filteredOpportunities.length}</p>
+        <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Pipeline</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{filteredOpportunities.length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">Total Value</p>
-            <p className="text-3xl font-bold text-green-600">{formatCurrency(filteredOpportunities.reduce((sum, o) => sum + (o.amount || 0), 0))}</p>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Total Value</p>
+            <p className="text-xl sm:text-3xl font-bold text-green-600 truncate">{formatCurrency(filteredOpportunities.reduce((sum, o) => sum + (o.amount || 0), 0))}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">High Match</p>
-            <p className="text-3xl font-bold text-perscholas-accent">{filteredOpportunities.filter(o => o.match_score >= 85).length}</p>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match</p>
+            <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredOpportunities.filter(o => o.match_score >= 85).length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">Avg Match</p>
-            <p className="text-3xl font-bold text-perscholas-primary">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Avg Match</p>
+            <p className="text-2xl sm:text-3xl font-bold text-perscholas-primary">
               {filteredOpportunities.length > 0
                 ? Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length)
                 : 0}%
@@ -322,10 +323,28 @@ export default function OpportunitiesPage() {
           </div>
         </div>
 
+        {/* Mobile Filter Button */}
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span className="font-bold text-gray-900">Filters & Search</span>
+            </div>
+            <svg className={`w-5 h-5 text-gray-600 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
         <div className="lg:flex lg:gap-6">
           {/* Left Sidebar */}
-          <aside className="lg:w-80 flex-shrink-0 mb-6 lg:mb-0">
-            <div className="sticky top-6 space-y-4">
+          <aside className={`lg:w-80 flex-shrink-0 mb-6 lg:mb-0 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
+            <div className="lg:sticky lg:top-6 space-y-4">
               {/* Filters */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -497,14 +516,14 @@ export default function OpportunitiesPage() {
                           </div>
 
                           {/* Key Metrics - Simplified Grid */}
-                          <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                             <div>
                               <p className="text-xs text-gray-500 mb-1">Funding</p>
-                              <p className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</p>
+                              <p className="text-base sm:text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</p>
                             </div>
                             <div>
                               <p className="text-xs text-gray-500 mb-1">Deadline</p>
-                              <p className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</p>
+                              <p className="text-base sm:text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</p>
                             </div>
                             {opportunity.source && (
                               <div>
@@ -551,10 +570,10 @@ export default function OpportunitiesPage() {
                           )}
 
                           {/* Action Buttons */}
-                          <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-4 border-t border-gray-100">
                             <button
                               onClick={() => toggleExpanded(opportunity.id)}
-                              className="flex-1 flex items-center justify-center gap-2 bg-perscholas-secondary text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-perscholas-primary hover:shadow-lg transition-all"
+                              className="flex-1 flex items-center justify-center gap-2 bg-perscholas-secondary text-white px-4 sm:px-5 py-3 sm:py-2.5 rounded-lg font-semibold hover:bg-perscholas-primary hover:shadow-lg transition-all text-sm"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isExpanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
@@ -566,7 +585,7 @@ export default function OpportunitiesPage() {
                                 href={opportunity.application_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-2 border-2 border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                                className="flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-700 px-4 sm:px-5 py-3 sm:py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-sm"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -576,7 +595,7 @@ export default function OpportunitiesPage() {
                             )}
                             <button
                               onClick={() => handleDismiss(opportunity.id)}
-                              className="border-2 border-red-300 text-red-600 px-5 py-2.5 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                              className="border-2 border-red-300 text-red-600 px-4 sm:px-5 py-3 sm:py-2.5 rounded-lg font-semibold hover:bg-red-50 transition-colors text-sm"
                             >
                               Dismiss
                             </button>
@@ -1105,11 +1124,11 @@ export default function OpportunitiesPage() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 sm:px-4 py-2 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
@@ -1117,15 +1136,15 @@ export default function OpportunitiesPage() {
                   <div className="flex items-center gap-1">
                     {pageStart > 1 && (
                       <>
-                        <button onClick={() => setCurrentPage(1)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">1</button>
-                        {pageStart > 2 && <span className="px-2 text-gray-400">…</span>}
+                        <button onClick={() => setCurrentPage(1)} className="px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">1</button>
+                        {pageStart > 2 && <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">…</span>}
                       </>
                     )}
                     {pages.map(p => (
                       <button
                         key={p}
                         onClick={() => setCurrentPage(p)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${
                           p === currentPage
                             ? 'bg-perscholas-secondary text-white border-perscholas-secondary shadow-md'
                             : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -1134,16 +1153,16 @@ export default function OpportunitiesPage() {
                         {p}
                       </button>
                     ))}
-                    {pageEnd < totalPages - 1 && <span className="px-2 text-gray-400">…</span>}
+                    {pageEnd < totalPages - 1 && <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">…</span>}
                     {pageEnd < totalPages && (
-                      <button onClick={() => setCurrentPage(totalPages)} className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">{totalPages}</button>
+                      <button onClick={() => setCurrentPage(totalPages)} className="px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">{totalPages}</button>
                     )}
                   </div>
 
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage >= totalPages}
-                    className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 sm:px-4 py-2 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
                   </button>
