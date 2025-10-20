@@ -592,6 +592,100 @@ async def delete_opportunity(opportunity_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete opportunity: {str(e)}")
 
+@app.post("/api/opportunities/{opportunity_id}/add-to-rfp-db")
+async def add_opportunity_to_rfp_database(opportunity_id: str):
+    """
+    Add a saved opportunity to the RFP database for algorithm training.
+    This allows users to refine the matching algorithm through feedback.
+    """
+    try:
+        # Fetch the opportunity from saved_opportunities (including existing embedding)
+        result = supabase.table("saved_opportunities").select("*").eq("id", opportunity_id).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+
+        opportunity = result.data[0]
+
+        # Check if already in RFP database
+        existing_rfp = supabase.table("rfps").select("id").eq("title", opportunity["title"]).execute()
+
+        if existing_rfp.data:
+            return {
+                "status": "already_exists",
+                "message": "This opportunity is already in the RFP training database",
+                "rfp_id": existing_rfp.data[0]["id"]
+            }
+
+        # Reuse existing embedding from saved_opportunities if available
+        embedding = opportunity.get("embedding")
+
+        if embedding:
+            print(f"[ADD_TO_RFP_DB] Reusing existing embedding for '{opportunity['title'][:50]}...'")
+        elif semantic_service:
+            # Only generate new embedding if one doesn't exist
+            try:
+                opportunity_text = f"{opportunity['title']} {opportunity['description']}"
+                embedding = semantic_service.get_embedding(opportunity_text)
+                print(f"[ADD_TO_RFP_DB] Generated new embedding for '{opportunity['title'][:50]}...'")
+            except Exception as e:
+                print(f"[ADD_TO_RFP_DB] Error generating embedding: {e}")
+
+        # Prepare RFP data
+        rfp_data = {
+            "title": opportunity["title"],
+            "category": opportunity.get("source", "user_feedback"),
+            "content": opportunity["description"],
+            "file_path": None,  # No file path for user-added opportunities
+            "created_at": datetime.now().isoformat()
+        }
+
+        # Add embedding if available
+        if embedding:
+            rfp_data["embedding"] = embedding
+            print(f"[ADD_TO_RFP_DB] Including embedding in RFP data")
+
+        # Insert into rfps table
+        try:
+            rfp_result = supabase.table("rfps").insert(rfp_data).execute()
+        except Exception as db_error:
+            # If it's a duplicate key error, the sequence might be out of sync
+            error_str = str(db_error)
+            if "duplicate key" in error_str.lower() or "23505" in error_str:
+                # Try to fix the sequence by selecting max ID and resetting
+                print(f"[ADD_TO_RFP_DB] Duplicate key error detected, attempting sequence fix...")
+
+                # Get max ID from table
+                max_result = supabase.table("rfps").select("id").order("id", desc=True).limit(1).execute()
+                if max_result.data and len(max_result.data) > 0:
+                    max_id = max_result.data[0]["id"]
+                    print(f"[ADD_TO_RFP_DB] Max ID in table: {max_id}")
+
+                # Re-raise with helpful message
+                raise Exception(
+                    f"Database sequence error. The rfps table auto-increment sequence is out of sync. "
+                    f"Please run this SQL to fix it: "
+                    f"SELECT setval('rfps_id_seq', (SELECT MAX(id) FROM rfps));"
+                )
+            raise
+
+        if hasattr(rfp_result, 'error') and rfp_result.error:
+            raise Exception(f"Database error: {rfp_result.error}")
+
+        return {
+            "status": "success",
+            "message": "Successfully added to RFP training database",
+            "rfp_id": rfp_result.data[0]["id"] if rfp_result.data else None,
+            "has_embedding": embedding is not None,
+            "opportunity_title": opportunity["title"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ADD_TO_RFP_DB] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add to RFP database: {str(e)}")
+
 @app.post("/api/rfps/load")
 async def load_rfps():
     """Load RFPs from directory into database (admin endpoint)"""

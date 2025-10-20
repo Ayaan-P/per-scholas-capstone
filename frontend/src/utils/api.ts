@@ -43,6 +43,12 @@ export const api = {
       body: JSON.stringify({})
     }),
 
+  addOpportunityToRfpDb: (opportunityId: string) =>
+    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/add-to-rfp-db`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }),
+
   // Jobs
   getJob: (jobId: string) =>
     fetch(`${API_BASE_URL}/api/jobs/${jobId}`),

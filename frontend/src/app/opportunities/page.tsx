@@ -77,6 +77,8 @@ export default function OpportunitiesPage() {
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [dismissingOpportunities, setDismissingOpportunities] = useState<Set<string>>(new Set())
+  const [addingToRfpDb, setAddingToRfpDb] = useState<Set<string>>(new Set())
+  const [rfpDbSuccessMessage, setRfpDbSuccessMessage] = useState<{ [key: string]: string }>({})
 
   useEffect(() => {
     fetchOpportunities()
@@ -198,6 +200,57 @@ export default function OpportunitiesPage() {
       console.error('Failed to dismiss opportunity:', error)
       alert('Failed to dismiss opportunity')
       setDismissingOpportunities(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(opportunityId)
+        return newSet
+      })
+    }
+  }
+
+  const handleAddToRfpDb = async (opportunityId: string) => {
+    // Add to loading set
+    setAddingToRfpDb(prev => new Set(prev).add(opportunityId))
+
+    try {
+      const response = await api.addOpportunityToRfpDb(opportunityId)
+      const data = await response.json()
+
+      console.log('RFP DB Response:', { status: response.status, data })
+
+      if (response.ok) {
+        if (data.status === 'already_exists') {
+          console.log('Setting already exists message for', opportunityId)
+          // Show message that it already exists
+          setRfpDbSuccessMessage(prev => ({
+            ...prev,
+            [opportunityId]: '✓ Already in training database'
+          }))
+        } else {
+          console.log('Setting success message for', opportunityId)
+          // Show success message
+          setRfpDbSuccessMessage(prev => ({
+            ...prev,
+            [opportunityId]: '✓ Added to training database!'
+          }))
+        }
+
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          setRfpDbSuccessMessage(prev => {
+            const newMessages = { ...prev }
+            delete newMessages[opportunityId]
+            return newMessages
+          })
+        }, 3000)
+      } else {
+        console.error('Response not OK:', response.status, data)
+        alert(`Failed to add to training database: ${data.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Failed to add to RFP database:', error)
+      alert('Failed to add to training database')
+    } finally {
+      setAddingToRfpDb(prev => {
         const newSet = new Set(prev)
         newSet.delete(opportunityId)
         return newSet
@@ -634,8 +687,50 @@ export default function OpportunitiesPage() {
                               </h3>
                               <p className="text-sm text-gray-600 font-medium">{opportunity.funder}</p>
                             </div>
-                            <div className={`flex-shrink-0 ${colors.bg} text-white px-3.5 py-1.5 rounded-lg text-sm font-semibold`}>
-                              {opportunity.match_score}% Match
+                            <div className="relative group flex-shrink-0">
+                              <div className={`${colors.bg} text-white px-3.5 py-1.5 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200`}>
+                                {opportunity.match_score}% Match
+                              </div>
+                              {/* Hover overlay with feedback buttons - positioned below */}
+                              <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 flex items-center gap-1 p-1">
+                                {rfpDbSuccessMessage[opportunity.id] ? (
+                                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-green-600">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Added
+                                  </div>
+                                ) : addingToRfpDb.has(opportunity.id) ? (
+                                  <div className="px-3 py-1.5">
+                                    <svg className="animate-spin h-4 w-4 text-perscholas-secondary" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handleAddToRfpDb(opportunity.id)}
+                                      className="p-2 hover:bg-green-50 rounded-md transition-colors"
+                                      title="Good match - Add to training"
+                                    >
+                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    </button>
+                                    <div className="w-px h-6 bg-gray-200"></div>
+                                    <button
+                                      onClick={() => handleDismiss(opportunity.id)}
+                                      className="p-2 hover:bg-red-50 rounded-md transition-colors"
+                                      title="Bad match - Remove"
+                                    >
+                                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
 
