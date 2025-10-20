@@ -1033,25 +1033,49 @@ export default function OpportunitiesPage() {
                                         <h5 className="text-sm font-semibold text-gray-900 flex-1">
                                           {rfp.title || 'Untitled Proposal'}
                                         </h5>
-                                        {rfp.similarity_score && (
-                                          <span className="text-xs font-bold text-perscholas-secondary bg-blue-50 px-2 py-1 rounded-md">
-                                            {Math.round(rfp.similarity_score * 100)}% match
-                                          </span>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                          {rfp.similarity_score && (
+                                            <span className="text-xs font-bold text-perscholas-secondary bg-blue-50 px-2 py-1 rounded-md">
+                                              {Math.round(rfp.similarity_score * 100)}% match
+                                            </span>
+                                          )}
+                                          {rfp.id && (
+                                            <a
+                                              href={`http://localhost:8001/api/proposals/${rfp.id}/download`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-xs font-medium text-perscholas-secondary hover:text-perscholas-dark flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-50 transition-colors"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                              </svg>
+                                              View PDF
+                                            </a>
+                                          )}
+                                        </div>
                                       </div>
-                                      {rfp.funder && (
+                                      {rfp.category && (
                                         <p className="text-xs text-gray-600 mb-1">
-                                          <span className="font-medium">Funder:</span> {rfp.funder}
+                                          <span className="font-medium">Category:</span> {rfp.category}
                                         </p>
                                       )}
-                                      {rfp.amount && (
+                                      {rfp.rfp_name && (
                                         <p className="text-xs text-gray-600 mb-1">
-                                          <span className="font-medium">Amount:</span> {formatCurrency(rfp.amount)}
+                                          <span className="font-medium">RFP:</span> {rfp.rfp_name}
                                         </p>
                                       )}
-                                      {rfp.deadline && rfp.deadline !== 'Historical' && (
+                                      {rfp.outcome && (
+                                        <p className="text-xs text-gray-600 mb-1">
+                                          <span className="font-medium">Outcome:</span>
+                                          <span className={`ml-1 font-semibold ${rfp.outcome === 'won' ? 'text-green-600' : 'text-gray-500'}`}>
+                                            {rfp.outcome === 'won' ? '✓ Won' : rfp.outcome}
+                                          </span>
+                                        </p>
+                                      )}
+                                      {rfp.award_amount && (
                                         <p className="text-xs text-gray-600">
-                                          <span className="font-medium">Deadline:</span> {formatDate(rfp.deadline)}
+                                          <span className="font-medium">Award Amount:</span> {formatCurrency(rfp.award_amount)}
                                         </p>
                                       )}
                                     </div>

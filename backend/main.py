@@ -1,5 +1,6 @@
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import asyncio
 import uuid
@@ -1287,6 +1288,48 @@ This partnership with {request.funder} will create lasting economic mobility for
         job["status"] = "failed"
         job["error"] = str(e)
         job["current_task"] = f"Error: {str(e)}"
+
+@app.get("/api/proposals/{proposal_id}/download")
+async def download_proposal(proposal_id: int):
+    """
+    Serve a proposal PDF file from the server filesystem.
+
+    Args:
+        proposal_id: The ID of the proposal in the database
+
+    Returns:
+        FileResponse with the PDF file
+    """
+    try:
+        # Get proposal from database to retrieve file_path
+        result = supabase.table('proposals').select('*').eq('id', proposal_id).execute()
+
+        if not result.data or len(result.data) == 0:
+            raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
+
+        proposal = result.data[0]
+        file_path = proposal.get('file_path')
+
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"Proposal file not found at {file_path}")
+
+        # Extract filename from path
+        filename = os.path.basename(file_path)
+
+        return FileResponse(
+            path=file_path,
+            media_type='application/pdf',
+            filename=filename,
+            headers={
+                "Content-Disposition": f"inline; filename={filename}"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Failed to serve proposal {proposal_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to serve proposal: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

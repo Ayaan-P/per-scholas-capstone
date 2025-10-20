@@ -54,14 +54,17 @@ class LLMEnhancementService:
         """
         print(f"[LLM ENHANCEMENT] Enhancing grant: {grant.get('title')}")
 
-        # Find similar past proposals FIRST (from vector DB)
-        # This gives the LLM context about what worked before
+        # Find similar past Per Scholas proposals (for LLM learning)
+        # These are NOT shown in UI - only used to generate insights
         similar_proposals = await self._find_similar_proposals(grant)
+
+        # Find similar historical RFPs (for UI display)
+        similar_rfps = await self._find_similar_rfps(grant)
 
         # Generate LLM summary
         summary = await self._generate_summary(grant)
 
-        # Generate detailed reasoning WITH similar RFP context
+        # Generate detailed reasoning WITH similar proposal context
         reasoning = await self._generate_reasoning(grant, similar_proposals)
 
         # Extract all structured fields from LLM reasoning
@@ -81,7 +84,7 @@ class LLMEnhancementService:
             'key_themes': key_themes,
             'recommended_metrics': recommended_metrics,
             'considerations': considerations,
-            'similar_past_proposals': similar_proposals,
+            'similar_past_proposals': similar_rfps,  # Historical RFPs for UI display
             'llm_enhanced_at': datetime.now().isoformat()
         }
 
@@ -299,6 +302,28 @@ Generate 3-5 relevant tags based on the matched keywords and grant focus."""
 
         except Exception as e:
             print(f"[LLM ENHANCEMENT] Proposal similarity search error: {e}")
+            return []
+
+    async def _find_similar_rfps(self, grant: Dict[str, Any]) -> List[Dict]:
+        """Find similar historical RFPs/grant opportunities for UI display."""
+        try:
+            from semantic_service import SemanticService
+
+            semantic_service = SemanticService()
+
+            # Create query text from grant
+            query_text = f"{grant.get('title', '')} {grant.get('description', '')}"
+
+            # Find similar historical RFPs
+            similar_rfps = semantic_service.find_similar_rfps(query_text, limit=5)
+
+            if similar_rfps:
+                print(f"[LLM ENHANCEMENT] Found {len(similar_rfps)} similar RFPs for '{grant.get('title', 'Unknown')[:50]}...'")
+
+            return similar_rfps
+
+        except Exception as e:
+            print(f"[LLM ENHANCEMENT] RFP similarity search error: {e}")
             return []
 
 

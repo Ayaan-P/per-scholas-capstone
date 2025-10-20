@@ -153,7 +153,7 @@ class SchedulerService:
         """Run initial scrape on startup"""
         logger.info("Running initial scrape...")
         await asyncio.sleep(5)  # Wait for system to fully initialize
-        await self._scrape_grants_gov()
+        # await self._scrape_grants_gov()
 
         # Also scrape Gmail if available
         if 'gmail_inbox' in self.scrapers:
