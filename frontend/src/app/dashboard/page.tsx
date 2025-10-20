@@ -240,8 +240,10 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">Total Value</p>
-            <p className="text-3xl font-bold text-green-600">{formatCurrency(filteredGrants.reduce((sum, g) => sum + (g.amount || 0), 0))}</p>
+            <p className="text-sm font-medium text-gray-600 mb-2">High Match $</p>
+            <p className="text-3xl font-bold text-green-600">
+              {formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}
+            </p>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -250,9 +252,11 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-sm font-medium text-gray-600 mb-2">High Match $</p>
+            <p className="text-sm font-medium text-gray-600 mb-2">Avg Match Score</p>
             <p className="text-3xl font-bold text-perscholas-secondary">
-              {formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}
+              {filteredGrants.length > 0
+                ? Math.round(filteredGrants.reduce((sum, g) => sum + (g.match_score || 0), 0) / filteredGrants.length)
+                : 0}%
             </p>
           </div>
         </div>
