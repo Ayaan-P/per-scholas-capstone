@@ -1288,7 +1288,7 @@ export default function OpportunitiesPage() {
                                           )}
                                           {rfp.id && (
                                             <a
-                                              href={`http://localhost:8001/api/proposals/${rfp.id}/download`}
+                                              href={`${api.baseURL}/api/proposals/${rfp.id}/download`}
                                               target="_blank"
                                               rel="noopener noreferrer"
                                               className="text-xs font-medium text-perscholas-secondary hover:text-perscholas-dark flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-50 transition-colors"
