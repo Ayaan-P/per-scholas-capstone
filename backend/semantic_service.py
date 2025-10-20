@@ -139,6 +139,73 @@ class SemanticService:
         print(f"[SEMANTIC] Loaded {len(rfps)} RFPs")
         return rfps
 
+    def load_proposals_from_directory(self, proposals_dir: str = "/home/ayaan/projects/perscholas-fundraising-demo/Sample Proposals & Reports-20250926T184814Z-1-001/Sample Proposals & Reports") -> List[Dict[str, Any]]:
+        """Load and process Per Scholas proposal PDFs from directory"""
+        proposals = []
+
+        if not os.path.exists(proposals_dir):
+            print(f"[SEMANTIC] Proposals directory not found: {proposals_dir}")
+            return proposals
+
+        for root, dirs, files in os.walk(proposals_dir):
+            for file in files:
+                if file.endswith('.pdf'):
+                    file_path = os.path.join(root, file)
+
+                    # Determine category from path
+                    category = "Federal" if "Federal" in root else "State-Local"
+
+                    # Extract text
+                    text_content = self.extract_text_from_pdf(file_path)
+
+                    if text_content:
+                        # Generate embedding
+                        embedding = self.get_embedding(text_content)
+
+                        if embedding:
+                            # Try to extract RFP name from filename
+                            rfp_name = self._extract_rfp_name_from_filename(file)
+
+                            # Try to infer outcome from filename (if it says "report" it's probably won)
+                            outcome = self._infer_outcome_from_filename(file)
+
+                            proposal_data = {
+                                "title": file.replace('.pdf', '').replace('_', ' '),
+                                "category": category,
+                                "file_path": file_path,
+                                "content": text_content,
+                                "embedding": embedding,
+                                "rfp_name": rfp_name,
+                                "outcome": outcome,
+                                "created_at": datetime.now().isoformat()
+                            }
+                            proposals.append(proposal_data)
+                            print(f"[SEMANTIC] Processed Proposal: {file}")
+
+        print(f"[SEMANTIC] Loaded {len(proposals)} proposals")
+        return proposals
+
+    def _extract_rfp_name_from_filename(self, filename: str) -> Optional[str]:
+        """Try to extract RFP name from proposal filename"""
+        # Common patterns: "WANTO_Program_Narrative", "PA DOL_PerScholas", etc.
+        filename_clean = filename.replace('.pdf', '').replace('_', ' ')
+
+        # Extract first part before "PerScholas" or common separators
+        parts = filename_clean.split('PerScholas')[0].split('Narrative')[0].strip()
+
+        return parts if parts else None
+
+    def _infer_outcome_from_filename(self, filename: str) -> str:
+        """Infer proposal outcome from filename patterns"""
+        filename_lower = filename.lower()
+
+        if 'report' in filename_lower or 'final' in filename_lower:
+            return 'won'  # Reports usually mean funded
+        elif 'submission' in filename_lower or 'application' in filename_lower:
+            return 'unknown'  # Just submissions, unclear if won
+        else:
+            return 'unknown'
+
     def store_rfps_in_supabase(self, rfps: List[Dict[str, Any]]) -> bool:
         """Store RFPs with embeddings in Supabase"""
         if not self.supabase:
@@ -169,6 +236,37 @@ class SemanticService:
 
         except Exception as e:
             print(f"[SEMANTIC] Error storing RFPs: {e}")
+            return False
+
+    def store_proposals_in_supabase(self, proposals: List[Dict[str, Any]]) -> bool:
+        """Store Per Scholas proposals with embeddings in Supabase"""
+        if not self.supabase:
+            print("[SEMANTIC] Supabase not available")
+            return False
+
+        try:
+            for proposal in proposals:
+                # Store in Supabase proposals table
+                result = self.supabase.table('proposals').insert({
+                    'title': proposal['title'],
+                    'category': proposal['category'],
+                    'file_path': proposal['file_path'],
+                    'content': proposal['content'],
+                    'embedding': proposal['embedding'],
+                    'rfp_name': proposal.get('rfp_name'),
+                    'outcome': proposal.get('outcome', 'unknown'),
+                    'created_at': proposal['created_at']
+                }).execute()
+
+                if hasattr(result, 'error') and result.error:
+                    print(f"[SEMANTIC] Error storing proposal {proposal['title']}: {result.error}")
+                else:
+                    print(f"[SEMANTIC] Stored proposal: {proposal['title']}")
+
+            return True
+
+        except Exception as e:
+            print(f"[SEMANTIC] Error storing proposals: {e}")
             return False
 
     def _ensure_rfp_table_exists(self):
@@ -222,33 +320,62 @@ class SemanticService:
                 return result.data
             else:
                 # Fallback: get all RFPs and calculate similarity in Python
-                return self._fallback_similarity_search(grant_description, limit)
+                return self._fallback_similarity_search(grant_description, limit, table='rfps')
 
         except Exception as e:
             print(f"[SEMANTIC] Error finding similar RFPs: {e}")
-            return self._fallback_similarity_search(grant_description, limit)
+            return self._fallback_similarity_search(grant_description, limit, table='rfps')
 
-    def _fallback_similarity_search(self, grant_description: str, limit: int = 3) -> List[Dict[str, Any]]:
+    def find_similar_proposals(self, grant_description: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Find most similar Per Scholas proposals to a grant description"""
+        if not self.supabase or not grant_description.strip():
+            return []
+
+        try:
+            # Generate embedding for the grant description
+            query_embedding = self.get_embedding(grant_description)
+            if not query_embedding:
+                return []
+
+            # Search for similar proposals using pgvector
+            result = self.supabase.rpc('match_proposals', {
+                'query_embedding': query_embedding,
+                'match_threshold': 0.25,  # Lower threshold for proposals (25% similarity)
+                'match_count': limit
+            }).execute()
+
+            if hasattr(result, 'data') and result.data:
+                print(f"[SEMANTIC] Found {len(result.data)} similar proposals via pgvector")
+                return result.data
+            else:
+                # Fallback: get all proposals and calculate similarity in Python
+                return self._fallback_similarity_search(grant_description, limit, table='proposals')
+
+        except Exception as e:
+            print(f"[SEMANTIC] Error finding similar proposals: {e}")
+            return self._fallback_similarity_search(grant_description, limit, table='proposals')
+
+    def _fallback_similarity_search(self, grant_description: str, limit: int = 3, table: str = 'rfps') -> List[Dict[str, Any]]:
         """Fallback similarity search using Python calculations"""
         try:
-            # Get all RFPs from database
-            result = self.supabase.table('rfps').select('*').execute()
+            # Get all items from specified table
+            result = self.supabase.table(table).select('*').execute()
 
             if not hasattr(result, 'data') or not result.data:
                 return []
 
             # Calculate similarities
             similarities = []
-            for rfp in result.data:
-                if rfp.get('content'):
+            for item in result.data:
+                if item.get('content'):
                     similarity = self.calculate_semantic_similarity(
                         grant_description,
-                        rfp['content']
+                        item['content']
                     )
                     # Only include matches above meaningful threshold
                     if similarity >= 0.25:  # 25% minimum similarity
                         similarities.append({
-                            **rfp,
+                            **item,
                             'similarity_score': similarity
                         })
 
@@ -257,7 +384,7 @@ class SemanticService:
             return similarities[:limit]
 
         except Exception as e:
-            print(f"[SEMANTIC] Error in fallback search: {e}")
+            print(f"[SEMANTIC] Error in fallback search on {table}: {e}")
             return []
 
     def calculate_enhanced_match_score(self, grant: Dict[str, Any], rfp_similarities: List[Dict[str, Any]]) -> int:

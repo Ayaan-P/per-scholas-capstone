@@ -54,24 +54,33 @@ class LLMEnhancementService:
         """
         print(f"[LLM ENHANCEMENT] Enhancing grant: {grant.get('title')}")
 
+        # Find similar past proposals FIRST (from vector DB)
+        # This gives the LLM context about what worked before
+        similar_proposals = await self._find_similar_proposals(grant)
+
         # Generate LLM summary
         summary = await self._generate_summary(grant)
 
-        # Generate detailed reasoning
-        reasoning = await self._generate_reasoning(grant)
+        # Generate detailed reasoning WITH similar RFP context
+        reasoning = await self._generate_reasoning(grant, similar_proposals)
 
-        # Extract tags
+        # Extract all structured fields from LLM reasoning
         tags = reasoning.get('tags', []) if reasoning else []
+        winning_strategies = reasoning.get('winning_strategies', []) if reasoning else []
+        key_themes = reasoning.get('key_themes', []) if reasoning else []
+        recommended_metrics = reasoning.get('recommended_metrics', []) if reasoning else []
+        considerations = reasoning.get('considerations', []) if reasoning else []
 
-        # Find similar past proposals (from vector DB)
-        similar_proposals = await self._find_similar_proposals(grant)
-
-        # Build enhanced data
+        # Build enhanced data with all LLM insights
         enhanced = {
             **grant,
             'llm_summary': summary,
             'detailed_match_reasoning': reasoning.get('reasoning') if reasoning else None,
             'tags': tags,
+            'winning_strategies': winning_strategies,
+            'key_themes': key_themes,
+            'recommended_metrics': recommended_metrics,
+            'considerations': considerations,
             'similar_past_proposals': similar_proposals,
             'llm_enhanced_at': datetime.now().isoformat()
         }
@@ -118,8 +127,8 @@ Write a clear 2-3 sentence summary of what this grant is for and what it funds."
             print(f"[LLM ENHANCEMENT] Summary error: {e}")
             return f"Grant opportunity from {grant.get('funder')} for ${grant.get('amount', 0):,}"
 
-    async def _generate_reasoning(self, grant: Dict[str, Any]) -> Optional[Dict]:
-        """Generate detailed LLM reasoning with tags."""
+    async def _generate_reasoning(self, grant: Dict[str, Any], similar_proposals: List[Dict] = None) -> Optional[Dict]:
+        """Generate detailed LLM reasoning with tags, leveraging similar past Per Scholas proposals for winning strategies."""
         try:
             # Get score breakdown for context
             score_breakdown = self._get_score_breakdown(grant)
@@ -155,11 +164,46 @@ Write a clear 2-3 sentence summary of what this grant is for and what it funds."
             if grant.get('additional_info_text'):
                 additional_context = f"\n\nAdditional Information:\n{grant.get('additional_info_text')[:300]}"
 
-            prompt = f"""Analyze this grant for Per Scholas. Return ONLY valid JSON:
+            # Build similar proposals context
+            similar_proposals_context = ""
+            if similar_proposals and len(similar_proposals) > 0:
+                similar_proposals_context = "\n\n=== SIMILAR PER SCHOLAS PROPOSALS (Learn from past wins) ===\n"
+                for i, prop in enumerate(similar_proposals[:3], 1):
+                    outcome_emoji = "✓ WON" if prop.get('outcome') == 'won' else "?"
+                    similar_proposals_context += f"\n{i}. {prop.get('title', 'Unknown')[:80]} ({outcome_emoji})\n"
+                    similar_proposals_context += f"   Similarity: {prop.get('similarity_score', 0):.0%}\n"
+                    if prop.get('rfp_name'):
+                        similar_proposals_context += f"   RFP: {prop.get('rfp_name')}\n"
+                    # Include snippet of the winning narrative
+                    if prop.get('content'):
+                        similar_proposals_context += f"   Key themes: {prop.get('content')[:200]}...\n"
+
+                similar_proposals_context += "\nLeverage these winning proposals to identify:\n"
+                similar_proposals_context += "- Key themes and language that resonated with funders\n"
+                similar_proposals_context += "- Program structure and outcomes that won funding\n"
+                similar_proposals_context += "- Specific metrics and evidence cited\n"
+
+            prompt = f"""Analyze this grant for Per Scholas. Return ONLY valid JSON with this exact structure:
 
 {{
   "tags": ["tag1", "tag2", "tag3"],
-  "reasoning": "Detailed explanation of why this is a match"
+  "reasoning": "Brief overview of why this is a match",
+  "winning_strategies": [
+    "Specific strategy/approach from similar winning proposals that applies here",
+    "Another winning strategy to leverage"
+  ],
+  "key_themes": [
+    "Theme/language pattern from winning proposals to incorporate",
+    "Another key theme"
+  ],
+  "recommended_metrics": [
+    "Specific metric or evidence that won funding in past proposals",
+    "Another recommended metric to highlight"
+  ],
+  "considerations": [
+    "Important factor or requirement to address in the proposal",
+    "Another consideration for a competitive application"
+  ]
 }}
 
 Grant: {grant.get('title')}
@@ -181,7 +225,9 @@ Matched Keywords:
 - Context: {', '.join(score_breakdown['matches']['context_keywords'])}
 
 Domain Penalties: {score_breakdown['penalties']['domain_penalty']} points
-{f"⚠️ Non-relevant domains found: {', '.join(score_breakdown['penalties']['excluded_domains_found'])}" if score_breakdown['penalties']['excluded_domains_found'] else "✓ No domain penalties"}
+{f"⚠️ Non-relevant domains found: {', '.join(score_breakdown['penalties']['excluded_domains_found'])}" if score_breakdown['penalties']['excluded_domains_found'] else "✓ No domain penalties"}{similar_proposals_context}
+
+IMPORTANT: If similar winning proposals exist above, reference specific themes, language, or approaches from those proposals that could be adapted for this grant.
 
 Focus on: alignment with tech workforce training, target demographics, and program fit.
 Consider eligibility requirements, cost sharing implications, and funding structure.
@@ -231,9 +277,9 @@ Generate 3-5 relevant tags based on the matched keywords and grant focus."""
             }
 
     async def _find_similar_proposals(self, grant: Dict[str, Any]) -> List[Dict]:
-        """Find similar past proposals using PGVector similarity search."""
+        """Find similar past Per Scholas proposals using PGVector similarity search."""
         try:
-            # Import semantic service for RFP similarity search
+            # Import semantic service for proposal similarity search
             from semantic_service import SemanticService
 
             semantic_service = SemanticService()
@@ -241,18 +287,18 @@ Generate 3-5 relevant tags based on the matched keywords and grant focus."""
             # Create query text from grant
             query_text = f"{grant.get('title', '')} {grant.get('description', '')}"
 
-            # Find similar RFPs (threshold 0.25 = 25% similarity minimum)
-            similar_rfps = semantic_service.find_similar_rfps(query_text, limit=5)
+            # Find similar Per Scholas proposals (threshold 0.25 = 25% similarity minimum)
+            similar_proposals = semantic_service.find_similar_proposals(query_text, limit=5)
 
-            if similar_rfps:
-                print(f"[LLM ENHANCEMENT] Found {len(similar_rfps)} similar RFPs for '{grant.get('title', 'Unknown')[:50]}...'")
-                for rfp in similar_rfps:
-                    print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+            if similar_proposals:
+                print(f"[LLM ENHANCEMENT] Found {len(similar_proposals)} similar proposals for '{grant.get('title', 'Unknown')[:50]}...'")
+                for proposal in similar_proposals:
+                    print(f"  - {proposal.get('title', 'Unknown')[:60]}... (similarity: {proposal.get('similarity_score', 0):.2f}, outcome: {proposal.get('outcome', 'unknown')})")
 
-            return similar_rfps
+            return similar_proposals
 
         except Exception as e:
-            print(f"[LLM ENHANCEMENT] Similarity search error: {e}")
+            print(f"[LLM ENHANCEMENT] Proposal similarity search error: {e}")
             return []
 
 
@@ -295,6 +341,10 @@ async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, A
         'llm_summary': enhanced.get('llm_summary'),
         'detailed_match_reasoning': enhanced.get('detailed_match_reasoning'),
         'tags': enhanced.get('tags', []),
+        'winning_strategies': enhanced.get('winning_strategies', []),
+        'key_themes': enhanced.get('key_themes', []),
+        'recommended_metrics': enhanced.get('recommended_metrics', []),
+        'considerations': enhanced.get('considerations', []),
         'similar_past_proposals': enhanced.get('similar_past_proposals', []),
         'status': 'active',
 
