@@ -14,7 +14,7 @@ from supabase import Client
 
 # Import scrapers
 from scrapers.grants_gov_scraper import GrantsGovScraper
-from scrapers.state_scrapers import CaliforniaGrantsScraper, NewYorkGrantsScraper
+from scrapers.state_scrapers import CaliforniaGrantsScraper, NewYorkGrantsScraper, NYDOLScraper, IllinoisGATAScraper, MassachusettsScraper
 from scrapers.federal_scrapers import SAMGovScraper, USASpendingScraper, DOLWorkforceScraper
 from scrapers.gmail_scraper import GmailInboxScraper
 
@@ -49,6 +49,9 @@ class SchedulerService:
             'grants_gov': GrantsGovScraper(supabase_client=self.supabase),
             'california': CaliforniaGrantsScraper(),
             'new_york': NewYorkGrantsScraper(),
+            'new_york_dol': NYDOLScraper(),
+            'illinois_gata': IllinoisGATAScraper(),
+            'massachusetts': MassachusettsScraper(),
             'sam_gov': SAMGovScraper(),
             'usa_spending': USASpendingScraper(),
             'dol_workforce': DOLWorkforceScraper()
@@ -343,6 +346,21 @@ class SchedulerService:
             ny_scraper = self.scrapers['new_york']
             ny_grants = await ny_scraper.scrape(limit=10)
             all_grants.extend(ny_grants)
+
+            # New York DOL
+            ny_dol_scraper = self.scrapers['new_york_dol']
+            ny_dol_grants = await ny_dol_scraper.scrape(limit=10)
+            all_grants.extend(ny_dol_grants)
+
+            # Illinois GATA
+            il_scraper = self.scrapers['illinois_gata']
+            il_grants = await il_scraper.scrape(limit=10)
+            all_grants.extend(il_grants)
+
+            # Massachusetts COMMBUYS
+            ma_scraper = self.scrapers['massachusetts']
+            ma_grants = await ma_scraper.scrape(limit=10)
+            all_grants.extend(ma_grants)
 
             saved_count = await self._store_grants(all_grants, 'state')
 
