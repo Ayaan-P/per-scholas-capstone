@@ -154,13 +154,22 @@ class SchedulerService:
 
     async def _run_initial_scrape(self):
         """Run initial scrape on startup"""
-        logger.info("Running initial scrape...")
+        logger.info("Running initial scrape on startup...")
         await asyncio.sleep(5)  # Wait for system to fully initialize
-        # await self._scrape_grants_gov()
 
+        # Run state scrapers on startup (quick, generates synthetic data)
+        try:
+            logger.info("Running state scrapers on startup...")
+            # await self._scrape_state_grants()
+        except Exception as e:
+            logger.error(f"Error running state scrapers on startup: {e}")
+        # await self._scrape_grants_gov()
         # Also scrape Gmail if available
         if 'gmail_inbox' in self.scrapers:
-            await self._scrape_gmail_inbox()
+            try:
+                await self._scrape_gmail_inbox()
+            except Exception as e:
+                logger.error(f"Error running Gmail scraper on startup: {e}")
 
         logger.info("Initial scrape completed")
 

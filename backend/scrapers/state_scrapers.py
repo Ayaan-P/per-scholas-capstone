@@ -5,7 +5,7 @@ Based on data_sources.md documentation
 
 import asyncio
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import logging
 import json
@@ -13,6 +13,22 @@ import re
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+# Global semantic service instance (lazy loaded)
+_semantic_service = None
+
+def get_semantic_service():
+    """Get or initialize semantic service singleton"""
+    global _semantic_service
+    if _semantic_service is None:
+        try:
+            from semantic_service import SemanticService
+            _semantic_service = SemanticService()
+            logger.info("[STATE_SCRAPERS] Semantic service initialized")
+        except Exception as e:
+            logger.warning(f"[STATE_SCRAPERS] Could not initialize semantic service: {e}")
+            _semantic_service = False  # Mark as failed to avoid retries
+    return _semantic_service if _semantic_service is not False else None
 
 
 class CaliforniaGrantsScraper:
@@ -479,57 +495,26 @@ class NYDOLScraper:
         return program_requirements.get(acronym, ["NY State presence", "Workforce development focus"])
     
     def _calculate_match_score(self, title: str, description: str = '') -> int:
-        """Calculate relevance score for NY DOL opportunities"""
-        try:
-            # Try to use centralized match scoring if available
-            from match_scoring import calculate_match_score
-            grant_data = {
-                'title': title,
-                'description': description,
-                'amount': 0  # Will be scored separately
-            }
-            return calculate_match_score(grant_data, [])
-        except Exception as e:
-            # Fallback to local scoring
-            text = (title + ' ' + description).lower()
-            
-            score = 60  # Base score for NY DOL
-            
-            # High-value keywords for Per Scholas mission
-            high_value = [
-                'technology training', 'workforce development', 'apprenticeship', 
-                'cybersecurity', 'digital skills', 'coding', 'programming',
-                'underserved', 'underrepresented', 'job training'
-            ]
-            
-            medium_value = [
-                'training', 'education', 'workforce', 'employment', 'skills',
-                'career', 'pre-apprenticeship', 'clean energy', 'manufacturing'
-            ]
-            
-            low_value = [
-                'opportunity', 'program', 'initiative', 'development',
-                'support', 'community'
-            ]
-            
-            # Apply scoring
-            for keyword in high_value:
-                if keyword in text:
-                    score += 15
-            
-            for keyword in medium_value:
-                if keyword in text:
-                    score += 8
-                    
-            for keyword in low_value:
-                if keyword in text:
-                    score += 3
-            
-            # Bonus for NY state focus (Per Scholas has NY presence)
-            if any(ny_term in text for ny_term in ['new york', 'ny state', 'nys']):
-                score += 10
-            
-            return min(95, score)
+        """Calculate relevance score using centralized scoring with semantic similarity"""
+        from match_scoring import calculate_match_score
+
+        grant_data = {
+            'title': title,
+            'description': description,
+            'amount': 0
+        }
+
+        # Get semantic similarity with historical RFPs
+        rfp_similarities = []
+        semantic_service = get_semantic_service()
+        if semantic_service:
+            try:
+                grant_text = f"{title} {description}"
+                rfp_similarities = semantic_service.find_similar_rfps(grant_text, limit=3)
+            except Exception as e:
+                logger.warning(f"[NY_DOL] Semantic search failed: {e}")
+
+        return calculate_match_score(grant_data, rfp_similarities)
 
 
 class NewYorkGrantsScraper:
@@ -649,13 +634,14 @@ class IllinoisGATAScraper:
                 # Generate future deadlines
                 deadline_days = random.randint(45, 180)
                 deadline = (datetime.now() + timedelta(days=deadline_days)).strftime('%Y-%m-%d')
-                
+
                 # Calculate match score based on relevance to Per Scholas
-                match_score = self._calculate_match_score(program_info["focus"])
-                
+                program_title = f"{program_info['program']} - FY2025"
+                match_score = self._calculate_match_score(program_info["focus"], program_title)
+
                 grant = {
                     "id": f"il-gata-{program_info['program'].lower().replace(' ', '-').replace('(', '').replace(')', '')}-2025",
-                    "title": f"{program_info['program']} - FY2025",
+                    "title": program_title,
                     "funder": program_info["agency"],
                     "amount": amount,
                     "deadline": deadline,
@@ -676,35 +662,27 @@ class IllinoisGATAScraper:
             logger.error(f"Error fetching Illinois grants: {e}")
             return []
     
-    def _calculate_match_score(self, focus_areas: str) -> int:
-        """Calculate match score based on focus areas"""
-        score = 50  # Base score for Illinois grants
-        
-        focus_lower = focus_areas.lower()
-        
-        # High-value keywords for Per Scholas mission
-        high_value_keywords = [
-            'workforce development', 'job training', 'digital skills', 'technology',
-            'cybersecurity', 'coding', 'programming', 'underserved communities',
-            'digital literacy', 'innovation'
-        ]
-        
-        medium_value_keywords = [
-            'training', 'education', 'employment', 'skills', 'career',
-            'community college', 'economic development', 'business growth'
-        ]
-        
-        # Apply scoring
-        for keyword in high_value_keywords:
-            if keyword in focus_lower:
-                score += 15
-                
-        for keyword in medium_value_keywords:
-            if keyword in focus_lower:
-                score += 8
-        
-        # Cap at 95
-        return min(95, score)
+    def _calculate_match_score(self, focus_areas: str, program_title: str = '') -> int:
+        """Calculate match score using centralized scoring with semantic similarity"""
+        from match_scoring import calculate_match_score
+
+        grant_data = {
+            'title': program_title,
+            'description': focus_areas,
+            'amount': 0
+        }
+
+        # Get semantic similarity with historical RFPs
+        rfp_similarities = []
+        semantic_service = get_semantic_service()
+        if semantic_service:
+            try:
+                grant_text = f"{program_title} {focus_areas}"
+                rfp_similarities = semantic_service.find_similar_rfps(grant_text, limit=3)
+            except Exception as e:
+                logger.warning(f"[IL_GATA] Semantic search failed: {e}")
+
+        return calculate_match_score(grant_data, rfp_similarities)
     
     def _generate_requirements(self, program_info: Dict) -> List[str]:
         """Generate typical requirements for Illinois grants"""
@@ -850,16 +828,17 @@ class MassachusettsScraper:
                 # Generate future deadlines
                 deadline_days = random.randint(30, 120)
                 deadline = (datetime.now() + timedelta(days=deadline_days)).strftime('%Y-%m-%d')
-                
+
                 # Calculate match score based on relevance to Per Scholas
-                match_score = self._calculate_match_score(program_info["focus"])
-                
+                program_title = f"{program_info['program']} - FY2025"
+                match_score = self._calculate_match_score(program_info["focus"], program_title)
+
                 # Generate COMMBUYS-style bid number
                 bid_number = f"BD-{datetime.now().year}-{program_info['program'][:4].upper()}-{random.randint(1000, 9999)}"
-                
+
                 grant = {
                     "id": f"ma-commbuys-{program_info['program'].lower().replace(' ', '-').replace(',', '')}-2025",
-                    "title": f"{program_info['program']} - FY2025",
+                    "title": program_title,
                     "funder": program_info["agency"],
                     "amount": amount,
                     "deadline": deadline,
@@ -880,36 +859,27 @@ class MassachusettsScraper:
             logger.error(f"Error fetching Massachusetts COMMBUYS grants: {e}")
             return []
     
-    def _calculate_match_score(self, focus_areas: str) -> int:
-        """Calculate match score based on focus areas"""
-        score = 55  # Base score for Massachusetts grants (slightly higher than other states)
-        
-        focus_lower = focus_areas.lower()
-        
-        # High-value keywords for Per Scholas mission
-        high_value_keywords = [
-            'workforce training', 'skills development', 'technology training', 'digital literacy',
-            'cybersecurity', 'STEM education', 'career preparation', 'technology skills',
-            'workforce development', 'technical training'
-        ]
-        
-        medium_value_keywords = [
-            'training', 'education', 'career pathways', 'business training', 
-            'adult education', 'community college', 'innovation training',
-            'workforce preparation', 'economic development'
-        ]
-        
-        # Apply scoring
-        for keyword in high_value_keywords:
-            if keyword in focus_lower:
-                score += 12
-                
-        for keyword in medium_value_keywords:
-            if keyword in focus_lower:
-                score += 6
-        
-        # Cap at 95
-        return min(95, score)
+    def _calculate_match_score(self, focus_areas: str, program_title: str = '') -> int:
+        """Calculate match score using centralized scoring with semantic similarity"""
+        from match_scoring import calculate_match_score
+
+        grant_data = {
+            'title': program_title,
+            'description': focus_areas,
+            'amount': 0
+        }
+
+        # Get semantic similarity with historical RFPs
+        rfp_similarities = []
+        semantic_service = get_semantic_service()
+        if semantic_service:
+            try:
+                grant_text = f"{program_title} {focus_areas}"
+                rfp_similarities = semantic_service.find_similar_rfps(grant_text, limit=3)
+            except Exception as e:
+                logger.warning(f"[MA_COMMBUYS] Semantic search failed: {e}")
+
+        return calculate_match_score(grant_data, rfp_similarities)
     
     def _generate_requirements(self, program_info: Dict) -> List[str]:
         """Generate typical requirements for Massachusetts grants"""
