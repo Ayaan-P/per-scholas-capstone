@@ -76,6 +76,7 @@ export default function OpportunitiesPage() {
   const [loadingSummary, setLoadingSummary] = useState<{ [key: string]: boolean }>({})
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [dismissingOpportunities, setDismissingOpportunities] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchOpportunities()
@@ -165,21 +166,42 @@ export default function OpportunitiesPage() {
   }, [rawOpportunities, filter, highMatchOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
 
   const handleDismiss = async (opportunityId: string) => {
-    if (!confirm('Are you sure you want to dismiss this opportunity?')) {
+    if (!confirm('Are you sure you want to dismiss this opportunity? This action cannot be undone.')) {
       return
     }
+
+    // Add to dismissing set
+    setDismissingOpportunities(prev => new Set(prev).add(opportunityId))
 
     try {
       const response = await api.deleteOpportunity(opportunityId)
 
       if (response.ok) {
-        setRawOpportunities(prev => prev.filter(opp => opp.id !== opportunityId))
+        // Remove from opportunities list with a slight delay for visual feedback
+        setTimeout(() => {
+          setRawOpportunities(prev => prev.filter(opp => opp.id !== opportunityId))
+          setDismissingOpportunities(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(opportunityId)
+            return newSet
+          })
+        }, 300)
       } else {
         alert('Failed to dismiss opportunity')
+        setDismissingOpportunities(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(opportunityId)
+          return newSet
+        })
       }
     } catch (error) {
       console.error('Failed to dismiss opportunity:', error)
       alert('Failed to dismiss opportunity')
+      setDismissingOpportunities(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(opportunityId)
+        return newSet
+      })
     }
   }
 
@@ -265,10 +287,59 @@ export default function OpportunitiesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-perscholas-secondary mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading your pipeline...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
+          {/* Header Skeleton */}
+          <div className="mb-6 sm:mb-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10 animate-pulse">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className="bg-gray-200 p-2 sm:p-2.5 rounded-xl w-10 h-10"></div>
+                <div className="h-8 bg-gray-200 rounded w-48"></div>
+              </div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            </div>
+          </div>
+
+          {/* Stats Skeleton */}
+          <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm animate-pulse">
+                <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded w-24"></div>
+              </div>
+            ))}
+          </div>
+
+          {/* Content Skeleton */}
+          <div className="lg:flex lg:gap-6">
+            <aside className="hidden lg:block lg:w-80 flex-shrink-0 mb-6 lg:mb-0">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-10 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+              </div>
+            </aside>
+
+            <div className="flex-1 min-w-0">
+              <div className="space-y-6">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm animate-pulse">
+                    <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="space-y-2 mb-4">
+                      <div className="h-3 bg-gray-200 rounded"></div>
+                      <div className="h-3 bg-gray-200 rounded"></div>
+                      <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+                    </div>
+                    <div className="h-12 bg-gray-200 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -287,34 +358,34 @@ export default function OpportunitiesPage() {
                 </svg>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                My Pipeline
+                Saved Opportunities
               </h2>
             </div>
             <p className="text-gray-600 text-base sm:text-lg">
-              Deep dive into saved opportunities with AI-powered insights, match analysis, and similar past RFPs.
+              Review and analyze your saved opportunities with AI-powered insights, match reasoning, and similar past proposals.
             </p>
           </div>
         </div>
 
         {/* Stats Bar */}
         <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Pipeline</p>
+          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Pipeline</p>
             <p className="text-2xl sm:text-3xl font-bold text-gray-900">{filteredOpportunities.length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Total Value</p>
+          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Total Value</p>
             <p className="text-xl sm:text-3xl font-bold text-green-600 truncate">{formatCurrency(filteredOpportunities.reduce((sum, o) => sum + (o.amount || 0), 0))}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match</p>
+          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">High Match</p>
             <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredOpportunities.filter(o => o.match_score >= 85).length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Avg Match</p>
+          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Avg Match</p>
             <p className="text-2xl sm:text-3xl font-bold text-perscholas-primary">
               {filteredOpportunities.length > 0
                 ? Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length)
@@ -327,15 +398,25 @@ export default function OpportunitiesPage() {
         <div className="lg:hidden mb-4">
           <button
             onClick={() => setShowMobileFilters(!showMobileFilters)}
-            className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+            className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
+              <div className="relative">
+                <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                {(highMatchOnly || filter !== 'all' || keywordSearch || fundingMin || fundingMax || dueInDays) && (
+                  <span className="absolute -top-2 -right-2 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-perscholas-accent opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-perscholas-accent items-center justify-center">
+                      <span className="text-white text-xs font-bold">!</span>
+                    </span>
+                  </span>
+                )}
+              </div>
               <span className="font-bold text-gray-900">Filters & Search</span>
             </div>
-            <svg className={`w-5 h-5 text-gray-600 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 text-gray-600 transition-transform duration-300 ${showMobileFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -355,13 +436,17 @@ export default function OpportunitiesPage() {
                 </h3>
 
                 <div className="space-y-4">
-                  <label className="flex items-center justify-between p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
-                    <span className="text-sm font-medium text-gray-700">High Match Only</span>
+                  <label className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                    highMatchOnly
+                      ? 'border-green-500 bg-green-50 hover:bg-green-100'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    <span className={`text-sm font-medium ${highMatchOnly ? 'text-green-700' : 'text-gray-700'}`}>High Match Only</span>
                     <input
                       type="checkbox"
                       checked={highMatchOnly}
                       onChange={(e) => setHighMatchOnly(e.target.checked)}
-                      className="w-4 h-4 text-perscholas-secondary rounded focus:ring-2 focus:ring-perscholas-secondary/20"
+                      className="w-4 h-4 text-green-600 rounded focus:ring-2 focus:ring-green-500/20"
                     />
                   </label>
 
@@ -387,16 +472,31 @@ export default function OpportunitiesPage() {
                   <div>
                     <label className="text-xs font-semibold text-gray-700 mb-2 block">Search</label>
                     <div className="relative">
-                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
+                        keywordSearch ? 'text-perscholas-secondary' : 'text-gray-400'
+                      }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                       <input
                         type="text"
                         value={keywordSearch}
                         onChange={(e) => setKeywordSearch(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary"
+                        className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary transition-all ${
+                          keywordSearch ? 'border-perscholas-secondary bg-blue-50' : 'border-gray-200'
+                        }`}
                         placeholder="Keywords..."
                       />
+                      {keywordSearch && (
+                        <button
+                          onClick={() => setKeywordSearch('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                          aria-label="Clear search"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -443,6 +543,26 @@ export default function OpportunitiesPage() {
                       <option value="deadline">Due Date</option>
                     </select>
                   </div>
+
+                  {/* Clear Filters Button */}
+                  {(highMatchOnly || filter !== 'all' || keywordSearch || fundingMin || fundingMax || dueInDays) && (
+                    <button
+                      onClick={() => {
+                        setHighMatchOnly(false)
+                        setFilter('all')
+                        setKeywordSearch('')
+                        setFundingMin(undefined)
+                        setFundingMax(undefined)
+                        setDueInDays(undefined)
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Clear All Filters
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -489,62 +609,62 @@ export default function OpportunitiesPage() {
             ) : (
               <div>
                 <div className="space-y-6 mb-8">
-                  {paged.map((opportunity) => {
+                  {paged.map((opportunity, index) => {
                     const isExpanded = expandedOpportunity === opportunity.id
                     const colors = getMatchColor(opportunity.match_score)
 
                     return (
                       <div
                         key={opportunity.id}
-                        className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 ${
-                          isExpanded ? 'border-perscholas-secondary shadow-lg' : 'border-gray-200'
+                        className={`bg-white border rounded-xl transition-shadow duration-200 ${
+                          dismissingOpportunities.has(opportunity.id)
+                            ? 'opacity-50 pointer-events-none'
+                            : ''
+                        } ${
+                          isExpanded ? 'border-perscholas-secondary shadow-md' : 'border-gray-200 shadow-sm hover:shadow-md'
                         }`}
                       >
                         {/* Card Header */}
                         <div className="p-6">
                           {/* Title Row with Match Score */}
-                          <div className="flex items-start justify-between gap-4 mb-4">
+                          <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-xl font-bold text-gray-900 leading-tight mb-1">
+                              <h3 className="text-lg font-semibold text-gray-900 leading-snug mb-1.5">
                                 {opportunity.title}
                               </h3>
-                              <p className="text-sm text-gray-600">{opportunity.funder}</p>
+                              <p className="text-sm text-gray-600 font-medium">{opportunity.funder}</p>
                             </div>
-                            <div className={`flex-shrink-0 ${colors.bg} text-white px-4 py-2 rounded-full shadow-sm`}>
-                              <span className="font-bold">{opportunity.match_score}%</span>
+                            <div className={`flex-shrink-0 ${colors.bg} text-white px-3.5 py-1.5 rounded-lg text-sm font-semibold`}>
+                              {opportunity.match_score}% Match
                             </div>
                           </div>
 
-                          {/* Key Metrics - Simplified Grid */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Funding</p>
-                              <p className="text-base sm:text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</p>
+                          {/* Key Metrics */}
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Funding Amount</span>
+                              <span className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</span>
                             </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Deadline</p>
-                              <p className="text-base sm:text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</p>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Due Date</span>
+                              <span className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</span>
                             </div>
-                            {opportunity.source && (
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">Source</p>
-                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${getSourceBadge(opportunity.source)}`}>
-                                  {getSourceLabel(opportunity.source)}
-                                </span>
-                              </div>
-                            )}
                           </div>
 
-                          {/* AI Summary - Always Full Display */}
+                          {/* Source Badge */}
+                          {opportunity.source && (
+                            <div className="mb-4">
+                              <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold border ${getSourceBadge(opportunity.source)}`}>
+                                {getSourceLabel(opportunity.source)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Summary */}
                           {opportunity.llm_summary && (
-                            <div className={`${colors.lightBg} border ${colors.border} rounded-xl p-4 mb-4`}>
-                              <div className="flex items-start gap-2 mb-2">
-                                <svg className="w-4 h-4 text-perscholas-secondary flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
-                                <p className="text-xs font-bold text-perscholas-dark">AI INSIGHT</p>
-                              </div>
-                              <p className={`text-sm ${colors.text} leading-relaxed`}>
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Summary</p>
+                              <p className="text-sm text-gray-700 leading-relaxed">
                                 {opportunity.llm_summary}
                               </p>
                             </div>
@@ -570,41 +690,52 @@ export default function OpportunitiesPage() {
                           )}
 
                           {/* Action Buttons */}
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+                          <div className="flex flex-col sm:flex-row gap-2.5 pt-4 border-t border-gray-100">
                             <button
                               onClick={() => toggleExpanded(opportunity.id)}
-                              className="flex-1 flex items-center justify-center gap-2 bg-perscholas-secondary text-white px-4 sm:px-5 py-3 sm:py-2.5 rounded-lg font-semibold hover:bg-perscholas-primary hover:shadow-lg transition-all text-sm"
+                              className="flex-1 flex items-center justify-center gap-2 bg-perscholas-secondary text-white px-4 py-2.5 rounded-lg font-medium hover:bg-perscholas-primary transition-colors text-sm"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isExpanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                              <svg className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                               </svg>
-                              {isExpanded ? 'Hide Reasoning' : 'View Reasoning'}
+                              {isExpanded ? 'Hide Details' : 'View Full Details'}
                             </button>
                             {opportunity.application_url && (
                               <a
                                 href={opportunity.application_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-700 px-4 sm:px-5 py-3 sm:py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-sm"
+                                className="flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
-                                Open
+                                Apply Now
                               </a>
                             )}
                             <button
                               onClick={() => handleDismiss(opportunity.id)}
-                              className="border-2 border-red-300 text-red-600 px-4 sm:px-5 py-3 sm:py-2.5 rounded-lg font-semibold hover:bg-red-50 transition-colors text-sm"
+                              disabled={dismissingOpportunities.has(opportunity.id)}
+                              className="border border-red-200 text-red-600 px-4 py-2.5 rounded-lg font-medium hover:bg-red-50 hover:border-red-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Dismiss
+                              {dismissingOpportunities.has(opportunity.id) ? (
+                                <span className="flex items-center justify-center gap-2">
+                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Removing...
+                                </span>
+                              ) : (
+                                'Remove'
+                              )}
                             </button>
                           </div>
                         </div>
 
                         {/* Expanded Analysis */}
                         {isExpanded && (
-                          <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-6">
+                          <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-5">
 
                             {/* FULL DESCRIPTION - "About" Section */}
                             {opportunity.description && (
