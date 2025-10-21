@@ -6,6 +6,7 @@ This script creates the credentials file that Claude Code CLI expects.
 import os
 import json
 from pathlib import Path
+import time
 
 def setup_claude_credentials():
     """
@@ -27,11 +28,15 @@ def setup_claude_credentials():
 
     credentials_file = claude_dir / '.credentials.json'
 
+    # Set expiresAt to far future so CLI uses refresh token when needed
+    # Claude CLI will automatically refresh when access token expires
+    expires_at = int((time.time() + 86400) * 1000)  # 24 hours from now in milliseconds
+
     credentials = {
         "claudeAiOauth": {
             "accessToken": access_token,
             "refreshToken": refresh_token,
-            "expiresAt": 1760995500077,  # Will be refreshed automatically by Claude CLI
+            "expiresAt": expires_at,
             "scopes": ["user:inference", "user:profile"],
             "subscriptionType": "pro"
         }
@@ -42,6 +47,9 @@ def setup_claude_credentials():
     credentials_file.chmod(0o600)  # Read/write for owner only
 
     print(f"✓ Claude Code credentials configured at {credentials_file}")
+    print(f"  Access token: {access_token[:20]}...")
+    print(f"  Refresh token: {refresh_token[:20]}...")
+    print(f"  Expires at: {expires_at} ({time.ctime(expires_at/1000)})")
     return True
 
 if __name__ == "__main__":
