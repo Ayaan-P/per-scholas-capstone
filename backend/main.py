@@ -34,6 +34,14 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
     Returns structured response from Claude Code session
     """
     try:
+        # Refresh token before running (in case it expired)
+        try:
+            from claude_token_refresh import refresh_claude_token
+            refresh_claude_token()
+        except Exception as e:
+            print(f"[Claude Code Session] Warning: Token refresh failed: {e}")
+            # Continue anyway - might still work
+
         # Create temporary file for the prompt if needed
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
             f.write(prompt)
