@@ -113,7 +113,11 @@ export default function OpportunitiesPage() {
       }
 
       const data = await response.json()
-      setRawOpportunities(data.opportunities || [])
+      // Filter to only show Grants.gov opportunities
+      const filteredData = (data.opportunities || []).filter((opp: Opportunity) =>
+        opp.source === 'grants_gov'
+      )
+      setRawOpportunities(filteredData)
     } catch (error) {
       console.error('Failed to fetch opportunities:', error)
       setRawOpportunities([])
