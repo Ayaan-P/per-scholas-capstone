@@ -14,7 +14,7 @@ from supabase import Client
 
 # Import scrapers
 from scrapers.grants_gov_scraper import GrantsGovScraper
-from scrapers.state_scrapers import CaliforniaGrantsScraper, NewYorkGrantsScraper, NYDOLScraper, IllinoisGATAScraper, MassachusettsScraper
+from scrapers.state_scrapers import CaliforniaGrantsScraper, NewYorkGrantsScraper, NYDOLScraper
 from scrapers.federal_scrapers import SAMGovScraper, USASpendingScraper, DOLWorkforceScraper
 from scrapers.gmail_scraper import GmailInboxScraper
 
@@ -50,8 +50,6 @@ class SchedulerService:
             'california': CaliforniaGrantsScraper(),
             'new_york': NewYorkGrantsScraper(),
             'new_york_dol': NYDOLScraper(),
-            'illinois_gata': IllinoisGATAScraper(),
-            'massachusetts': MassachusettsScraper(),
             'sam_gov': SAMGovScraper(),
             'usa_spending': USASpendingScraper(),
             'dol_workforce': DOLWorkforceScraper()
@@ -154,22 +152,13 @@ class SchedulerService:
 
     async def _run_initial_scrape(self):
         """Run initial scrape on startup"""
-        logger.info("Running initial scrape on startup...")
+        logger.info("Running initial scrape...")
         await asyncio.sleep(5)  # Wait for system to fully initialize
-
-        # Run state scrapers on startup (quick, generates synthetic data)
-        try:
-            logger.info("Running state scrapers on startup...")
-            # await self._scrape_state_grants()
-        except Exception as e:
-            logger.error(f"Error running state scrapers on startup: {e}")
         # await self._scrape_grants_gov()
+
         # Also scrape Gmail if available
         if 'gmail_inbox' in self.scrapers:
-            try:
-                await self._scrape_gmail_inbox()
-            except Exception as e:
-                logger.error(f"Error running Gmail scraper on startup: {e}")
+            await self._scrape_gmail_inbox()
 
         logger.info("Initial scrape completed")
 
@@ -360,16 +349,6 @@ class SchedulerService:
             ny_dol_scraper = self.scrapers['new_york_dol']
             ny_dol_grants = await ny_dol_scraper.scrape(limit=10)
             all_grants.extend(ny_dol_grants)
-
-            # Illinois GATA
-            il_scraper = self.scrapers['illinois_gata']
-            il_grants = await il_scraper.scrape(limit=10)
-            all_grants.extend(il_grants)
-
-            # Massachusetts COMMBUYS
-            ma_scraper = self.scrapers['massachusetts']
-            ma_grants = await ma_scraper.scrape(limit=10)
-            all_grants.extend(ma_grants)
 
             saved_count = await self._store_grants(all_grants, 'state')
 
