@@ -62,9 +62,11 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
 
         # Execute Claude Code session similar to iron_man_wake but non-interactive
         # Using --print flag for non-interactive mode with WebSearch enabled
+        # Using Haiku 4.5 for faster, cheaper responses
         result = subprocess.run([
             'claude',
             '--print',
+            '--model', 'claude-haiku-4-5-20251001',
             '--allowed-tools', 'WebSearch', 'WebFetch', 'Bash', 'Read', 'Write',
             '--permission-mode', 'acceptEdits'
         ],
