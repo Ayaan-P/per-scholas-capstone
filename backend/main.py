@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -1605,6 +1605,181 @@ async def download_proposal(proposal_id: int):
     except Exception as e:
         print(f"[ERROR] Failed to serve proposal {proposal_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to serve proposal: {str(e)}")
+
+
+@app.post("/api/rfps/upload")
+async def upload_rfp(
+    file: UploadFile = File(...),
+    title: str = None,
+    funder: str = None,
+    deadline: str = None
+):
+    """
+    Upload an RFP PDF document for AI analysis.
+
+    The system will:
+    1. Save the PDF to server filesystem
+    2. Extract text content using PyPDF2
+    3. Generate AI summary and match analysis using LLM
+    4. Calculate match score based on keywords
+    5. Save to scraped_grants table for review
+
+    Args:
+        file: PDF file upload
+        title: Optional RFP title (will be extracted from PDF if not provided)
+        funder: Optional funder name
+        deadline: Optional deadline date
+
+    Returns:
+        Analysis results with match score and AI insights
+    """
+    try:
+        # Validate file type
+        if not file.filename.endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+
+        # Create uploads directory if it doesn't exist
+        uploads_dir = os.path.join(os.path.dirname(__file__), 'uploaded_rfps')
+        os.makedirs(uploads_dir, exist_ok=True)
+
+        # Generate unique filename
+        file_id = str(uuid.uuid4())
+        safe_filename = f"{file_id}_{file.filename}"
+        file_path = os.path.join(uploads_dir, safe_filename)
+
+        # Save uploaded file
+        with open(file_path, 'wb') as f:
+            content = await file.read()
+            f.write(content)
+
+        print(f"[RFP UPLOAD] Saved file to {file_path}")
+
+        # Extract text from PDF
+        from semantic_service import SemanticService
+        semantic_service = SemanticService()
+        text_content = semantic_service.extract_text_from_pdf(file_path)
+
+        if not text_content or len(text_content.strip()) < 100:
+            raise HTTPException(status_code=400, detail="Could not extract sufficient text from PDF. File may be scanned/image-based.")
+
+        print(f"[RFP UPLOAD] Extracted {len(text_content)} characters of text")
+
+        # Use LLM to extract structured information from RFP
+        import google.generativeai as genai
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+
+        extraction_prompt = f"""Extract key information from this RFP/grant opportunity document.
+
+Document text:
+{text_content[:8000]}
+
+Return ONLY valid JSON with this structure:
+{{
+  "title": "RFP title",
+  "funder": "Funding organization name",
+  "amount": 0,
+  "deadline": "YYYY-MM-DD or null",
+  "description": "2-3 sentence summary of what this grant funds",
+  "eligibility": "Who can apply",
+  "focus_areas": ["area1", "area2"]
+}}
+
+If a field cannot be determined, use null or empty string."""
+
+        response = model.generate_content(extraction_prompt)
+        import re
+        json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+
+        if json_match:
+            extracted_data = json.loads(json_match.group())
+        else:
+            extracted_data = {}
+
+        # Override with user-provided values
+        final_title = title or extracted_data.get('title') or file.filename
+        final_funder = funder or extracted_data.get('funder') or 'Unknown'
+        final_deadline = deadline or extracted_data.get('deadline')
+
+        # Calculate match score WITH semantic similarity
+        from match_scoring import calculate_match_score
+        from semantic_service import SemanticService
+
+        grant_data = {
+            'title': final_title,
+            'funder': final_funder,
+            'description': text_content,
+            'amount': extracted_data.get('amount', 0),
+            'deadline': final_deadline,
+            'source': 'user_upload'
+        }
+
+        # Find similar historical RFPs for semantic scoring (up to 50 points)
+        semantic_service = SemanticService()
+        query_text = f"{final_title} {text_content[:1000]}"
+        similar_rfps = semantic_service.find_similar_rfps(query_text, limit=5)
+
+        print(f"[RFP UPLOAD] Found {len(similar_rfps)} similar RFPs for semantic scoring")
+
+        match_score = calculate_match_score(grant_data, similar_rfps)
+
+        # Generate AI summary and reasoning
+        from llm_enhancement_service import LLMEnhancementService
+        llm_service = LLMEnhancementService()
+
+        enhanced_grant = {
+            **grant_data,
+            'match_score': match_score,
+            'opportunity_id': f"upload_{file_id}"
+        }
+
+        ai_enhanced = await llm_service.enhance_grant(enhanced_grant)
+
+        # Save directly to saved_opportunities table (skip inbox)
+        opportunity_record = {
+            'opportunity_id': f"upload_{file_id}",
+            'title': final_title,
+            'funder': final_funder,
+            'amount': extracted_data.get('amount', 0),
+            'deadline': final_deadline,
+            'description': extracted_data.get('description', text_content[:500]),
+            'match_score': match_score,
+            'source': 'user_upload',
+            'status': 'active',
+            'llm_summary': ai_enhanced.get('llm_summary'),
+            'detailed_match_reasoning': ai_enhanced.get('detailed_match_reasoning'),
+            'tags': ai_enhanced.get('tags', []),
+            'winning_strategies': ai_enhanced.get('winning_strategies', []),
+            'key_themes': ai_enhanced.get('key_themes', []),
+            'recommended_metrics': ai_enhanced.get('recommended_metrics', []),
+            'considerations': ai_enhanced.get('considerations', []),
+            'similar_past_proposals': ai_enhanced.get('similar_past_proposals', []),
+            'eligibility_explanation': extracted_data.get('eligibility')
+        }
+
+        result = supabase.table('saved_opportunities').insert(opportunity_record).execute()
+
+        print(f"[RFP UPLOAD] Saved directly to opportunities with match score: {match_score}%")
+
+        return {
+            'success': True,
+            'opportunity_id': result.data[0]['id'],
+            'match_score': match_score,
+            'title': final_title,
+            'funder': final_funder,
+            'llm_summary': ai_enhanced.get('llm_summary'),
+            'tags': ai_enhanced.get('tags', []),
+            'message': 'RFP uploaded and analyzed successfully! It now appears on this page.'
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] RFP upload failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to process RFP: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

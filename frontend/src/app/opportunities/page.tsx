@@ -79,6 +79,9 @@ export default function OpportunitiesPage() {
   const [dismissingOpportunities, setDismissingOpportunities] = useState<Set<string>>(new Set())
   const [addingToRfpDb, setAddingToRfpDb] = useState<Set<string>>(new Set())
   const [rfpDbSuccessMessage, setRfpDbSuccessMessage] = useState<{ [key: string]: string }>({})
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadingRfp, setUploadingRfp] = useState(false)
+  const [uploadResult, setUploadResult] = useState<any>(null)
 
   useEffect(() => {
     fetchOpportunities()
@@ -113,11 +116,7 @@ export default function OpportunitiesPage() {
       }
 
       const data = await response.json()
-      // Filter to only show Grants.gov opportunities
-      const filteredData = (data.opportunities || []).filter((opp: Opportunity) =>
-        opp.source === 'grants_gov'
-      )
-      setRawOpportunities(filteredData)
+      setRawOpportunities(data.opportunities || [])
     } catch (error) {
       console.error('Failed to fetch opportunities:', error)
       setRawOpportunities([])
@@ -259,6 +258,45 @@ export default function OpportunitiesPage() {
         newSet.delete(opportunityId)
         return newSet
       })
+    }
+  }
+
+  const handleUploadRfp = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setUploadingRfp(true)
+    setUploadResult(null)
+
+    const formData = new FormData(event.currentTarget)
+    const file = formData.get('file') as File
+
+    if (!file) {
+      alert('Please select a PDF file')
+      setUploadingRfp(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`${api.baseURL}/api/rfps/upload`, {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setUploadResult(data)
+        // Refresh opportunities to show the new upload
+        setTimeout(() => {
+          fetchOpportunities()
+        }, 1500)
+      } else {
+        alert(`Upload failed: ${data.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      alert('Failed to upload RFP. Please try again.')
+    } finally {
+      setUploadingRfp(false)
     }
   }
 
@@ -408,15 +446,27 @@ export default function OpportunitiesPage() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
-            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-              <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  Saved Opportunities
+                </h2>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                Saved Opportunities
-              </h2>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-perscholas-secondary text-white rounded-lg hover:bg-perscholas-dark transition-colors font-medium text-sm sm:text-base"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span className="hidden sm:inline">Upload RFP</span>
+                <span className="sm:hidden">Upload</span>
+              </button>
             </div>
             <p className="text-gray-600 text-base sm:text-lg">
               Review and analyze your saved opportunities with AI-powered insights, match reasoning, and similar past proposals.
@@ -1402,6 +1452,172 @@ export default function OpportunitiesPage() {
           </div>
         </div>
       </div>
+
+      {/* Upload RFP Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900">Upload RFP Document</h3>
+              <button
+                onClick={() => {
+                  setShowUploadModal(false)
+                  setUploadResult(null)
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {!uploadResult ? (
+              <form onSubmit={handleUploadRfp} className="space-y-6">
+                <div>
+                  <label htmlFor="file" className="block text-sm font-medium text-gray-700 mb-2">
+                    PDF Document
+                  </label>
+                  <input
+                    type="file"
+                    id="file"
+                    name="file"
+                    accept=".pdf"
+                    required
+                    className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent p-2"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Upload an RFP PDF for AI analysis</p>
+                </div>
+
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                    Title (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
+                    placeholder="AI will extract if not provided"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="funder" className="block text-sm font-medium text-gray-700 mb-2">
+                    Funder (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="funder"
+                    name="funder"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
+                    placeholder="AI will extract if not provided"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-2">
+                    Deadline (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    id="deadline"
+                    name="deadline"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUploadModal(false)
+                      setUploadResult(null)
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadingRfp}
+                    className="flex-1 px-4 py-2 bg-perscholas-secondary text-white rounded-lg hover:bg-perscholas-dark transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {uploadingRfp ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Analyzing...
+                      </>
+                    ) : (
+                      'Upload & Analyze'
+                    )}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-green-900 mb-1">RFP Analyzed Successfully!</h4>
+                      <p className="text-sm text-green-800">{uploadResult.message}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Title</p>
+                    <p className="text-sm font-semibold text-gray-900">{uploadResult.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Funder</p>
+                    <p className="text-sm font-semibold text-gray-900">{uploadResult.funder}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Match Score</p>
+                    <p className="text-2xl font-bold text-perscholas-secondary">{uploadResult.match_score}%</p>
+                  </div>
+                  {uploadResult.llm_summary && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-1">AI Summary</p>
+                      <p className="text-sm text-gray-700">{uploadResult.llm_summary}</p>
+                    </div>
+                  )}
+                  {uploadResult.tags && uploadResult.tags.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-2">Tags</p>
+                      <div className="flex flex-wrap gap-2">
+                        {uploadResult.tags.map((tag: string, idx: number) => (
+                          <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false)
+                    setUploadResult(null)
+                  }}
+                  className="w-full px-4 py-2 bg-perscholas-secondary text-white rounded-lg hover:bg-perscholas-dark transition-colors font-medium"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Back to Top */}
       {showBackToTop && (
