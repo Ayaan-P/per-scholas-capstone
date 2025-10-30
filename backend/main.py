@@ -19,14 +19,8 @@ from scheduler_service import SchedulerService
 
 load_dotenv()
 
-# Setup Claude Code authentication from environment variables on server
-try:
-    from setup_claude_auth import setup_claude_credentials
-    if os.getenv('CLAUDE_ACCESS_TOKEN'):
-        setup_claude_credentials()
-        print("[STARTUP] Claude Code authentication configured successfully")
-except Exception as e:
-    print(f"[STARTUP] Warning: Could not setup Claude Code auth: {e}")
+# Claude Code will use API key from environment variable ANTHROPIC_API_KEY
+# No additional setup needed - Claude CLI reads this automatically
 
 def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro", timeout: int = 900) -> dict:
     """
@@ -34,14 +28,6 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
     Returns structured response from Claude Code session
     """
     try:
-        # Refresh token before running (in case it expired)
-        try:
-            from claude_token_refresh import refresh_claude_token
-            refresh_claude_token()
-        except Exception as e:
-            print(f"[Claude Code Session] Warning: Token refresh failed: {e}")
-            # Continue anyway - might still work
-
         # Create temporary file for the prompt if needed
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
             f.write(prompt)
@@ -49,6 +35,10 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
 
         # Set up environment variables similar to iron_man_wake
         env = os.environ.copy()
+
+        # Ensure API key is set for Claude Code
+        if 'ANTHROPIC_API_KEY' not in env:
+            env['ANTHROPIC_API_KEY'] = os.getenv('ANTHROPIC_API_KEY', '')
 
         # Configure Claude Code environment for non-interactive session
         env.update({
