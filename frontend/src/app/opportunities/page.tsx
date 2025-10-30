@@ -570,7 +570,6 @@ export default function OpportunitiesPage() {
                       <option value="dol_workforce">DOL Workforce Development</option>
                       <option value="usa_spending">Federal Spending Database</option>
                       <option value="ny_dol">NY Department of Labor</option>
-                      <option value="illinois_gata">Illinois GATA Portal</option>
                       <option value="state">State</option>
                       <option value="local">Local</option>
                     </select>
