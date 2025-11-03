@@ -73,6 +73,9 @@ class LLMEnhancementService:
         key_themes = reasoning.get('key_themes', []) if reasoning else []
         recommended_metrics = reasoning.get('recommended_metrics', []) if reasoning else []
         considerations = reasoning.get('considerations', []) if reasoning else []
+        geographic_focus = reasoning.get('geographic_focus', '') if reasoning else ''
+        award_type = reasoning.get('award_type', '') if reasoning else ''
+        anticipated_awards = reasoning.get('anticipated_awards', '') if reasoning else ''
 
         # Build enhanced data with all LLM insights
         enhanced = {
@@ -84,6 +87,9 @@ class LLMEnhancementService:
             'key_themes': key_themes,
             'recommended_metrics': recommended_metrics,
             'considerations': considerations,
+            'geographic_focus': geographic_focus,
+            'award_type': award_type,
+            'anticipated_awards': anticipated_awards,
             'similar_past_proposals': similar_rfps,  # Historical RFPs for UI display
             'llm_enhanced_at': datetime.now().isoformat()
         }
@@ -206,7 +212,10 @@ Write a clear 2-3 sentence summary of what this grant is for and what it funds."
   "considerations": [
     "Important factor or requirement to address in the proposal",
     "Another consideration for a competitive application"
-  ]
+  ],
+  "geographic_focus": "AI analysis of geographic scope (e.g., National, Regional, State-specific, Local)",
+  "award_type": "AI analysis of funding mechanism (e.g., Grant, Cooperative Agreement, Contract)",
+  "anticipated_awards": "AI analysis of expected number of awards based on funding amount and program scope"
 }}
 
 Grant: {grant.get('title')}
