@@ -26,6 +26,9 @@ interface Opportunity {
   key_themes?: string[]
   recommended_metrics?: string[]
   considerations?: string[]
+  geographic_focus?: string
+  award_type?: string
+  anticipated_awards?: string
   similar_past_proposals?: any[]
   llm_enhanced_at?: string
 
@@ -72,6 +75,7 @@ export default function OpportunitiesPage() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const itemsPerPage = 6
   const [expandedOpportunity, setExpandedOpportunity] = useState<string | null>(null)
+  const [expandedSections, setExpandedSections] = useState<{ [opportunityId: string]: { [section: string]: boolean } }>({})
   const [summaries, setSummaries] = useState<{ [key: string]: OpportunitySummary }>({})
   const [loadingSummary, setLoadingSummary] = useState<{ [key: string]: boolean }>({})
   const [showBackToTop, setShowBackToTop] = useState(false)
@@ -82,6 +86,7 @@ export default function OpportunitiesPage() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [uploadingRfp, setUploadingRfp] = useState(false)
   const [uploadResult, setUploadResult] = useState<any>(null)
+  const [descriptionModalOpportunity, setDescriptionModalOpportunity] = useState<Opportunity | null>(null)
 
   useEffect(() => {
     fetchOpportunities()
@@ -325,6 +330,16 @@ export default function OpportunitiesPage() {
         setLoadingSummary({ ...loadingSummary, [opportunityId]: false })
       }
     }
+  }
+
+  const toggleAccordionSection = (opportunityId: string, section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [opportunityId]: {
+        ...prev[opportunityId],
+        [section]: !prev[opportunityId]?.[section]
+      }
+    }))
   }
 
   const getMatchColor = (score: number) => {
@@ -740,21 +755,35 @@ export default function OpportunitiesPage() {
                               </h3>
                               <p className="text-sm text-gray-600 font-medium">{opportunity.funder}</p>
                             </div>
-                            <div className="relative group flex-shrink-0">
-                              <div className={`${colors.bg} text-white px-3.5 py-1.5 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200`}>
+                            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                              <div className={`${colors.bg} text-white px-3.5 py-1.5 rounded-lg text-sm font-semibold`}>
                                 {opportunity.match_score}% Match
                               </div>
-                              {/* Hover overlay with feedback buttons - positioned below */}
-                              <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 flex items-center gap-1 p-1">
+                            </div>
+                          </div>
+
+                          {/* Key Metrics */}
+                          <div className="grid grid-cols-3 gap-6 mb-4">
+                            <div className="flex flex-col items-start">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Funding Amount</span>
+                              <span className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Due Date</span>
+                              <span className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</span>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Rate This Match</span>
+                              <div className="flex items-center gap-1">
                                 {rfpDbSuccessMessage[opportunity.id] ? (
-                                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-green-600">
+                                  <div className="flex items-center gap-1.5 text-xs font-semibold text-green-600">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
-                                    Added
+                                    Saved as Good Match
                                   </div>
                                 ) : addingToRfpDb.has(opportunity.id) ? (
-                                  <div className="px-3 py-1.5">
+                                  <div className="flex items-center justify-center">
                                     <svg className="animate-spin h-4 w-4 text-perscholas-secondary" fill="none" viewBox="0 0 24 24">
                                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -764,38 +793,25 @@ export default function OpportunitiesPage() {
                                   <>
                                     <button
                                       onClick={() => handleAddToRfpDb(opportunity.id)}
-                                      className="p-2 hover:bg-green-50 rounded-md transition-colors"
-                                      title="Good match - Add to training"
+                                      className="p-1.5 hover:bg-green-100 rounded-md transition-colors border-2 border-green-500 bg-green-50"
+                                      title="Good match - Add to training database"
                                     >
-                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                       </svg>
                                     </button>
-                                    <div className="w-px h-6 bg-gray-200"></div>
                                     <button
                                       onClick={() => handleDismiss(opportunity.id)}
-                                      className="p-2 hover:bg-red-50 rounded-md transition-colors"
-                                      title="Bad match - Remove"
+                                      className="p-1.5 hover:bg-red-100 rounded-md transition-colors border-2 border-red-500 bg-red-50"
+                                      title="Poor match - Remove from list"
                                     >
-                                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                                       </svg>
                                     </button>
                                   </>
                                 )}
                               </div>
-                            </div>
-                          </div>
-
-                          {/* Key Metrics */}
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Funding Amount</span>
-                              <span className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Due Date</span>
-                              <span className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</span>
                             </div>
                           </div>
 
@@ -808,595 +824,510 @@ export default function OpportunitiesPage() {
                             </div>
                           )}
 
-                          {/* Summary */}
-                          {opportunity.llm_summary && (
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Summary</p>
-                              <p className="text-sm text-gray-700 leading-relaxed">
-                                {opportunity.llm_summary}
-                              </p>
-                            </div>
-                          )}
+                          {/* ACCORDION SECTIONS */}
+                          <div className="space-y-2 mb-4">
+                            
+                            {/* Summary Section - Always Visible */}
+                            {opportunity.llm_summary && (
+                              <div className="border border-gray-200 rounded-lg overflow-hidden bg-blue-50">
+                                <div className="p-3 border-b border-gray-200">
+                                  <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Summary
+                                  </span>
+                                </div>
+                                <div className="p-3 bg-white">
+                                  <p className="text-sm text-gray-700 leading-relaxed mb-3">
+                                    {opportunity.llm_summary}
+                                  </p>
+                                  {opportunity.description && (
+                                    <button
+                                      onClick={() => setDescriptionModalOpportunity(opportunity)}
+                                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-1 transition-colors"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      View Full Description
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+
+
+                            {/* Requirements & Eligibility */}
+                            {(opportunity.eligibility_explanation || (opportunity.requirements && opportunity.requirements.length > 0) || opportunity.source === 'grants_gov' || opportunity.geographic_focus || opportunity.award_type || opportunity.anticipated_awards) && (
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => toggleAccordionSection(opportunity.id, 'requirements')}
+                                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                >
+                                  <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                    </svg>
+                                    Requirements & Eligibility
+                                  </span>
+                                  <svg className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${expandedSections[opportunity.id]?.requirements ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                                {expandedSections[opportunity.id]?.requirements && (
+                                  <div className="p-3 bg-white border-t border-gray-200 space-y-3">
+                                    {opportunity.eligibility_explanation && (
+                                      <div className="border-l-4 border-blue-500 pl-3">
+                                        <h5 className="text-sm font-bold text-gray-900 mb-2">Applicant Eligibility</h5>
+                                        <div className="space-y-2">
+                                          {opportunity.eligibility_explanation
+                                            .split(/(?:\r?\n|\r)+/)
+                                            .filter(item => item.trim() && item.length > 5)
+                                            .map(item => item.trim())
+                                            .filter(item => item.length > 0)
+                                            .map((item, idx) => {
+                                              // Check if this is a header/title (short descriptive text with colons that asks a question or introduces a list)
+                                              const isHeader = item.includes(':') && item.length < 100 && (
+                                                item.toLowerCase().includes('who may submit') ||
+                                                item.toLowerCase().includes('who may serve as pi') ||
+                                                item.toLowerCase().includes('proposals may only be submitted') ||
+                                                item.toLowerCase().includes('applications may only be submitted') ||
+                                                item.toLowerCase().includes('eligible applicants') ||
+                                                (item.toLowerCase().includes('following') && item.includes(':'))
+                                              );
+                                              
+                                              if (isHeader) {
+                                                return (
+                                                  <div key={idx} className="font-semibold text-sm text-gray-800 mt-3 first:mt-0">
+                                                    {item}
+                                                  </div>
+                                                );
+                                              } else {
+                                                // This is a regular bullet point
+                                                const cleanItem = item.replace(/^[•\-\*]\s*/, '');
+                                                return (
+                                                  <div key={idx} className="flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
+                                                    <span className="text-blue-600 font-bold mt-1 flex-shrink-0">•</span>
+                                                    <span className="flex-1">{cleanItem}</span>
+                                                  </div>
+                                                );
+                                              }
+                                            })}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {opportunity.requirements && opportunity.requirements.length > 0 && (
+                                      <div className="border-l-4 border-orange-500 pl-3">
+                                        <h5 className="text-sm font-bold text-gray-900 mb-1">Project Requirements</h5>
+                                        <ul className="text-sm text-gray-700 space-y-1">
+                                          {opportunity.requirements.map((req: string, idx: number) => (
+                                            <li key={idx} className="flex items-start gap-2">
+                                              <span className="text-orange-600 font-bold">•</span>
+                                              <span>{req}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    
+                                    {opportunity.source === 'grants_gov' && (
+                                      <div className="border-l-4 border-blue-500 pl-3">
+                                        <h5 className="text-sm font-bold text-gray-900 mb-1">Required Registrations</h5>
+                                        <ul className="text-sm text-gray-700 space-y-1">
+                                          <li className="flex items-start gap-2">
+                                            <span className="text-blue-600 font-bold">•</span>
+                                            <span>Be registered in SAM prior to submission</span>
+                                          </li>
+                                          <li className="flex items-start gap-2">
+                                            <span className="text-blue-600 font-bold">•</span>
+                                            <span>Provide a valid UEI number in application</span>
+                                          </li>
+                                          <li className="flex items-start gap-2">
+                                            <span className="text-blue-600 font-bold">•</span>
+                                            <span>Obtain a CAGE Code</span>
+                                          </li>
+                                        </ul>
+                                      </div>
+                                    )}
+                                    
+                                    {/* AI Enhanced Grant Information */}
+                                    {(opportunity.geographic_focus || opportunity.award_type || opportunity.anticipated_awards) && (
+                                      <div className="border-l-4 border-purple-500 pl-3">
+                                        <h5 className="text-sm font-bold text-gray-900 mb-3">AI-Enhanced Grant Details</h5>
+                                        <div className="space-y-3">
+                                          {opportunity.geographic_focus && (
+                                            <div>
+                                              <h6 className="text-sm font-bold text-orange-700 mb-2">Geographic Focus</h6>
+                                              <div className="flex items-start gap-2">
+                                                <span className="text-xs bg-orange-50 px-2 py-1 rounded border border-orange-200 text-orange-800 flex-shrink-0">
+                                                  🤖 AI Analysis
+                                                </span>
+                                                <span className="text-sm text-gray-700">{opportunity.geographic_focus}</span>
+                                              </div>
+                                            </div>
+                                          )}
+                                          
+                                          {opportunity.award_type && (
+                                            <div>
+                                              <h6 className="text-sm font-bold text-indigo-700 mb-2">Award Type</h6>
+                                              <div className="flex items-start gap-2">
+                                                <span className="text-xs bg-indigo-50 px-2 py-1 rounded border border-indigo-200 text-indigo-800 flex-shrink-0">
+                                                  🤖 AI Analysis
+                                                </span>
+                                                <span className="text-sm text-gray-700">{opportunity.award_type}</span>
+                                              </div>
+                                            </div>
+                                          )}
+                                          
+                                          {opportunity.anticipated_awards && (
+                                            <div>
+                                              <h6 className="text-sm font-bold text-teal-700 mb-2">Anticipated Number of Awards</h6>
+                                              <div className="flex items-start gap-2">
+                                                <span className="text-xs bg-teal-50 px-2 py-1 rounded border border-teal-200 text-teal-800 flex-shrink-0">
+                                                  🤖 AI Analysis
+                                                </span>
+                                                <span className="text-sm text-gray-700">{opportunity.anticipated_awards}</span>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Match Analysis & Guidance */}
+                            {(opportunity.detailed_match_reasoning || opportunity.winning_strategies?.length > 0 || opportunity.key_themes?.length > 0) && (
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => toggleAccordionSection(opportunity.id, 'guidance')}
+                                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                >
+                                  <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Match Analysis & Guidance
+                                  </span>
+                                  <svg className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${expandedSections[opportunity.id]?.guidance ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                                {expandedSections[opportunity.id]?.guidance && (
+                                  <div className="p-3 bg-white border-t border-gray-200 space-y-3 max-h-60 overflow-y-auto">
+                                    {opportunity.detailed_match_reasoning && (
+                                      <div>
+                                        <h5 className="text-sm font-bold text-purple-800 mb-2">Why This Matches Your Organization</h5>
+                                        <ul className="space-y-1">
+                                          {opportunity.detailed_match_reasoning
+                                            .split(/[\n]/)
+                                            .filter(item => item.trim() && !item.match(/^\s*$/))
+                                            .slice(0, 5)
+                                            .map((item, idx) => (
+                                              <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                                                <span className="text-purple-600 font-bold mt-0.5">•</span>
+                                                <span>{item.replace(/^\*\*(.*)\*\*/, '$1').replace(/^[•\-\*]\s*/, '').trim()}</span>
+                                              </li>
+                                            ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    
+                                    {opportunity.winning_strategies?.length > 0 && (
+                                      <div>
+                                        <h5 className="text-sm font-bold text-green-700 mb-2">Winning Strategies</h5>
+                                        <ul className="space-y-1">
+                                          {opportunity.winning_strategies.slice(0, 3).map((strategy, idx) => (
+                                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                                              <span className="text-green-600 font-bold mt-0.5">•</span>
+                                              <span>{strategy.replace(/^[•\-\*]\s*/, '').trim()}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    
+                                    {opportunity.key_themes?.length > 0 && (
+                                      <div>
+                                        <h5 className="text-sm font-bold text-blue-700 mb-2">Key Themes to Incorporate</h5>
+                                        <ul className="space-y-1">
+                                          {opportunity.key_themes.slice(0, 3).map((theme, idx) => (
+                                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                                              <span className="text-blue-600 font-bold mt-0.5">•</span>
+                                              <span>{theme.replace(/^[•\-\*]\s*/, '').trim()}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Financial Details & Timeline */}
+                            {(opportunity.award_floor || opportunity.expected_number_of_awards || opportunity.cost_sharing !== undefined || opportunity.forecast_date || opportunity.archive_date) && (
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => toggleAccordionSection(opportunity.id, 'financial')}
+                                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                >
+                                  <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                    </svg>
+                                    Financial Details & Timeline
+                                  </span>
+                                  <svg className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${expandedSections[opportunity.id]?.financial ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                                {expandedSections[opportunity.id]?.financial && (
+                                  <div className="p-3 bg-white border-t border-gray-200 space-y-2">
+                                    {opportunity.award_floor && opportunity.award_ceiling && (
+                                      <div className="text-sm">
+                                        <span className="font-medium text-gray-600">Award Range:</span>
+                                        <span className="ml-2 text-gray-900">{formatCurrency(opportunity.award_floor)} - {formatCurrency(opportunity.award_ceiling)}</span>
+                                      </div>
+                                    )}
+                                    {opportunity.expected_number_of_awards && (
+                                      <div className="text-sm">
+                                        <span className="font-medium text-gray-600">Expected Awards:</span>
+                                        <span className="ml-2 text-gray-900">{opportunity.expected_number_of_awards}</span>
+                                      </div>
+                                    )}
+                                    {opportunity.cost_sharing !== undefined && (
+                                      <div className="text-sm">
+                                        <span className="font-medium text-gray-600">Cost Sharing:</span>
+                                        <span className={`ml-2 ${opportunity.cost_sharing ? 'text-orange-600' : 'text-green-600'} font-medium`}>
+                                          {opportunity.cost_sharing ? 'Required' : 'Not Required'}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {opportunity.forecast_date && (
+                                      <div className="text-sm">
+                                        <span className="font-medium text-gray-600">Opens:</span>
+                                        <span className="ml-2 text-gray-900">{formatDate(opportunity.forecast_date)}</span>
+                                      </div>
+                                    )}
+                                    {opportunity.archive_date && (
+                                      <div className="text-sm">
+                                        <span className="font-medium text-gray-600">Archive Date:</span>
+                                        <span className="ml-2 text-gray-900">{formatDate(opportunity.archive_date)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Contacts & Resources */}
+                            {(opportunity.contact || opportunity.contact_name || opportunity.contact_phone || (opportunity.attachments && opportunity.attachments.length > 0)) && (
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => toggleAccordionSection(opportunity.id, 'contacts')}
+                                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                >
+                                  <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Contacts & Resources
+                                  </span>
+                                  <svg className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${expandedSections[opportunity.id]?.contacts ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                                {expandedSections[opportunity.id]?.contacts && (
+                                  <div className="p-3 bg-white border-t border-gray-200 space-y-3">
+                                    {(opportunity.contact || opportunity.contact_name || opportunity.contact_phone) && (
+                                      <div>
+                                        <h5 className="text-sm font-bold text-gray-900 mb-2">Contact Information</h5>
+                                        <div className="space-y-1 text-sm">
+                                          {opportunity.contact_name && (
+                                            <div>
+                                              <span className="font-medium text-gray-600">Name:</span>
+                                              <span className="ml-2 text-gray-900">{opportunity.contact_name}</span>
+                                            </div>
+                                          )}
+                                          {opportunity.contact_phone && (
+                                            <div>
+                                              <span className="font-medium text-gray-600">Phone:</span>
+                                              <a href={`tel:${opportunity.contact_phone}`} className="ml-2 text-perscholas-secondary hover:underline">
+                                                {opportunity.contact_phone}
+                                              </a>
+                                            </div>
+                                          )}
+                                          {opportunity.contact && (
+                                            <div>
+                                              <span className="font-medium text-gray-600">Email:</span>
+                                              <a href={`mailto:${opportunity.contact}`} className="ml-2 text-perscholas-secondary hover:underline">
+                                                {opportunity.contact}
+                                              </a>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {opportunity.attachments && opportunity.attachments.length > 0 && (
+                                      <div>
+                                        <h5 className="text-sm font-bold text-gray-900 mb-2">Attachments ({opportunity.attachments.length})</h5>
+                                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                                          {opportunity.attachments.map((attachment, idx) => (
+                                            <a
+                                              key={idx}
+                                              href={attachment.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                            >
+                                              <div className="bg-perscholas-secondary p-2 rounded">
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{attachment.title}</p>
+                                                <p className="text-xs text-gray-500 uppercase">{attachment.type}</p>
+                                              </div>
+                                            </a>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Similar Past RFPs */}
+                            {opportunity.similar_past_proposals && opportunity.similar_past_proposals.length > 0 && (
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => toggleAccordionSection(opportunity.id, 'similar')}
+                                  className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                >
+                                  <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                    </svg>
+                                    Similar Past RFPs ({opportunity.similar_past_proposals.length})
+                                  </span>
+                                  <svg className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${expandedSections[opportunity.id]?.similar ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                                {expandedSections[opportunity.id]?.similar && (
+                                  <div className="p-3 bg-white border-t border-gray-200 max-h-60 overflow-y-auto">
+                                    <p className="text-sm text-gray-600 mb-3">
+                                      Historical proposals similar to this opportunity based on semantic analysis:
+                                    </p>
+                                    <ul className="space-y-1">
+                                      {opportunity.similar_past_proposals.map((rfp: any, idx: number) => (
+                                        <li key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                                          <div className="flex-1">
+                                            {rfp.file_path || rfp.url ? (
+                                              <a 
+                                                href={rfp.file_path || rfp.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-sm text-perscholas-secondary hover:text-perscholas-primary underline hover:no-underline transition-colors"
+                                              >
+                                                {rfp.title || 'Untitled Proposal'}
+                                              </a>
+                                            ) : (
+                                              <span className="text-sm text-gray-900">
+                                                {rfp.title || 'Untitled Proposal'}
+                                              </span>
+                                            )}
+                                            {rfp.category && (
+                                              <span className="text-xs text-gray-500 ml-2">
+                                                ({rfp.category})
+                                              </span>
+                                            )}
+                                            {rfp.outcome && (
+                                              <span className={`text-xs ml-2 ${rfp.outcome === 'won' ? 'text-green-600' : 'text-gray-500'}`}>
+                                                {rfp.outcome === 'won' ? '✓ Won' : rfp.outcome}
+                                              </span>
+                                            )}
+                                          </div>
+                                          {rfp.similarity_score && (
+                                            <span className="text-xs text-perscholas-secondary font-medium">
+                                              {Math.round(rfp.similarity_score * 100)}%
+                                            </span>
+                                          )}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Tags */}
                           {opportunity.tags && opportunity.tags.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-4">
-                              {opportunity.tags.slice(0, isExpanded ? undefined : 5).map((tag, idx) => (
+                              {opportunity.tags.slice(0, 8).map((tag, idx) => (
                                 <span
                                   key={idx}
-                                  className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-perscholas-dark border border-perscholas-dark"
+                                  className="px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-perscholas-dark border border-perscholas-dark"
                                 >
                                   {tag}
                                 </span>
                               ))}
-                              {!isExpanded && opportunity.tags.length > 5 && (
-                                <span className="px-3 py-1 bg-gray-100 text-gray-600 border border-gray-200 rounded-full text-xs font-medium">
-                                  +{opportunity.tags.length - 5} more
+                              {opportunity.tags.length > 8 && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 border border-gray-200 rounded-full text-xs font-medium">
+                                  +{opportunity.tags.length - 8} more
                                 </span>
                               )}
                             </div>
                           )}
 
                           {/* Action Buttons */}
-                          <div className="flex flex-col sm:flex-row gap-2.5 pt-4 border-t border-gray-100">
-                            <button
-                              onClick={() => toggleExpanded(opportunity.id)}
-                              className="flex-1 flex items-center justify-center gap-2 bg-perscholas-secondary text-white px-4 py-2.5 rounded-lg font-medium hover:bg-perscholas-primary transition-colors text-sm"
-                            >
-                              <svg className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
-                              {isExpanded ? 'Hide Details' : 'View Full Details'}
-                            </button>
-                            {opportunity.application_url && (
-                              <a
-                                href={opportunity.application_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 hover:border-gray-400 transition-colors text-sm"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                Apply Now
-                              </a>
-                            )}
-                            <button
-                              onClick={() => handleDismiss(opportunity.id)}
-                              disabled={dismissingOpportunities.has(opportunity.id)}
-                              className="border border-red-200 text-red-600 px-4 py-2.5 rounded-lg font-medium hover:bg-red-50 hover:border-red-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {dismissingOpportunities.has(opportunity.id) ? (
-                                <span className="flex items-center justify-center gap-2">
-                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          <div className="pt-4 border-t border-gray-100">
+                            <div className="flex flex-col sm:flex-row gap-2.5">
+                              {opportunity.application_url && (
+                                <a
+                                  href={opportunity.application_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center gap-2 bg-perscholas-secondary text-white px-4 py-2.5 rounded-lg font-medium hover:bg-perscholas-primary transition-colors text-sm"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                   </svg>
-                                  Removing...
-                                </span>
-                              ) : (
-                                'Remove'
+                                  Apply Now
+                                </a>
                               )}
-                            </button>
+                              <button
+                                onClick={() => handleDismiss(opportunity.id)}
+                                disabled={dismissingOpportunities.has(opportunity.id)}
+                                className="border border-red-200 text-red-600 px-4 py-2.5 rounded-lg font-medium hover:bg-red-50 hover:border-red-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {dismissingOpportunities.has(opportunity.id) ? (
+                                  <span className="flex items-center justify-center gap-2">
+                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Removing...
+                                  </span>
+                                ) : (
+                                  'Remove'
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Expanded Analysis */}
-                        {isExpanded && (
-                          <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-5">
 
-                            {/* FULL DESCRIPTION - "About" Section */}
-                            {opportunity.description && (
-                              <div className="bg-white rounded-xl p-6 border border-gray-200">
-                                <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  About This Opportunity
-                                </h4>
-                                <div className="text-sm text-gray-700 leading-relaxed space-y-3">
-                                  {opportunity.description.split('\n\n').map((para, idx) => (
-                                    <p key={idx}>{para}</p>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* KEY DETAILS - Structured Information */}
-                            <div className="bg-white rounded-xl p-6 border border-gray-200">
-                              <h4 className="text-lg font-bold text-gray-900 mb-4">Key Details</h4>
-
-                              <div className="space-y-6">
-
-                                {/* Applicant Eligibility */}
-                                {opportunity.eligibility_explanation && (
-                                  <div className="border-l-4 border-perscholas-secondary pl-4">
-                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Applicant Eligibility</h5>
-                                    <p className="text-sm text-gray-700">{opportunity.eligibility_explanation}</p>
-                                  </div>
-                                )}
-
-                                {/* Required Registrations - Always show for federal grants */}
-                                {opportunity.source === 'grants_gov' && (
-                                  <div className="border-l-4 border-blue-500 pl-4">
-                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Required Registrations</h5>
-                                    <ul className="text-sm text-gray-700 space-y-1">
-                                      <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">•</span>
-                                        <span>Be registered in SAM prior to submission</span>
-                                      </li>
-                                      <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">•</span>
-                                        <span>Provide a valid UEI number in application</span>
-                                      </li>
-                                      <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">•</span>
-                                        <span>Obtain a CAGE Code</span>
-                                      </li>
-                                      <li className="flex items-start gap-2">
-                                        <span className="text-blue-600 font-bold">•</span>
-                                        <span>Maintain active SAM registration throughout award period</span>
-                                      </li>
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* Project Requirements */}
-                                {opportunity.requirements && opportunity.requirements.length > 0 && (
-                                  <div className="border-l-4 border-orange-500 pl-4">
-                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Project Requirements</h5>
-                                    <ul className="text-sm text-gray-700 space-y-1">
-                                      {opportunity.requirements.map((req: string, idx: number) => (
-                                        <li key={idx} className="flex items-start gap-2">
-                                          <span className="text-orange-600 font-bold">•</span>
-                                          <span>{req}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* Financing & Timeline */}
-                                <div className="border-l-4 border-green-500 pl-4">
-                                  <h5 className="text-sm font-bold text-perscholas-dark mb-2">Financing & Timeline Requirements</h5>
-                                  <div className="space-y-2 text-sm">
-                                    <div>
-                                      <span className="font-semibold text-gray-600">Submission Deadline:</span>
-                                      <span className="ml-2 text-gray-900 font-medium">{formatDate(opportunity.deadline)}</span>
-                                    </div>
-                                    {opportunity.award_floor && opportunity.award_ceiling && (
-                                      <div>
-                                        <span className="font-semibold text-gray-600">Award Range:</span>
-                                        <span className="ml-2 text-gray-900">
-                                          {formatCurrency(opportunity.award_floor)} - {formatCurrency(opportunity.award_ceiling)}
-                                        </span>
-                                      </div>
-                                    )}
-                                    {opportunity.expected_number_of_awards && (
-                                      <div>
-                                        <span className="font-semibold text-gray-600">Expected Awards:</span>
-                                        <span className="ml-2 text-gray-900">{opportunity.expected_number_of_awards}</span>
-                                      </div>
-                                    )}
-                                    {opportunity.cost_sharing !== undefined && (
-                                      <div>
-                                        <span className="font-semibold text-gray-600">Cost Sharing:</span>
-                                        <span className={`ml-2 ${opportunity.cost_sharing ? 'text-orange-600' : 'text-green-600'} font-medium`}>
-                                          {opportunity.cost_sharing ? 'Required' : 'Not Required'}
-                                        </span>
-                                        {opportunity.cost_sharing_description && (
-                                          <p className="text-gray-600 mt-1">{opportunity.cost_sharing_description}</p>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Additional Information */}
-                                {opportunity.additional_info_text && (
-                                  <div className="border-l-4 border-purple-500 pl-4">
-                                    <h5 className="text-sm font-bold text-perscholas-dark mb-2">Additional Information</h5>
-                                    <p className="text-sm text-gray-700">{opportunity.additional_info_text}</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* TIMELINE */}
-                            {(opportunity.forecast_date || opportunity.deadline || opportunity.archive_date) && (
-                              <div className="bg-white rounded-xl p-6 border border-gray-200">
-                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                  Timeline
-                                </h4>
-                                <div className="space-y-3">
-                                  {opportunity.forecast_date && (
-                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                                      <span className="text-sm font-medium text-gray-600">FOA Selection Period Opens</span>
-                                      <span className="text-sm font-bold text-gray-900">{formatDate(opportunity.forecast_date)}</span>
-                                    </div>
-                                  )}
-                                  {opportunity.deadline && (
-                                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                                      <span className="text-sm font-medium text-gray-600">Final Application Deadline</span>
-                                      <span className="text-sm font-bold text-perscholas-accent">{formatDate(opportunity.deadline)}</span>
-                                    </div>
-                                  )}
-                                  {opportunity.archive_date && (
-                                    <div className="flex justify-between items-center py-2">
-                                      <span className="text-sm font-medium text-gray-600">Archive Date</span>
-                                      <span className="text-sm font-bold text-gray-900">{formatDate(opportunity.archive_date)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* CONTACTS */}
-                            {(opportunity.contact || opportunity.contact_name || opportunity.contact_phone) && (
-                              <div className="bg-white rounded-xl p-6 border border-gray-200">
-                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                  </svg>
-                                  Contacts
-                                </h4>
-                                <div className="space-y-2 text-sm">
-                                  {opportunity.contact_name && (
-                                    <div>
-                                      <span className="font-semibold text-gray-600">Name:</span>
-                                      <span className="ml-2 text-gray-900">{opportunity.contact_name}</span>
-                                    </div>
-                                  )}
-                                  {opportunity.contact_phone && (
-                                    <div>
-                                      <span className="font-semibold text-gray-600">Phone:</span>
-                                      <a href={`tel:${opportunity.contact_phone}`} className="ml-2 text-perscholas-secondary hover:underline">
-                                        {opportunity.contact_phone}
-                                      </a>
-                                    </div>
-                                  )}
-                                  {opportunity.contact && (
-                                    <div>
-                                      <span className="font-semibold text-gray-600">Email:</span>
-                                      <a href={`mailto:${opportunity.contact}`} className="ml-2 text-perscholas-secondary hover:underline">
-                                        {opportunity.contact}
-                                      </a>
-                                    </div>
-                                  )}
-                                  {opportunity.contact_description && (
-                                    <p className="text-gray-600 mt-2">{opportunity.contact_description}</p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* ATTACHMENTS */}
-                            {opportunity.attachments && opportunity.attachments.length > 0 && (
-                              <div className="bg-white rounded-xl p-6 border border-gray-200">
-                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                  </svg>
-                                  Attachments
-                                </h4>
-                                <div className="space-y-2">
-                                  {opportunity.attachments.map((attachment, idx) => (
-                                    <a
-                                      key={idx}
-                                      href={attachment.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                    >
-                                      <div className="bg-perscholas-secondary p-2 rounded">
-                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                      </div>
-                                      <div className="flex-1">
-                                        <p className="text-sm font-semibold text-gray-900">{attachment.title}</p>
-                                        <p className="text-xs text-gray-500 uppercase">{attachment.type}</p>
-                                      </div>
-                                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                      </svg>
-                                    </a>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Match Reasoning */}
-                            {opportunity.detailed_match_reasoning && (
-                              <div className="mb-6">
-                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Why This Matches Your Organization
-                                </h4>
-                                <div className="bg-white rounded-xl p-5 border border-gray-200 space-y-3">
-                                  {opportunity.detailed_match_reasoning.split('\n').map((paragraph, idx) => {
-                                    const isBullet = paragraph.trim().match(/^[-•*]\s+/)
-                                    const isNumbered = paragraph.trim().match(/^\d+\.\s+/)
-                                    const isHeader = paragraph.trim().match(/^[A-Z][^.!?]*:$/) || paragraph.trim().match(/^#{1,3}\s+/)
-
-                                    if (!paragraph.trim()) return null
-
-                                    const renderWithBold = (text: string) => {
-                                      const parts = text.split(/(\*\*.*?\*\*)/)
-                                      return parts.map((part, i) => {
-                                        if (part.startsWith('**') && part.endsWith('**')) {
-                                          return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
-                                        }
-                                        return part
-                                      })
-                                    }
-
-                                    if (isHeader) {
-                                      return (
-                                        <p key={idx} className="text-sm font-bold text-perscholas-dark mt-3 first:mt-0">
-                                          {renderWithBold(paragraph.replace(/^#{1,3}\s+/, ''))}
-                                        </p>
-                                      )
-                                    } else if (isBullet) {
-                                      return (
-                                        <div key={idx} className="flex gap-3 text-sm text-gray-700 leading-relaxed">
-                                          <span className="flex-shrink-0 text-perscholas-secondary font-bold">•</span>
-                                          <span>{renderWithBold(paragraph.replace(/^[-•*]\s+/, ''))}</span>
-                                        </div>
-                                      )
-                                    } else if (isNumbered) {
-                                      return (
-                                        <div key={idx} className="flex gap-3 text-sm text-gray-700 leading-relaxed">
-                                          <span className="flex-shrink-0 font-bold text-perscholas-secondary">{paragraph.match(/^\d+\./)?.[0]}</span>
-                                          <span>{renderWithBold(paragraph.replace(/^\d+\.\s+/, ''))}</span>
-                                        </div>
-                                      )
-                                    } else {
-                                      return (
-                                        <p key={idx} className="text-sm text-gray-700 leading-relaxed">
-                                          {renderWithBold(paragraph)}
-                                        </p>
-                                      )
-                                    }
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Structured LLM Insights */}
-                            {(opportunity.winning_strategies?.length > 0 ||
-                              opportunity.key_themes?.length > 0 ||
-                              opportunity.recommended_metrics?.length > 0 ||
-                              opportunity.considerations?.length > 0) && (
-                              <div className="mb-6 space-y-4">
-                                {/* Winning Strategies */}
-                                {opportunity.winning_strategies?.length > 0 && (
-                                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200">
-                                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                      Winning Strategies from Similar Proposals
-                                    </h4>
-                                    <ul className="space-y-2">
-                                      {opportunity.winning_strategies.map((strategy, idx) => (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-800 leading-relaxed">
-                                          <span className="flex-shrink-0 text-green-600 font-bold">•</span>
-                                          <span>{strategy}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* Key Themes */}
-                                {opportunity.key_themes?.length > 0 && (
-                                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
-                                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                                      </svg>
-                                      Key Themes to Incorporate
-                                    </h4>
-                                    <ul className="space-y-2">
-                                      {opportunity.key_themes.map((theme, idx) => (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-800 leading-relaxed">
-                                          <span className="flex-shrink-0 text-blue-600 font-bold">•</span>
-                                          <span>{theme}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* Recommended Metrics */}
-                                {opportunity.recommended_metrics?.length > 0 && (
-                                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-200">
-                                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                      </svg>
-                                      Recommended Metrics to Highlight
-                                    </h4>
-                                    <ul className="space-y-2">
-                                      {opportunity.recommended_metrics.map((metric, idx) => (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-800 leading-relaxed">
-                                          <span className="flex-shrink-0 text-purple-600 font-bold">•</span>
-                                          <span>{metric}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* Considerations */}
-                                {opportunity.considerations?.length > 0 && (
-                                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border border-amber-200">
-                                    <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                      <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                      </svg>
-                                      Important Considerations
-                                    </h4>
-                                    <ul className="space-y-2">
-                                      {opportunity.considerations.map((consideration, idx) => (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-800 leading-relaxed">
-                                          <span className="flex-shrink-0 text-amber-600 font-bold">•</span>
-                                          <span>{consideration}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Fallback: Legacy Summary */}
-                            {!opportunity.detailed_match_reasoning && (
-                              <div className="mb-6">
-                                {loadingSummary[opportunity.id] ? (
-                                  <div className="flex items-center justify-center py-12 bg-white rounded-xl border border-gray-200">
-                                    <div className="text-center">
-                                      <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-perscholas-secondary mx-auto mb-3"></div>
-                                      <p className="text-sm text-perscholas-secondary font-medium">Generating AI analysis...</p>
-                                    </div>
-                                  </div>
-                                ) : summaries[opportunity.id] ? (
-                                  <div className="bg-white rounded-xl p-5 border border-gray-200 space-y-4">
-                                    <div>
-                                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Overview
-                                      </h4>
-                                      <p className="text-sm text-gray-700 leading-relaxed">{summaries[opportunity.id].overview}</p>
-                                    </div>
-                                    <div>
-                                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                        Key Details
-                                      </h4>
-                                      <ul className="space-y-2">
-                                        {summaries[opportunity.id].key_details.map((detail, idx) => (
-                                          <li key={idx} className="text-sm text-gray-700 flex gap-2">
-                                            <span className="text-perscholas-secondary">•</span>
-                                            <span>{detail}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                    <div>
-                                      <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                                        </svg>
-                                        Funding Priorities
-                                      </h4>
-                                      <ul className="space-y-2">
-                                        {summaries[opportunity.id].funding_priorities.map((priority, idx) => (
-                                          <li key={idx} className="text-sm text-gray-700 flex gap-2">
-                                            <span className="text-perscholas-secondary">→</span>
-                                            <span>{priority}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </div>
-                            )}
-
-                            {/* Similar RFPs Section */}
-                            {opportunity.similar_past_proposals && opportunity.similar_past_proposals.length > 0 ? (
-                              <div className="bg-white rounded-xl p-5 border border-gray-200">
-                                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-perscholas-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                  </svg>
-                                  Similar Past RFPs
-                                </h4>
-                                <p className="text-xs text-gray-600 mb-4">
-                                  Historical proposals similar to this opportunity based on semantic analysis:
-                                </p>
-                                <div className="space-y-3">
-                                  {opportunity.similar_past_proposals.map((rfp: any, idx: number) => (
-                                    <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-perscholas-secondary transition-colors">
-                                      <div className="flex items-start justify-between gap-3 mb-2">
-                                        <h5 className="text-sm font-semibold text-gray-900 flex-1">
-                                          {rfp.title || 'Untitled Proposal'}
-                                        </h5>
-                                        <div className="flex items-center gap-2">
-                                          {rfp.similarity_score && (
-                                            <span className="text-xs font-bold text-perscholas-secondary bg-blue-50 px-2 py-1 rounded-md">
-                                              {Math.round(rfp.similarity_score * 100)}% match
-                                            </span>
-                                          )}
-                                          {rfp.id && (
-                                            <a
-                                              href={`${api.baseURL}/api/proposals/${rfp.id}/download`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-xs font-medium text-perscholas-secondary hover:text-perscholas-dark flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-50 transition-colors"
-                                            >
-                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                              </svg>
-                                              View PDF
-                                            </a>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {rfp.category && (
-                                        <p className="text-xs text-gray-600 mb-1">
-                                          <span className="font-medium">Category:</span> {rfp.category}
-                                        </p>
-                                      )}
-                                      {rfp.rfp_name && (
-                                        <p className="text-xs text-gray-600 mb-1">
-                                          <span className="font-medium">RFP:</span> {rfp.rfp_name}
-                                        </p>
-                                      )}
-                                      {rfp.outcome && (
-                                        <p className="text-xs text-gray-600 mb-1">
-                                          <span className="font-medium">Outcome:</span>
-                                          <span className={`ml-1 font-semibold ${rfp.outcome === 'won' ? 'text-green-600' : 'text-gray-500'}`}>
-                                            {rfp.outcome === 'won' ? '✓ Won' : rfp.outcome}
-                                          </span>
-                                        </p>
-                                      )}
-                                      {rfp.award_amount && (
-                                        <p className="text-xs text-gray-600">
-                                          <span className="font-medium">Award Amount:</span> {formatCurrency(rfp.award_amount)}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
-                                <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-perscholas-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                  </svg>
-                                  Similar Past RFPs
-                                </h4>
-                                <p className="text-sm text-gray-700">
-                                  No similar historical RFPs found yet. As you save more opportunities, our semantic analysis will identify patterns and surface relevant past proposals.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )
                   })}
@@ -1614,6 +1545,68 @@ export default function OpportunitiesPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Description Modal */}
+      {descriptionModalOpportunity && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-4xl max-h-[80vh] w-full overflow-hidden shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between p-6 border-b border-gray-200">
+              <div className="flex-1 pr-4">
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  {descriptionModalOpportunity.title}
+                </h2>
+                <p className="text-sm text-gray-600 font-medium">
+                  {descriptionModalOpportunity.funder}
+                </p>
+              </div>
+              <button
+                onClick={() => setDescriptionModalOpportunity(null)}
+                className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close modal"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+              <div className="prose prose-sm max-w-none">
+                {descriptionModalOpportunity.description.split('\n\n').map((paragraph, idx) => (
+                  <p key={idx} className="text-sm text-gray-700 leading-relaxed mb-4 last:mb-0">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              {descriptionModalOpportunity.application_url && (
+                <a
+                  href={descriptionModalOpportunity.application_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-perscholas-secondary text-white px-4 py-2 rounded-lg font-medium hover:bg-perscholas-primary transition-colors text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Apply Now
+                </a>
+              )}
+              <button
+                onClick={() => setDescriptionModalOpportunity(null)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors text-sm"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

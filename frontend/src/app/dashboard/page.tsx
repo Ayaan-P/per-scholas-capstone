@@ -19,6 +19,7 @@ interface ScrapedGrant {
   status: string
   created_at: string
   updated_at: string
+  posted_date?: string
 }
 
 export default function Dashboard() {
@@ -31,12 +32,15 @@ export default function Dashboard() {
   const [fundingMax, setFundingMax] = useState<number | undefined>(undefined)
   const [dueInDays, setDueInDays] = useState<number | undefined>(undefined)
   const [sortBy, setSortBy] = useState<'match' | 'amount' | 'deadline'>('match')
+  const [tableSortBy, setTableSortBy] = useState<'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source'>('match')
+  const [tableSortOrder, setTableSortOrder] = useState<'asc' | 'desc'>('desc')
   const [savingGrants, setSavingGrants] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState<number>(1)
   const itemsPerPage = 9
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [selectedDescription, setSelectedDescription] = useState<{ title: string; description: string } | null>(null)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
 
   useEffect(() => {
     fetchGrants()
@@ -106,20 +110,57 @@ export default function Dashboard() {
       })
     }
 
-    if (sortBy === 'match') {
-      list.sort((a, b) => (b.match_score || 0) - (a.match_score || 0))
-    } else if (sortBy === 'amount') {
-      list.sort((a, b) => (b.amount || 0) - (a.amount || 0))
-    } else if (sortBy === 'deadline') {
-      list.sort((a, b) => {
-        const da = a.deadline ? new Date(a.deadline).getTime() : Infinity
-        const db = b.deadline ? new Date(b.deadline).getTime() : Infinity
-        return da - db
-      })
+    // Use table sorting when in table view, otherwise use grid sorting
+    if (viewMode === 'table') {
+      const sortField = tableSortBy
+      const order = tableSortOrder === 'asc' ? 1 : -1
+      
+      if (sortField === 'match') {
+        list.sort((a, b) => order * ((b.match_score || 0) - (a.match_score || 0)))
+      } else if (sortField === 'title') {
+        list.sort((a, b) => order * (a.title || '').localeCompare(b.title || ''))
+      } else if (sortField === 'funder') {
+        list.sort((a, b) => order * (a.funder || '').localeCompare(b.funder || ''))
+      } else if (sortField === 'amount') {
+        list.sort((a, b) => order * ((b.amount || 0) - (a.amount || 0)))
+      } else if (sortField === 'deadline') {
+        list.sort((a, b) => {
+          const da = a.deadline ? new Date(a.deadline).getTime() : Infinity
+          const db = b.deadline ? new Date(b.deadline).getTime() : Infinity
+          return order * (da - db)
+        })
+      } else if (sortField === 'source') {
+        list.sort((a, b) => order * (a.source || '').localeCompare(b.source || ''))
+      }
+    } else {
+      // Grid view sorting
+      if (sortBy === 'match') {
+        list.sort((a, b) => (b.match_score || 0) - (a.match_score || 0))
+      } else if (sortBy === 'amount') {
+        list.sort((a, b) => (b.amount || 0) - (a.amount || 0))
+      } else if (sortBy === 'deadline') {
+        list.sort((a, b) => {
+          const da = a.deadline ? new Date(a.deadline).getTime() : Infinity
+          const db = b.deadline ? new Date(b.deadline).getTime() : Infinity
+          return da - db
+        })
+      }
     }
 
     return list
-  }, [rawGrants, filter, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
+  }, [rawGrants, filter, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder])
+
+  const handleTableSort = (column: 'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source') => {
+    if (tableSortBy === column) {
+      // Toggle sort order if clicking the same column
+      setTableSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Set new column and default to descending for match/amount, ascending for text
+      setTableSortBy(column)
+      setTableSortOrder(column === 'match' || column === 'amount' ? 'desc' : 'asc')
+    }
+    setCurrentPage(1) // Reset to first page when sorting
+  }
 
   const handleSaveGrant = async (grantId: string) => {
     try {
@@ -163,6 +204,7 @@ export default function Dashboard() {
     const date = new Date(dateStr)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
+
 
   const getMatchColor = (score: number) => {
     if (score >= 85) return 'bg-green-600'
@@ -268,15 +310,46 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
-            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-              <div className="bg-perscholas-primary p-2 sm:p-2.5 rounded-xl">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-perscholas-primary p-2 sm:p-2.5 rounded-xl">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  Discover Funding
+                </h2>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                Discover Funding
-              </h2>
+              {/* View Toggle */}
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-white text-perscholas-primary shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  title="Grid View"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    viewMode === 'table'
+                      ? 'bg-white text-perscholas-primary shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  title="Table View"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <p className="text-gray-600 text-base sm:text-lg">
               Browse opportunities matched to your organization. Save promising grants to unlock AI-powered insights.
@@ -435,19 +508,21 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  {/* Sort */}
-                  <div>
-                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Sort By</label>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary bg-white"
-                    >
-                      <option value="match">Match Score</option>
-                      <option value="amount">Funding Amount</option>
-                      <option value="deadline">Due Date</option>
-                    </select>
-                  </div>
+                  {/* Sort - Only show in grid view */}
+                  {viewMode === 'grid' && (
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 mb-2 block">Sort By</label>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary bg-white"
+                      >
+                        <option value="match">Match Score</option>
+                        <option value="amount">Funding Amount</option>
+                        <option value="deadline">Due Date</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -482,7 +557,7 @@ export default function Dashboard() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">No opportunities found</h3>
                 <p className="text-gray-600 text-lg">Try adjusting your filters or check back soon for new grants.</p>
               </div>
-            ) : (
+            ) : viewMode === 'grid' ? (
               <div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 mb-8">
                   {paged.map((grant, index) => (
@@ -623,6 +698,218 @@ export default function Dashboard() {
                     Next
                   </button>
                 </div>
+              </div>
+            ) : (
+              /* Table View */
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="w-full">
+                  <table className="w-full" style={{ tableLayout: 'auto' }}>
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('match')}>
+                          <div className="flex items-center gap-1.5">
+                            <span>Match</span>
+                            {tableSortBy === 'match' && (
+                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleTableSort('title')}>
+                          <div className="flex items-center gap-1.5">
+                            <span>Title</span>
+                            {tableSortBy === 'title' && (
+                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors hidden lg:table-cell" onClick={() => handleTableSort('funder')}>
+                          <div className="flex items-center gap-1.5">
+                            <span>Funder</span>
+                            {tableSortBy === 'funder' && (
+                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('amount')}>
+                          <div className="flex items-center gap-1.5">
+                            <span>Funding</span>
+                            {tableSortBy === 'amount' && (
+                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('deadline')}>
+                          <div className="flex items-center gap-1.5">
+                            <span>Deadline</span>
+                            {tableSortBy === 'deadline' && (
+                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('source')}>
+                          <div className="flex items-center gap-1.5">
+                            <span>Source</span>
+                            {tableSortBy === 'source' && (
+                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden xl:table-cell">
+                          Description
+                        </th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {paged.map((grant) => (
+                        <tr key={grant.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-2 py-3">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold text-white ${getMatchColor(grant.match_score)}`}>
+                              {grant.match_score}%
+                            </span>
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="text-xs sm:text-sm font-semibold text-gray-900 truncate max-w-[200px]" title={grant.title}>
+                              {grant.title}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3 hidden lg:table-cell">
+                            <div className="text-xs sm:text-sm text-gray-600 truncate max-w-[150px]" title={grant.funder}>
+                              {grant.funder}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="text-xs sm:text-sm font-bold text-green-600 whitespace-nowrap">
+                              {formatCurrency(grant.amount)}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="text-xs sm:text-sm text-gray-900 whitespace-nowrap">
+                              {formatDate(grant.deadline)}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getSourceBadge(grant.source)}`}>
+                              {getSourceLabel(grant.source)}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 hidden xl:table-cell">
+                            <div>
+                              <p className="text-xs text-gray-600 line-clamp-1" title={grant.description}>
+                                {grant.description}
+                              </p>
+                              {grant.description && grant.description.length > 80 && (
+                                <button
+                                  onClick={() => setSelectedDescription({ title: grant.title, description: grant.description })}
+                                  className="text-xs text-perscholas-primary font-medium hover:text-perscholas-dark mt-0.5"
+                                >
+                                  More
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {grant.application_url && (
+                                <a
+                                  href={grant.application_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-1 border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50 transition-colors"
+                                  title="View RFP"
+                                >
+                                  RFP
+                                </a>
+                              )}
+                              <button
+                                onClick={() => handleSaveGrant(grant.id)}
+                                disabled={savingGrants.has(grant.id)}
+                                className="px-2 py-1 bg-perscholas-primary text-white rounded text-xs font-medium hover:bg-perscholas-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Save Grant"
+                              >
+                                {savingGrants.has(grant.id) ? (
+                                  <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Table Pagination */}
+                {filteredGrants.length > itemsPerPage && (
+                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                    <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 sm:px-4 py-2 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {pageStart > 1 && (
+                          <>
+                            <button onClick={() => setCurrentPage(1)} className="px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">1</button>
+                            {pageStart > 2 && <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">…</span>}
+                          </>
+                        )}
+                        {pages.map(p => (
+                          <button
+                            key={p}
+                            onClick={() => setCurrentPage(p)}
+                            className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${
+                              p === currentPage
+                                ? 'bg-perscholas-primary text-white border-perscholas-primary shadow-md'
+                                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                        {pageEnd < totalPages - 1 && <span className="px-1 sm:px-2 text-gray-400 text-xs sm:text-sm">…</span>}
+                        {pageEnd < totalPages && (
+                          <button onClick={() => setCurrentPage(totalPages)} className="px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">{totalPages}</button>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="px-3 sm:px-4 py-2 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="mt-2 text-center text-xs text-gray-600">
+                      Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredGrants.length)} of {filteredGrants.length} grants
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
