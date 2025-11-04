@@ -3,12 +3,14 @@ Standalone match scoring service for grant opportunities.
 Does NOT require the semantic model - safe to use on resource-constrained servers.
 
 This service scores grants based on:
-- Core keyword matching (40 pts max)
+- Core keyword matching (20 pts max)
 - Context keyword matching (included in core scoring)
 - Funding amount alignment (15 pts max)
 - Deadline feasibility (5 pts max)
 - Domain relevance penalties (negative points)
-- Optional: Semantic similarity with RFPs (30 pts max) - if provided
+- Optional: Semantic similarity with RFPs (50 pts max) - if provided
+
+Total max score: 100 points (10 base + 20 keywords + 50 semantic + 15 amount + 5 deadline)
 """
 
 from typing import Dict, Any, List
@@ -28,7 +30,7 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
     """
     base_score = 10  # Base score
 
-    # Core Per Scholas keywords (40 points max - most important factor)
+    # Core Per Scholas keywords (20 points max - reduced to increase semantic weight)
     core_keywords = [
         'technology', 'workforce', 'training', 'education', 'stem',
         'coding', 'cyber', 'digital', 'programming', 'software',
@@ -50,12 +52,12 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
     core_matches = sum(1 for keyword in core_keywords if keyword in full_text)
     context_matches = sum(1 for keyword in context_keywords if keyword in full_text)
 
-    # Calculate keyword score
+    # Calculate keyword score (max 20 points - proportionally scaled down from 40)
     # Require at least 2 core keywords for decent score
     if core_matches >= 2:
-        keyword_score = min(40, (core_matches * 8) + (context_matches * 2))
+        keyword_score = min(20, (core_matches * 4) + (context_matches * 1))
     elif core_matches == 1:
-        keyword_score = min(15, core_matches * 8)
+        keyword_score = min(8, core_matches * 4)
     else:
         keyword_score = 0  # No core keywords = very low relevance
 
@@ -154,9 +156,9 @@ def get_score_breakdown(grant: Dict[str, Any], rfp_similarities: List[Dict[str, 
     base_score = 10
 
     if core_matches >= 2:
-        keyword_score = min(40, (core_matches * 8) + (context_matches * 2))
+        keyword_score = min(20, (core_matches * 4) + (context_matches * 1))
     elif core_matches == 1:
-        keyword_score = min(15, core_matches * 8)
+        keyword_score = min(8, core_matches * 4)
     else:
         keyword_score = 0
 
