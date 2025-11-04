@@ -173,6 +173,16 @@ Write a clear 2-3 sentence summary of what this grant is for and what it funds."
             if grant.get('additional_info_text'):
                 additional_context = f"\n\nAdditional Information:\n{grant.get('additional_info_text')[:300]}"
 
+            consortium_context = ""
+            if grant.get('consortium_required'):
+                consortium_context = f"\n\nConsortium Required: Yes"
+                if grant.get('consortium_description'):
+                    consortium_context += f"\n{grant.get('consortium_description')[:300]}"
+
+            attachment_context = ""
+            if grant.get('rfp_attachment_requirements'):
+                attachment_context = f"\n\nAttachment Requirements:\n{grant.get('rfp_attachment_requirements')[:300]}"
+
             # Build similar proposals context
             similar_proposals_context = ""
             if similar_proposals and len(similar_proposals) > 0:
@@ -223,7 +233,7 @@ Funder: {grant.get('funder')}{award_details}
 Deadline: {grant.get('deadline', 'Not specified')}
 Match Score: {grant.get('match_score', 0)}%
 
-Description: {grant.get('description', '')[:500]}{eligibility_details}{cost_sharing_details}{contact_info}{additional_context}
+Description: {grant.get('description', '')[:500]}{eligibility_details}{cost_sharing_details}{contact_info}{additional_context}{consortium_context}{attachment_context}
 
 Score Breakdown:
 - Base Score: {score_breakdown['components']['base_score']}

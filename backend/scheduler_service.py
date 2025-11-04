@@ -106,21 +106,12 @@ class SchedulerService:
             max_instances=1
         )
 
-        # State grants - run daily at 3 AM
+        # State and local grants - run biweekly on Monday at 2 AM
         self.scheduler.add_job(
-            self._scrape_state_grants,
-            trigger=CronTrigger(hour=3, minute=0),
-            id='state_grants_job',
-            name='Scrape State Grants',
-            replace_existing=True
-        )
-
-        # City/county grants - run daily at 3:30 AM
-        self.scheduler.add_job(
-            self._scrape_local_grants,
-            trigger=CronTrigger(hour=3, minute=30),
-            id='local_grants_job',
-            name='Scrape Local Grants',
+            self._scrape_ai_state_local_opportunities,
+            trigger=CronTrigger(day_of_week='mon', hour=2, minute=0),
+            id='ai_state_local_job',
+            name='AI Scrape State & Local Opportunities',
             replace_existing=True
         )
 
@@ -150,17 +141,12 @@ class SchedulerService:
         # Run initial scrape immediately on startup
         asyncio.create_task(self._run_initial_scrape())
 
+
     async def _run_initial_scrape(self):
-        """Run initial scrape on startup"""
+        """Run initial scrape on startup - just scheduled jobs"""
         logger.info("Running initial scrape...")
         await asyncio.sleep(5)  # Wait for system to fully initialize
-        # await self._scrape_grants_gov()
-
-        # Also scrape Gmail if available
-        if 'gmail_inbox' in self.scrapers:
-            await self._scrape_gmail_inbox()
-
-        logger.info("Initial scrape completed")
+        logger.info("Initial scrape completed - biweekly scrapes scheduled")
 
     async def _scrape_grants_gov(self):
         """Scrape federal grants from Grants.gov using centralized keywords"""
@@ -327,56 +313,213 @@ class SchedulerService:
             logger.error(f"USASpending scrape failed: {e}")
             self._update_job_record(job_id, 'failed', 0, str(e))
 
-    async def _scrape_state_grants(self):
-        """Scrape state-level grant databases"""
-        job_id = self._create_job_record('state_grants', 'running')
+
+    async def _scrape_ai_state_local_opportunities(self):
+        """Use same search endpoint logic to find state and local funding opportunities biweekly"""
+        job_id = self._create_job_record('ai_state_local', 'running')
 
         try:
-            logger.info("Starting state grants scrape...")
+            logger.info("Starting AI-powered state and local opportunities scrape...")
+
+            # Per Scholas context (same as search endpoint)
+            per_scholas_context = """Per Scholas is a leading national nonprofit that advances economic equity through rigorous,
+tuition-free technology training for individuals from underrepresented communities.
+
+Mission: To advance economic equity by providing access to technology careers for individuals
+from underrepresented communities.
+
+Programs:
+- Cybersecurity Training (16-week intensive program)
+- Cloud Computing (AWS/Azure certification tracks)
+- Software Development (Full-stack development)
+- IT Support (CompTIA certification preparation)
+
+Impact:
+- 20,000+ graduates to date
+- 85% job placement rate
+- 150% average salary increase
+- 24 markets across the United States
+- Focus on underrepresented minorities, women, veterans
+
+Target Demographics:
+- Individuals from underrepresented communities
+- Women seeking technology careers
+- Veterans transitioning to civilian workforce
+- Career changers from declining industries
+- Low-income individuals seeking economic mobility"""
+
+            # List of all target locations
+            locations = [
+                ("Georgia", "Atlanta"),
+                ("Maryland", "Baltimore"),
+                ("Massachusetts", "Boston"),
+                ("Illinois", "Chicago"),
+                ("Texas", "Dallas/Houston"),
+                ("Colorado", "Denver"),
+                ("Michigan", "Detroit"),
+                ("Indiana", "Indianapolis"),
+                ("Missouri", "Kansas City/St. Louis"),
+                ("California", "Los Angeles/San Francisco"),
+                ("New York", "New York/Newark"),
+                ("Pennsylvania", "Philadelphia/Pittsburgh"),
+                ("North Carolina", "Charlotte/Raleigh"),
+                ("Florida", "Orlando/Tampa/Miami"),
+                ("Arizona", "Phoenix"),
+                ("Washington", "Seattle"),
+                ("Virginia", "Washington DC/Virginia"),
+                ("Ohio", "Cincinnati/Columbus/Cleveland"),
+                ("Tennessee", "Nashville"),
+            ]
+
             all_grants = []
+            total_found = 0
 
-            # California
-            ca_scraper = self.scrapers['california']
-            ca_grants = await ca_scraper.scrape(limit=10)
-            all_grants.extend(ca_grants)
+            # Search each location using exact search endpoint logic
+            for state, city in locations:
+                try:
+                    logger.info(f"Searching for state/local opportunities in {state} ({city})...")
 
-            # New York
-            ny_scraper = self.scrapers['new_york']
-            ny_grants = await ny_scraper.scrape(limit=10)
-            all_grants.extend(ny_grants)
+                    # Build the same orchestration prompt as the search endpoint
+                    search_request = f"Find state and local grant opportunities in {state} (specifically {city}). Focus on state workforce development grants, local economic development grants, community college funding programs, technology training initiatives, career development grants, and programs targeting underserved communities."
 
-            # New York DOL
-            ny_dol_scraper = self.scrapers['new_york_dol']
-            ny_dol_grants = await ny_dol_scraper.scrape(limit=10)
-            all_grants.extend(ny_dol_grants)
+                    # Get existing opportunities to avoid duplicates (same as search endpoint)
+                    try:
+                        existing_result = self.supabase.table("saved_opportunities").select("title, funder").execute()
+                        existing_opps = [f"{opp['title']} - {opp['funder']}" for opp in existing_result.data]
+                        existing_list = "; ".join(existing_opps) if existing_opps else "None"
+                    except:
+                        existing_list = "None"
 
-            saved_count = await self._store_grants(all_grants, 'state')
+                    # Build EXACT same orchestration prompt as search endpoint
+                    orchestration_prompt = f"""You are a fundraising-cro agent for Per Scholas. Find MULTIPLE (3-5) REAL, CURRENT funding opportunities using web search and research.
 
-            logger.info(f"State grants scrape completed: {saved_count} grants saved")
+Organization Context:
+{per_scholas_context}
+
+User Search Request: {search_request}
+
+Execute this multi-step process:
+
+1. Search current federal databases (GRANTS.gov, NSF, DOL) for technology workforce development opportunities
+2. Look for press releases for grants and RFPS
+3. Research foundation grants from major funders aligned with our mission
+4. Identify corporate funding programs for underserved communities
+4. Filter for opportunities with deadlines in next 3-6 months and funding >$50k
+6. Find at least 3-5 different opportunities from various sources
+
+IMPORTANT - NEW/DIFFERENT FUNDING SOURCES ONLY:
+Do NOT include opportunities where Per Scholas is already listed as a current funding recipient or grantee.
+Focus on finding NEW and DIFFERENT funding sources that align with our mission but are not current funding relationships.
+Research which organizations are already funding Per Scholas and exclude those from results.
+
+Existing opportunities to avoid duplicates: {existing_list}
+
+CRITICAL OUTPUT FORMAT - READ CAREFULLY:
+You MUST return ONLY raw JSON - NO markdown code blocks, NO explanatory text, NO ```json markers.
+Your response should START with {{ and END with }}.
+
+Example of CORRECT output:
+{{
+  "opportunities": [
+    {{
+      "id": "unique-id-string",
+      "title": "Full grant title",
+      "funder": "Organization name",
+      "amount": 100000,
+      "deadline": "2025-12-31",
+      "description": "Detailed description of opportunity",
+      "requirements": ["Requirement 1", "Requirement 2"],
+      "contact": "email@agency.gov",
+      "application_url": "https://...",
+      "contact_name": "Contact Person Name or null",
+      "contact_phone": "555-1234 or null",
+      "contact_description": "Additional contact info or null",
+      "eligibility_explanation": "Who can apply or null",
+      "cost_sharing": false,
+      "cost_sharing_description": "Cost sharing details or null",
+      "additional_info_url": "https://... or null",
+      "additional_info_text": "Extra info or null",
+      "archive_date": "2025-12-31 or null",
+      "forecast_date": "2025-01-01 or null",
+      "close_date_explanation": "Deadline details or null",
+      "expected_number_of_awards": "5-10 or null",
+      "award_floor": 50000,
+      "award_ceiling": 250000,
+      "attachments": [],
+      "version": "1 or null",
+      "last_updated_date": "2025-01-01 or null",
+      "geographic_focus": "State(s) or region(s) where applicants must be located or can operate, e.g., 'California, Texas, New York' or 'Any US state' or null",
+      "award_type": "Type of award like 'Grant', 'Cooperative Agreement', 'Loan', 'Subsidy', etc. or null",
+      "anticipated_awards": "Expected number or range of awards, e.g., '5-10 awards' or '15 awards' or null",
+      "consortium_required": false,
+      "consortium_description": "Details about required consortium partnerships, lead applicant requirements, or null if not applicable",
+      "rfp_attachment_requirements": "Summary of attachment/document requirements for application, e.g., '1) Proposal narrative (max 25 pages) 2) Budget narrative 3) Letters of support (min 3)' or number of attachments if specified, or null"
+    }}
+  ]
+}}
+
+REQUIREMENTS:
+- Return ONLY the JSON object (no markdown blocks, no extra text)
+- Start with {{ and end with }}
+- All string fields use double quotes
+- amount, award_floor, award_ceiling are integers (no commas)
+- deadline dates in YYYY-MM-DD format
+- Do NOT include match_score (it will be calculated automatically)
+- requirements is array of strings
+- attachments is empty array [] (no attachment fetching)
+- Use null for optional fields if no data available
+- NEW FIELDS:
+  * geographic_focus: Extract state(s) or region(s) - CRITICAL for filtering in dashboard
+  * award_type: Type of award (Grant, Cooperative Agreement, Loan, etc.)
+  * anticipated_awards: Expected number of awards that will be given
+  * consortium_required: Boolean - does opportunity require multiple partner organizations?
+  * consortium_description: Details about consortium/partnership requirements if applicable
+  * rfp_attachment_requirements: Summary of required attachments/documents for proposal"""
+
+                    # Call same Claude Code session as search endpoint
+                    from main import create_claude_code_session, parse_orchestration_response
+
+                    result = create_claude_code_session(
+                        prompt=orchestration_prompt,
+                        session_type="fundraising-cro",
+                        timeout=900
+                    )
+
+                    if result.get('success'):
+                        # Parse same way as search endpoint
+                        opportunities = parse_orchestration_response(result.get('output', ''))
+                        if opportunities:
+                            logger.info(f"Found {len(opportunities)} opportunities in {state}")
+                            total_found += len(opportunities)
+                            all_grants.extend(opportunities)
+                    else:
+                        logger.warning(f"AI search failed for {state}: {result.get('error', 'Unknown error')}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to search {state}: {e}")
+                    continue
+
+            # Store all found grants
+            saved_count = await self._store_grants(all_grants, 'Agent')
+
+            logger.info(f"AI state/local scrape completed: {saved_count} grants saved from {total_found} found across {len(locations)} locations")
             self._update_job_record(job_id, 'completed', saved_count)
 
         except Exception as e:
-            logger.error(f"State grants scrape failed: {e}")
+            logger.error(f"AI state/local scrape failed: {e}")
             self._update_job_record(job_id, 'failed', 0, str(e))
+
+    async def _scrape_state_grants(self):
+        """Scrape state-level grant databases (DISABLED - using AI scraper instead)"""
+        job_id = self._create_job_record('state_grants', 'skipped')
+        logger.info("State grants scraper disabled - using biweekly AI scraper for state/local opportunities")
+        self._update_job_record(job_id, 'skipped', 0, 'Replaced by AI state/local scraper running biweekly')
 
     async def _scrape_local_grants(self):
-        """Scrape city and county grant opportunities"""
-        job_id = self._create_job_record('local_grants', 'running')
-
-        try:
-            logger.info("Starting local grants scrape...")
-            # TODO: Implement city/county scrapers
-            # For now, return empty
-            grants = []
-
-            saved_count = await self._store_grants(grants, 'local')
-
-            logger.info(f"Local grants scrape completed: {saved_count} grants saved")
-            self._update_job_record(job_id, 'completed', saved_count)
-
-        except Exception as e:
-            logger.error(f"Local grants scrape failed: {e}")
-            self._update_job_record(job_id, 'failed', 0, str(e))
+        """Scrape city and county grant opportunities (DISABLED - using AI scraper instead)"""
+        job_id = self._create_job_record('local_grants', 'skipped')
+        logger.info("Local grants scraper disabled - using biweekly AI scraper for state/local opportunities")
+        self._update_job_record(job_id, 'skipped', 0, 'Replaced by AI state/local scraper running biweekly')
 
     async def _scrape_gmail_inbox(self):
         """Scrape grant opportunities from Gmail inbox"""
@@ -457,7 +600,13 @@ class SchedulerService:
                             "contact": grant.get("contact"),
                             "application_url": grant.get("application_url"),
                             "match_score": match_score,
-                            "updated_at": datetime.now().isoformat()
+                            "updated_at": datetime.now().isoformat(),
+                            "geographic_focus": grant.get("geographic_focus"),
+                            "award_type": grant.get("award_type"),
+                            "anticipated_awards": grant.get("anticipated_awards"),
+                            "consortium_required": grant.get("consortium_required", False),
+                            "consortium_description": grant.get("consortium_description"),
+                            "rfp_attachment_requirements": grant.get("rfp_attachment_requirements")
                         })\
                         .eq("opportunity_id", grant.get("id"))\
                         .execute()
@@ -499,7 +648,15 @@ class SchedulerService:
                         "award_ceiling": grant.get("award_ceiling"),
                         "attachments": grant.get("attachments", []),
                         "version": grant.get("version"),
-                        "last_updated_date": grant.get("last_updated_date")
+                        "last_updated_date": grant.get("last_updated_date"),
+
+                        # NEW FIELDS FROM AGENT EXTRACTION
+                        "geographic_focus": grant.get("geographic_focus"),
+                        "award_type": grant.get("award_type"),
+                        "anticipated_awards": grant.get("anticipated_awards"),
+                        "consortium_required": grant.get("consortium_required", False),
+                        "consortium_description": grant.get("consortium_description"),
+                        "rfp_attachment_requirements": grant.get("rfp_attachment_requirements")
                     }).execute()
 
                 saved_count += 1
@@ -682,8 +839,11 @@ class SchedulerService:
         job_map = {
             'grants_gov': self._scrape_grants_gov,
             'sam_gov': self._scrape_sam_gov,
+            'dol_workforce': self._scrape_dol_workforce,
+            'usa_spending': self._scrape_usa_spending,
             'state_grants': self._scrape_state_grants,
             'local_grants': self._scrape_local_grants,
+            'ai_state_local': self._scrape_ai_state_local_opportunities,
             'gmail_inbox': self._scrape_gmail_inbox
         }
 

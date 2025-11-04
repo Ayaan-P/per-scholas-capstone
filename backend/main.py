@@ -36,9 +36,11 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
         # Set up environment variables similar to iron_man_wake
         env = os.environ.copy()
 
-        # Ensure API key is set for Claude Code
+        # Ensure API keys are set for Claude Code
         if 'ANTHROPIC_API_KEY' not in env:
             env['ANTHROPIC_API_KEY'] = os.getenv('ANTHROPIC_API_KEY', '')
+        if 'FIRECRAWL_API_KEY' not in env:
+            env['FIRECRAWL_API_KEY'] = os.getenv('FIRECRAWL_API_KEY', '')
 
         # Configure Claude Code environment for non-interactive session
         env.update({
@@ -51,8 +53,9 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
         print(f"[Claude Code Session] Prompt length: {len(prompt)} chars")
 
         # Execute Claude Code session similar to iron_man_wake but non-interactive
-        # Using --print flag for non-interactive mode with WebSearch enabled
+        # Using --print flag for non-interactive mode
         # Using Haiku 4.5 for faster, cheaper responses
+        # Using Bash tool to call Firecrawl API (cheaper than Anthropic WebSearch)
         result = subprocess.run([
             'claude',
             '--print',
@@ -608,7 +611,9 @@ async def save_opportunity(opportunity_id: str):
             "requirements": opportunity.get("requirements", []),
             "contact": opportunity.get("contact", ""),
             "application_url": opportunity.get("application_url", ""),
-            "source": opportunity.get("source", "Agent"),  # Mark as Agent-discovered
+            "match_score": opportunity.get("match_score", 75),  # Ensure match_score is saved
+            "source": opportunity.get("source", "agent"),  # Mark as Agent-discovered
+            "status": "active",
             "contact_name": opportunity.get("contact_name"),
             "contact_phone": opportunity.get("contact_phone"),
             "contact_description": opportunity.get("contact_description"),
@@ -625,7 +630,15 @@ async def save_opportunity(opportunity_id: str):
             "award_ceiling": opportunity.get("award_ceiling"),
             "attachments": opportunity.get("attachments", []),
             "version": opportunity.get("version"),
-            "last_updated_date": opportunity.get("last_updated_date")
+            "last_updated_date": opportunity.get("last_updated_date"),
+            "geographic_focus": opportunity.get("geographic_focus"),  # State/region filtering
+            "award_type": opportunity.get("award_type"),
+            "anticipated_awards": opportunity.get("anticipated_awards"),
+            "consortium_required": opportunity.get("consortium_required", False),
+            "consortium_description": opportunity.get("consortium_description"),
+            "rfp_attachment_requirements": opportunity.get("rfp_attachment_requirements"),
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
         }
 
         print(f"[SAVE] Saving Agent grant to scraped_grants: {opportunity['title'][:50]}...")
@@ -1080,8 +1093,8 @@ Organization Context:
 User Search Request: {criteria.prompt}
 
 Please execute your grant discovery protocol:
-1. Search GRANTS.gov, NSF, DOL, and other federal databases for current opportunities
-2. Find foundation grants from major funders (Gates, Ford, JPMorgan Chase, Google.org, etc.)
+1. Search GRANTS.gov, NSF, DOL, and other State databases for current opportunities
+2. Look for press releases for grants and RFPS
 3. Look for corporate funding programs focused on workforce development and technology equity
 4. Focus specifically on opportunities that align with Per Scholas' mission of technology training for underserved communities
 
@@ -1121,10 +1134,11 @@ User Search Request: {criteria.prompt}
 Execute this multi-step process:
 
 1. Search current federal databases (GRANTS.gov, NSF, DOL) for technology workforce development opportunities
-2. Research foundation grants from major funders aligned with our mission
-3. Identify corporate funding programs for underserved communities
+2. Look for press releases for grants and RFPS
+3. Research foundation grants from major funders aligned with our mission
+4. Identify corporate funding programs for underserved communities
 4. Filter for opportunities with deadlines in next 3-6 months and funding >$50k
-5. Find at least 3-5 different opportunities from various sources
+6. Find at least 3-5 different opportunities from various sources
 
 Existing opportunities to avoid duplicates: {existing_list}
 
@@ -1161,7 +1175,13 @@ Example of CORRECT output:
       "award_ceiling": 250000,
       "attachments": [],
       "version": "1 or null",
-      "last_updated_date": "2025-01-01 or null"
+      "last_updated_date": "2025-01-01 or null",
+      "geographic_focus": "State(s) or region(s) where applicants must be located or can operate, e.g., 'California, Texas, New York' or 'Any US state' or null",
+      "award_type": "Type of award like 'Grant', 'Cooperative Agreement', 'Loan', 'Subsidy', etc. or null",
+      "anticipated_awards": "Expected number or range of awards, e.g., '5-10 awards' or '15 awards' or null",
+      "consortium_required": false,
+      "consortium_description": "Details about required consortium partnerships, lead applicant requirements, or null if not applicable",
+      "rfp_attachment_requirements": "Summary of attachment/document requirements for application, e.g., '1) Proposal narrative (max 25 pages) 2) Budget narrative 3) Letters of support (min 3)' or number of attachments if specified, or null"
     }}
   ]
 }}
@@ -1175,7 +1195,14 @@ REQUIREMENTS:
 - Do NOT include match_score (it will be calculated automatically)
 - requirements is array of strings
 - attachments is empty array [] (no attachment fetching)
-- Use null for optional fields if no data available"""
+- Use null for optional fields if no data available
+- NEW FIELDS:
+  * geographic_focus: Extract state(s) or region(s) - CRITICAL for filtering in dashboard
+  * award_type: Type of award (Grant, Cooperative Agreement, Loan, etc.)
+  * anticipated_awards: Expected number of awards that will be given
+  * consortium_required: Boolean - does opportunity require multiple partner organizations?
+  * consortium_description: Details about consortium/partnership requirements if applicable
+  * rfp_attachment_requirements: Summary of required attachments/documents for proposal"""
 
             job["current_task"] = "Creating Claude Code fundraising session..."
             job["progress"] = 50

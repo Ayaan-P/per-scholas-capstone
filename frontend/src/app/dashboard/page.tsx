@@ -71,9 +71,7 @@ export default function Dashboard() {
       if (response.ok) {
         const data = await response.json()
         const fetched: ScrapedGrant[] = data.grants || []
-        // Filter to only show Grants.gov grants
-        const filteredGrants = fetched.filter(grant => grant.source === 'grants_gov')
-        setRawGrants(filteredGrants)
+        setRawGrants(fetched)
       }
     } catch (error) {
       console.error('Failed to fetch grants:', error)
@@ -910,7 +908,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-              </div>
+c              </div>
             )}
           </div>
         </div>
