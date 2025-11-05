@@ -156,7 +156,7 @@ export default function SearchPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Claude Code Agent Searching...
+                  Agent Searching...
                 </>
               ) : (
                 <>
@@ -179,7 +179,7 @@ export default function SearchPage() {
                   </svg>
                 </div>
                 <span className="text-perscholas-secondary font-semibold">
-                  Claude Code agent executing search strategy...
+                  Agent executing search strategy...
                 </span>
               </div>
               <div className="space-y-2 text-sm text-gray-700 ml-8">
@@ -344,7 +344,7 @@ export default function SearchPage() {
               Ready to Discover Opportunities
             </h3>
             <p className="text-gray-600 text-lg mb-8">
-              Enter your search criteria above to deploy the Claude Code AI agent and discover funding opportunities tailored to your organization.
+              Enter your search criteria above to deploy the AI agent and discover funding opportunities tailored to Per Scholas.
             </p>
             <a
               href="/opportunities"
