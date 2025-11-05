@@ -120,7 +120,7 @@ export default function SearchPage() {
               </h2>
             </div>
             <p className="text-gray-600 text-base sm:text-lg mt-2">
-              Deploy Claude Code's intelligent agent to discover funding opportunities tailored to your specific needs. Be specific about focus areas, funding amounts, and deadlines for best results.
+              Deploy an agent to discover funding opportunities tailored to your specific needs. Be specific about focus areas, funding amounts, and deadlines for best results.
             </p>
           </div>
         </div>
