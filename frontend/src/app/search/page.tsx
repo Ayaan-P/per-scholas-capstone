@@ -135,7 +135,7 @@ export default function SearchPage() {
               </h2>
             </div>
             <p className="text-gray-600 text-base sm:text-lg mt-2">
-              Deploy Claude Code's AI Search to discover funding opportunities tailored to your specific needs. Be specific about focus areas, funding amounts, and deadlines for best results.
+              Deploy an agent to discover funding opportunities tailored to your specific needs. Be specific about focus areas, funding amounts, and deadlines for best results.
             </p>
           </div>
         </div>
@@ -171,7 +171,7 @@ export default function SearchPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  AI Search Running...
+                  Agent Searching...
                 </>
               ) : (
                 <>
@@ -194,7 +194,7 @@ export default function SearchPage() {
                   </svg>
                 </div>
                 <span className="text-perscholas-secondary font-semibold">
-                  AI Search executing search strategy...
+                  Agent executing search strategy...
                 </span>
               </div>
               <div className="space-y-2 text-sm text-gray-700 ml-8">
@@ -376,7 +376,7 @@ export default function SearchPage() {
               Ready to Discover Opportunities
             </h3>
             <p className="text-gray-600 text-lg mb-8">
-              Enter your search criteria above to deploy AI Search and discover funding opportunities tailored to your organization.
+              Enter your search criteria above to deploy the AI agent and discover funding opportunities tailored to Per Scholas.
             </p>
             <a
               href="/opportunities"

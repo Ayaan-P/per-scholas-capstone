@@ -3,14 +3,14 @@ Standalone match scoring service for grant opportunities.
 Does NOT require the semantic model - safe to use on resource-constrained servers.
 
 This service scores grants based on:
-- Core keyword matching (20 pts max)
+- Core keyword matching (30 pts max)
 - Context keyword matching (included in core scoring)
 - Funding amount alignment (15 pts max)
 - Deadline feasibility (5 pts max)
 - Domain relevance penalties (negative points)
 - Optional: Semantic similarity with RFPs (50 pts max) - if provided
 
-Total max score: 100 points (10 base + 20 keywords + 50 semantic + 15 amount + 5 deadline)
+Total max score: 100 points (30 keywords + 50 semantic + 15 amount + 5 deadline)
 """
 
 from typing import Dict, Any, List
@@ -26,11 +26,9 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
                          (from semantic search - only if available)
 
     Returns:
-        Match score from 5-100
+        Match score from 0-100
     """
-    base_score = 10  # Base score
-
-    # Core Per Scholas keywords (20 points max - reduced to increase semantic weight)
+    # Core Per Scholas keywords (30 points max)
     core_keywords = [
         'technology', 'workforce', 'training', 'education', 'stem',
         'coding', 'cyber', 'digital', 'programming', 'software',
@@ -52,12 +50,12 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
     core_matches = sum(1 for keyword in core_keywords if keyword in full_text)
     context_matches = sum(1 for keyword in context_keywords if keyword in full_text)
 
-    # Calculate keyword score (max 20 points - proportionally scaled down from 40)
+    # Calculate keyword score (max 30 points)
     # Require at least 2 core keywords for decent score
     if core_matches >= 2:
-        keyword_score = min(20, (core_matches * 4) + (context_matches * 1))
+        keyword_score = min(30, (core_matches * 6) + (context_matches * 1.5))
     elif core_matches == 1:
-        keyword_score = min(8, core_matches * 4)
+        keyword_score = min(12, core_matches * 6)
     else:
         keyword_score = 0  # No core keywords = very low relevance
 
@@ -105,7 +103,7 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
     deadline_score = 5  # Default to reasonable for now
 
     # Calculate total score
-    total_score = base_score + keyword_score + semantic_score + amount_score + deadline_score
+    total_score = keyword_score + semantic_score + amount_score + deadline_score
 
     # Additional penalty for clearly non-relevant domains
     excluded_domains = [
@@ -119,7 +117,9 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
             domain_penalty += 20
 
     # Final score with penalties applied
-    final_score = max(5, total_score - domain_penalty)  # Minimum 5% score
+    final_score = max(0, total_score - domain_penalty)  # Minimum 0
+    # Add 10 point boost to all scores
+    final_score = final_score + 10
     return min(100, final_score)
 
 
@@ -153,12 +153,10 @@ def get_score_breakdown(grant: Dict[str, Any], rfp_similarities: List[Dict[str, 
     matched_context = [kw for kw in context_keywords if kw in full_text]
 
     # Calculate components
-    base_score = 10
-
     if core_matches >= 2:
-        keyword_score = min(20, (core_matches * 4) + (context_matches * 1))
+        keyword_score = min(30, (core_matches * 6) + (context_matches * 1.5))
     elif core_matches == 1:
-        keyword_score = min(8, core_matches * 4)
+        keyword_score = min(12, core_matches * 6)
     else:
         keyword_score = 0
 
@@ -198,13 +196,14 @@ def get_score_breakdown(grant: Dict[str, Any], rfp_similarities: List[Dict[str, 
     matched_excluded = [domain for domain in excluded_domains if domain in full_text]
     domain_penalty = len(matched_excluded) * 20
 
-    total_before_penalty = base_score + keyword_score + semantic_score + amount_score + deadline_score
-    final_score = max(5, min(100, total_before_penalty - domain_penalty))
+    total_before_penalty = keyword_score + semantic_score + amount_score + deadline_score
+    final_score = max(0, total_before_penalty - domain_penalty)
+    final_score = final_score + 10  # Add 10 point boost to all scores
+    final_score = min(100, final_score)
 
     return {
         'final_score': final_score,
         'components': {
-            'base_score': base_score,
             'keyword_score': keyword_score,
             'semantic_score': semantic_score,
             'amount_score': amount_score,
