@@ -65,8 +65,8 @@ interface OpportunitySummary {
 export default function OpportunitiesPage() {
   const [rawOpportunities, setRawOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<string>('all')
   const [highMatchOnly, setHighMatchOnly] = useState(false)
+  const [recentPostsOnly, setRecentPostsOnly] = useState(false)
   const [fundingMin, setFundingMin] = useState<number | undefined>(undefined)
   const [fundingMax, setFundingMax] = useState<number | undefined>(undefined)
   const [dueInDays, setDueInDays] = useState<number | undefined>(undefined)
@@ -94,7 +94,7 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [rawOpportunities, filter, highMatchOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
+  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -133,10 +133,6 @@ export default function OpportunitiesPage() {
   const filteredOpportunities = useMemo(() => {
     let list = [...rawOpportunities]
 
-    if (filter !== 'all') {
-      list = list.filter(o => o.source === filter)
-    }
-
     if (keywordSearch.trim()) {
       const keywords = keywordSearch.toLowerCase().trim()
       list = list.filter(o => {
@@ -145,7 +141,18 @@ export default function OpportunitiesPage() {
       })
     }
 
-    if (highMatchOnly) list = list.filter(o => o.match_score >= 85)
+    if (highMatchOnly) list = list.filter(o => o.match_score >= 80)
+
+    if (recentPostsOnly) {
+      const twoWeeksAgo = new Date()
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+      list = list.filter(o => {
+        const createdAt = o.created_at || o.saved_at
+        if (!createdAt) return false
+        const created = new Date(createdAt)
+        return created >= twoWeeksAgo
+      })
+    }
 
     if (fundingMin !== undefined) list = list.filter(o => (o.amount || 0) >= (fundingMin || 0))
     if (fundingMax !== undefined) list = list.filter(o => (o.amount || 0) <= (fundingMax || 0))
@@ -173,7 +180,7 @@ export default function OpportunitiesPage() {
     }
 
     return list
-  }, [rawOpportunities, filter, highMatchOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
+  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
 
   const handleDismiss = async (opportunityId: string) => {
     if (!confirm('Are you sure you want to dismiss this opportunity? This action cannot be undone.')) {
@@ -343,8 +350,8 @@ export default function OpportunitiesPage() {
   }
 
   const getMatchColor = (score: number) => {
-    if (score >= 85) return { bg: 'bg-green-600', text: 'text-green-700', border: 'border-green-200', lightBg: 'bg-green-50' }
-    if (score >= 70) return { bg: 'bg-perscholas-accent', text: 'text-yellow-700', border: 'border-yellow-200', lightBg: 'bg-yellow-50' }
+    if (score >= 80) return { bg: 'bg-green-600', text: 'text-green-700', border: 'border-green-200', lightBg: 'bg-green-50' }
+    if (score >= 65) return { bg: 'bg-perscholas-accent', text: 'text-yellow-700', border: 'border-yellow-200', lightBg: 'bg-yellow-50' }
     return { bg: 'bg-gray-400', text: 'text-gray-700', border: 'border-gray-200', lightBg: 'bg-gray-50' }
   }
 
@@ -503,7 +510,7 @@ export default function OpportunitiesPage() {
 
           <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">High Match</p>
-            <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredOpportunities.filter(o => o.match_score >= 85).length}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredOpportunities.filter(o => o.match_score >= 80).length}</p>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
@@ -527,7 +534,7 @@ export default function OpportunitiesPage() {
                 <svg className="w-5 h-5 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                {(highMatchOnly || filter !== 'all' || keywordSearch || fundingMin || fundingMax || dueInDays) && (
+                {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays) && (
                   <span className="absolute -top-2 -right-2 flex h-4 w-4">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-perscholas-accent opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-4 w-4 bg-perscholas-accent items-center justify-center">
@@ -572,23 +579,19 @@ export default function OpportunitiesPage() {
                     />
                   </label>
 
-                  <div>
-                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Source</label>
-                    <select
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-secondary/20 focus:border-perscholas-secondary bg-white"
-                    >
-                      <option value="all">All Sources</option>
-                      <option value="grants_gov">Grants.gov</option>
-                      <option value="sam_gov">SAM.gov</option>
-                      <option value="dol_workforce">DOL Workforce Development</option>
-                      <option value="usa_spending">Federal Spending Database</option>
-                      <option value="ny_dol">NY Department of Labor</option>
-                      <option value="state">State</option>
-                      <option value="local">Local</option>
-                    </select>
-                  </div>
+                  <label className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                    recentPostsOnly
+                      ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'}`}>Recent Posts Only (2 weeks)</span>
+                    <input
+                      type="checkbox"
+                      checked={recentPostsOnly}
+                      onChange={(e) => setRecentPostsOnly(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </label>
 
                   <div>
                     <label className="text-xs font-semibold text-gray-700 mb-2 block">Search</label>
@@ -666,11 +669,11 @@ export default function OpportunitiesPage() {
                   </div>
 
                   {/* Clear Filters Button */}
-                  {(highMatchOnly || filter !== 'all' || keywordSearch || fundingMin || fundingMax || dueInDays) && (
+                  {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays) && (
                     <button
                       onClick={() => {
                         setHighMatchOnly(false)
-                        setFilter('all')
+                        setRecentPostsOnly(false)
                         setKeywordSearch('')
                         setFundingMin(undefined)
                         setFundingMax(undefined)

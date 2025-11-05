@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<string>('all')
   const [keywordSearch, setKeywordSearch] = useState<string>('')
   const [highMatchOnly, setHighMatchOnly] = useState(false)
+  const [recentPostsOnly, setRecentPostsOnly] = useState(false)
   const [fundingMin, setFundingMin] = useState<number | undefined>(undefined)
   const [fundingMax, setFundingMax] = useState<number | undefined>(undefined)
   const [dueInDays, setDueInDays] = useState<number | undefined>(undefined)
@@ -36,7 +37,7 @@ export default function Dashboard() {
   const [tableSortOrder, setTableSortOrder] = useState<'asc' | 'desc'>('desc')
   const [savingGrants, setSavingGrants] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState<number>(1)
-  const itemsPerPage = 9
+  const itemsPerPage = 15
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [selectedDescription, setSelectedDescription] = useState<{ title: string; description: string } | null>(null)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
@@ -61,7 +62,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [rawGrants, filter, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
+  }, [rawGrants, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
 
   const fetchGrants = async () => {
     try {
@@ -83,8 +84,6 @@ export default function Dashboard() {
   const filteredGrants = useMemo(() => {
     let list = [...rawGrants]
 
-    if (filter !== 'all') list = list.filter(g => g.source === filter)
-
     if (keywordSearch.trim()) {
       const keywords = keywordSearch.toLowerCase().trim()
       list = list.filter(g => {
@@ -93,7 +92,18 @@ export default function Dashboard() {
       })
     }
 
-    if (highMatchOnly) list = list.filter(g => g.match_score >= 85)
+    if (highMatchOnly) list = list.filter(g => g.match_score >= 80)
+
+    if (recentPostsOnly) {
+      const twoWeeksAgo = new Date()
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+      list = list.filter(g => {
+        const createdAt = g.created_at || g.updated_at
+        if (!createdAt) return false
+        const created = new Date(createdAt)
+        return created >= twoWeeksAgo
+      })
+    }
 
     if (fundingMin !== undefined) list = list.filter(g => (g.amount || 0) >= (fundingMin || 0))
     if (fundingMax !== undefined) list = list.filter(g => (g.amount || 0) <= (fundingMax || 0))
@@ -146,7 +156,7 @@ export default function Dashboard() {
     }
 
     return list
-  }, [rawGrants, filter, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder])
+  }, [rawGrants, keywordSearch, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder])
 
   const handleTableSort = (column: 'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source') => {
     if (tableSortBy === column) {
@@ -205,8 +215,8 @@ export default function Dashboard() {
 
 
   const getMatchColor = (score: number) => {
-    if (score >= 85) return 'bg-green-600'
-    if (score >= 70) return 'bg-perscholas-accent'
+    if (score >= 80) return 'bg-green-600'
+    if (score >= 65) return 'bg-perscholas-accent'
     return 'bg-gray-400'
   }
 
@@ -214,8 +224,18 @@ export default function Dashboard() {
     const sourceColors: { [key: string]: string } = {
       'grants_gov': 'bg-blue-50 text-blue-700 border-blue-200',
       'sam_gov': 'bg-purple-50 text-purple-700 border-purple-200',
+      'dol_workforce': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      'usa_spending': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+      'ny_dol': 'bg-teal-50 text-teal-700 border-teal-200',
       'state': 'bg-green-50 text-green-700 border-green-200',
       'local': 'bg-orange-50 text-orange-700 border-orange-200',
+      'user_upload': 'bg-violet-50 text-violet-700 border-violet-200',
+      'ai_search': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'manual': 'bg-yellow-50 text-yellow-700 border-yellow-200',
+      'saved': 'bg-slate-50 text-slate-700 border-slate-200',
+      'uploaded': 'bg-violet-50 text-violet-700 border-violet-200',
+      'search': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'agent': 'bg-emerald-50 text-emerald-700 border-emerald-200'
     }
     return sourceColors[source] || 'bg-gray-50 text-gray-700 border-gray-200'
   }
@@ -224,10 +244,20 @@ export default function Dashboard() {
     const labels: { [key: string]: string } = {
       'grants_gov': 'Grants.gov',
       'sam_gov': 'SAM.gov',
-      'state': 'State',
-      'local': 'Local',
+      'dol_workforce': 'DOL Workforce',
+      'usa_spending': 'Federal Database',
+      'ny_dol': 'NY Department of Labor',
+      'state': 'State Government',
+      'local': 'Local Government',
+      'user_upload': 'User Upload',
+      'ai_search': 'AI Search',
+      'manual': 'Manual Entry',
+      'saved': 'Saved Opportunity',
+      'uploaded': 'User Upload',
+      'search': 'AI Search',
+      'agent': 'AI Search'
     }
-    return labels[source] || source
+    return labels[source] || source.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   const totalPages = Math.max(1, Math.ceil(filteredGrants.length / itemsPerPage))
@@ -365,13 +395,13 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-green-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-fadeIn" style={{ animationDelay: '150ms' }}>
             <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match $</p>
             <p className="text-xl sm:text-3xl font-bold text-green-600 truncate">
-              {formatCurrency(filteredGrants.filter(g => g.match_score >= 85).reduce((sum, g) => sum + (g.amount || 0), 0))}
+              {formatCurrency(filteredGrants.filter(g => g.match_score >= 80).reduce((sum, g) => sum + (g.amount || 0), 0))}
             </p>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-fadeIn" style={{ animationDelay: '200ms' }}>
             <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match</p>
-            <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 85).length}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 80).length}</p>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-purple-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-fadeIn" style={{ animationDelay: '250ms' }}>
@@ -395,7 +425,7 @@ export default function Dashboard() {
                 <svg className="w-5 h-5 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                {(highMatchOnly || filter !== 'all' || keywordSearch || fundingMin || fundingMax || dueInDays) && (
+                {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays) && (
                   <span className="absolute -top-2 -right-2 flex h-4 w-4">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-perscholas-accent opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-4 w-4 bg-perscholas-accent items-center justify-center">
@@ -437,24 +467,21 @@ export default function Dashboard() {
                     />
                   </label>
 
-                  {/* Source Filter */}
-                  <div>
-                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Source</label>
-                    <select
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary bg-white"
-                    >
-                      <option value="all">All Sources</option>
-                      <option value="grants_gov">Grants.gov</option>
-                      <option value="sam_gov">SAM.gov</option>
-                      <option value="dol_workforce">DOL Workforce Development</option>
-                      <option value="usa_spending">Federal Spending Database</option>
-                      <option value="ny_dol">NY Department of Labor</option>
-                      <option value="state">State</option>
-                      <option value="local">Local</option>
-                    </select>
-                  </div>
+                  {/* Recent Posts Toggle */}
+                  <label className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                    recentPostsOnly
+                      ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'}`}>Recent Posts Only (2 weeks)</span>
+                    <input
+                      type="checkbox"
+                      checked={recentPostsOnly}
+                      onChange={(e) => setRecentPostsOnly(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </label>
+
 
                   {/* Keyword Search */}
                   <div>

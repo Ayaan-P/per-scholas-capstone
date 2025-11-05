@@ -14,6 +14,8 @@ interface Opportunity {
   requirements: string[]
   contact: string
   application_url: string
+  created_at?: string
+  saved_at?: string
 }
 
 export default function SearchPage() {
@@ -21,6 +23,7 @@ export default function SearchPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [searchPrompt, setSearchPrompt] = useState('')
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
+  const [recentPostsOnly, setRecentPostsOnly] = useState(false)
 
   const saveOpportunity = async (opportunityId: string) => {
     setSavingIds(prev => new Set(prev).add(opportunityId))
@@ -83,7 +86,7 @@ export default function SearchPage() {
   }
 
   const getMatchColor = (score: number) => {
-    if (score >= 85) return { bg: 'bg-green-600', text: 'text-white', lightBg: 'bg-green-50' }
+    if (score >= 80) return { bg: 'bg-green-600', text: 'text-white', lightBg: 'bg-green-50' }
     if (score >= 70) return { bg: 'bg-yellow-500', text: 'text-white', lightBg: 'bg-yellow-50' }
     return { bg: 'bg-gray-400', text: 'text-white', lightBg: 'bg-gray-50' }
   }
@@ -103,6 +106,18 @@ export default function SearchPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
+  // Filter opportunities based on recent posts filter
+  const filteredOpportunities = recentPostsOnly 
+    ? opportunities.filter(o => {
+        const twoWeeksAgo = new Date()
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+        const createdAt = o.created_at || o.saved_at
+        if (!createdAt) return false
+        const created = new Date(createdAt)
+        return created >= twoWeeksAgo
+      })
+    : opportunities
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
@@ -120,7 +135,7 @@ export default function SearchPage() {
               </h2>
             </div>
             <p className="text-gray-600 text-base sm:text-lg mt-2">
-              Deploy Claude Code's intelligent agent to discover funding opportunities tailored to your specific needs. Be specific about focus areas, funding amounts, and deadlines for best results.
+              Deploy Claude Code's AI Search to discover funding opportunities tailored to your specific needs. Be specific about focus areas, funding amounts, and deadlines for best results.
             </p>
           </div>
         </div>
@@ -156,14 +171,14 @@ export default function SearchPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Claude Code Agent Searching...
+                  AI Search Running...
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
-                  Deploy AI Search Agent
+                  Deploy AI Search
                 </>
               )}
             </button>
@@ -179,7 +194,7 @@ export default function SearchPage() {
                   </svg>
                 </div>
                 <span className="text-perscholas-secondary font-semibold">
-                  Claude Code agent executing search strategy...
+                  AI Search executing search strategy...
                 </span>
               </div>
               <div className="space-y-2 text-sm text-gray-700 ml-8">
@@ -206,19 +221,36 @@ export default function SearchPage() {
         {/* Results Section */}
         {opportunities.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   Discovery Results
                 </h2>
                 <p className="text-gray-600 text-sm mt-1">
-                  {opportunities.length} opportunities discovered
+                  {filteredOpportunities.length} of {opportunities.length} opportunities shown
                 </p>
+              </div>
+              
+              {/* Recent Posts Filter - Only shows when there are search results */}
+              <div className="flex-shrink-0">
+                <label className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                  recentPostsOnly
+                    ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'} mr-3`}>Recent Posts Only (2 weeks)</span>
+                  <input
+                    type="checkbox"
+                    checked={recentPostsOnly}
+                    onChange={(e) => setRecentPostsOnly(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </label>
               </div>
             </div>
 
             <div className="space-y-6">
-              {opportunities.map((opp) => {
+              {filteredOpportunities.map((opp) => {
                 const colors = getMatchColor(opp.match_score)
                 const isSaving = savingIds.has(opp.id)
 
@@ -344,7 +376,7 @@ export default function SearchPage() {
               Ready to Discover Opportunities
             </h3>
             <p className="text-gray-600 text-lg mb-8">
-              Enter your search criteria above to deploy the Claude Code AI agent and discover funding opportunities tailored to your organization.
+              Enter your search criteria above to deploy AI Search and discover funding opportunities tailored to your organization.
             </p>
             <a
               href="/opportunities"
