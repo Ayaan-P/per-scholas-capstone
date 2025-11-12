@@ -16,7 +16,47 @@ Total max score: 100 points (30 keywords + 50 semantic + 15 amount + 5 deadline)
 from typing import Dict, Any, List
 
 
-def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str, Any]] = []) -> int:
+def get_feedback_adjustment(opportunity_id: str) -> float:
+    """
+    Calculate score adjustment based on user feedback.
+    Simple implementation: +/-10 points based on feedback ratio.
+    
+    Args:
+        opportunity_id: The opportunity ID to check feedback for
+        
+    Returns:
+        Score adjustment between -10 and +10
+    """
+    try:
+        # Import here to avoid circular imports
+        from main import get_opportunity_feedback_counts
+        
+        feedback_counts = get_opportunity_feedback_counts(opportunity_id)
+        positive = feedback_counts.get('positive', 0)
+        negative = feedback_counts.get('negative', 0)
+        total = positive + negative
+        
+        if total == 0:
+            return 0  # No feedback, no adjustment
+        
+        # Calculate feedback ratio (0-1 where 1 is all positive)
+        feedback_ratio = positive / total
+        
+        # Map ratio to adjustment: 
+        # 100% positive = +10 points
+        # 50% positive = 0 points  
+        # 0% positive = -10 points
+        adjustment = (feedback_ratio - 0.5) * 20
+        
+        return max(-10, min(10, adjustment))
+        
+    except Exception as e:
+        # If feedback system fails, don't break scoring
+        print(f"[FEEDBACK_ADJUSTMENT] Error getting feedback for {opportunity_id}: {e}")
+        return 0
+
+
+def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str, Any]] = [], opportunity_id: str = None) -> int:
     """
     Calculate enhanced match score for a grant opportunity.
 
@@ -118,9 +158,17 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
 
     # Final score with penalties applied
     final_score = max(0, total_score - domain_penalty)  # Minimum 0
+    
+    # Add user feedback adjustment (simple learning mechanism)
+    if opportunity_id:
+        feedback_adjustment = get_feedback_adjustment(opportunity_id)
+        final_score += feedback_adjustment
+        if feedback_adjustment != 0:
+            print(f"[FEEDBACK_LEARNING] Applied {feedback_adjustment:+.1f} adjustment for opportunity {opportunity_id}")
+    
     # Add 10 point boost to all scores
     final_score = final_score + 10
-    return min(100, final_score)
+    return min(100, max(0, final_score))
 
 
 def get_score_breakdown(grant: Dict[str, Any], rfp_similarities: List[Dict[str, Any]] = []) -> Dict[str, Any]:
