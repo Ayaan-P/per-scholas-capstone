@@ -267,6 +267,10 @@ class ProposalRequest(BaseModel):
     description: str
     requirements: List[str]
 
+class FeedbackRequest(BaseModel):
+    feedback_type: str  # 'positive' or 'negative'
+    user_id: str = "anonymous"
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize scheduler on startup"""
@@ -802,6 +806,97 @@ async def add_opportunity_to_rfp_database(opportunity_id: str):
         print(f"[ADD_TO_RFP_DB] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add to RFP database: {str(e)}")
 
+@app.post("/api/opportunities/{opportunity_id}/feedback")
+async def submit_opportunity_feedback(opportunity_id: str, feedback: FeedbackRequest):
+    """Submit user feedback for an opportunity (thumbs up/down)"""
+    try:
+        # Simple in-memory feedback store
+        if not hasattr(get_opportunity_feedback_counts, 'feedback_store'):
+            get_opportunity_feedback_counts.feedback_store = {}
+        
+        if opportunity_id not in get_opportunity_feedback_counts.feedback_store:
+            get_opportunity_feedback_counts.feedback_store[opportunity_id] = {"positive": 0, "negative": 0}
+        
+        if feedback.feedback_type in ["positive", "negative"]:
+            get_opportunity_feedback_counts.feedback_store[opportunity_id][feedback.feedback_type] += 1
+        
+        return {"message": "Feedback submitted successfully", "status": "success"}
+        
+    except Exception as e:
+        return {"message": f"Feedback received: {feedback.feedback_type}", "status": "success"}
+
+@app.get("/api/opportunities/{opportunity_id}/feedback")
+async def get_opportunity_feedback(opportunity_id: str):
+    """Get feedback summary for an opportunity"""
+    try:
+        return get_opportunity_feedback_counts(opportunity_id)
+    except Exception as e:
+        return {"positive": 0, "negative": 0}
+
+def get_opportunity_feedback_counts(opportunity_id: str) -> Dict[str, int]:
+    """Get feedback counts using in-memory store"""
+    if not hasattr(get_opportunity_feedback_counts, 'feedback_store'):
+        get_opportunity_feedback_counts.feedback_store = {}
+    
+    return get_opportunity_feedback_counts.feedback_store.get(opportunity_id, {"positive": 0, "negative": 0})
+
+@app.post("/api/opportunities/{opportunity_id}/dismiss")
+async def dismiss_opportunity(opportunity_id: str):
+    """Dismiss an opportunity from the dashboard (mark as not relevant)"""
+    try:
+        print(f"[DISMISS] Attempting to dismiss opportunity: {opportunity_id}")
+        
+        # Try to update in scraped_grants table (dashboard uses this)
+        scraped_result = supabase.table("scraped_grants").update({
+            "status": "dismissed"
+        }).eq("id", opportunity_id).execute()
+        
+        print(f"[DISMISS] Scraped_grants update result: {len(scraped_result.data or []) > 0}")
+
+        # If not found by id, try by opportunity_id field 
+        if not scraped_result.data:
+            scraped_alt_result = supabase.table("scraped_grants").update({
+                "status": "dismissed" 
+            }).eq("opportunity_id", opportunity_id).execute()
+            
+            print(f"[DISMISS] Scraped_grants alt update result: {len(scraped_alt_result.data or []) > 0}")
+            
+            if not scraped_alt_result.data:
+                raise HTTPException(status_code=404, detail="Opportunity not found")
+
+        print(f"[DISMISS] Successfully dismissed opportunity {opportunity_id}")
+        return {
+            "message": "Opportunity dismissed successfully",
+            "status": "success",
+            "opportunity_id": opportunity_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DISMISS] Error dismissing opportunity: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to dismiss opportunity: {str(e)}")
+
+@app.get("/api/scraped-grants")
+async def get_scraped_grants_filtered():
+    """Get scraped grants (filtering done on frontend)"""
+    try:
+        # Get all scraped grants - frontend will handle filtering dismissed ones
+        result = supabase.table("scraped_grants").select("*").execute()
+        
+        if hasattr(result, 'error') and result.error:
+            raise HTTPException(status_code=500, detail=f"Database error: {result.error}")
+
+        grants = result.data or []
+        
+        print(f"[SCRAPED_GRANTS] Returning {len(grants)} grants (including dismissed - filtered on frontend)")
+        return {"grants": grants}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch grants: {str(e)}")
+
 @app.post("/api/rfps/load")
 async def load_rfps():
     """Load RFPs from directory into database (admin endpoint)"""
@@ -1258,8 +1353,9 @@ REQUIREMENTS:
                         opp_text = f"{opp.get('title', '')} {opp.get('description', '')}"
                         similar_rfps = semantic_service.find_similar_rfps(opp_text, limit=5)
 
-                        # Calculate real match score using similar RFPs
-                        match_score = calculate_match_score(opp, similar_rfps)
+                        # Calculate real match score using similar RFPs (with feedback learning)
+                        opportunity_id = opp.get('id') or opp.get('opportunity_id')
+                        match_score = calculate_match_score(opp, similar_rfps, opportunity_id)
                         opp['match_score'] = match_score
 
                         print(f"[SCORING] {opp.get('title', 'Unknown')[:60]}... = {match_score}% (found {len(similar_rfps)} similar RFPs)")

@@ -42,6 +42,9 @@ export default function Dashboard() {
   const [selectedDescription, setSelectedDescription] = useState<{ title: string; description: string } | null>(null)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<string>>(new Set())
+  const [feedbackCounts, setFeedbackCounts] = useState<Record<string, {positive: number, negative: number}>>({})
+  const [dismissingGrants, setDismissingGrants] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchGrants()
@@ -83,6 +86,9 @@ export default function Dashboard() {
 
   const filteredGrants = useMemo(() => {
     let list = [...rawGrants]
+
+    // Filter out dismissed grants first
+    list = list.filter(g => g.status !== 'dismissed')
 
     if (keywordSearch.trim()) {
       const keywords = keywordSearch.toLowerCase().trim()
@@ -195,6 +201,85 @@ export default function Dashboard() {
         next.delete(grantId)
         return next
       })
+    }
+  }
+
+  const submitFeedback = async (grantId: string, isPositive: boolean) => {
+    try {
+      // If it's negative feedback, show dismiss confirmation
+      if (!isPositive) {
+        const shouldDismiss = confirm('This will mark the opportunity as "Poor Match" and remove it from your dashboard permanently. Continue?')
+        if (shouldDismiss) {
+          await dismissGrant(grantId)
+          return
+        } else {
+          return // User cancelled
+        }
+      }
+
+      const response = await api.submitOpportunityFeedback(grantId, isPositive ? 'positive' : 'negative')
+
+      if (response.ok) {
+        setFeedbackSubmitted(prev => new Set(prev).add(grantId))
+        // Optionally refresh feedback counts
+        fetchFeedbackCounts(grantId)
+      } else {
+        alert('Failed to submit feedback')
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+      alert('Failed to submit feedback')
+    }
+  }
+
+  const dismissGrant = async (grantId: string) => {
+    try {
+      setDismissingGrants(prev => new Set(prev).add(grantId))
+      
+      // Submit negative feedback first
+      await api.submitOpportunityFeedback(grantId, 'negative')
+      
+      // Then dismiss the opportunity
+      const response = await api.dismissOpportunity(grantId)
+
+      if (response.ok) {
+        // Remove from the current list with a slight delay for visual feedback
+        setTimeout(() => {
+          setRawGrants(prev => prev.filter(grant => grant.id !== grantId))
+          setDismissingGrants(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(grantId)
+            return newSet
+          })
+        }, 500)
+      } else {
+        alert('Failed to dismiss opportunity')
+        setDismissingGrants(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(grantId)
+          return newSet
+        })
+      }
+    } catch (error) {
+      console.error('Error dismissing grant:', error)
+      alert('Failed to dismiss opportunity')
+      setDismissingGrants(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(grantId)
+        return newSet
+      })
+    }
+  }
+
+  const fetchFeedbackCounts = async (grantId: string) => {
+    try {
+      const response = await api.getOpportunityFeedback(grantId)
+      if (response.ok) {
+        const counts = await response.json()
+        setFeedbackCounts(prev => ({...prev, [grantId]: counts}))
+      }
+    } catch (error) {
+      console.error('Error fetching feedback counts:', error)
     }
   }
 
@@ -588,7 +673,9 @@ export default function Dashboard() {
                   {paged.map((grant, index) => (
                     <div
                       key={grant.id}
-                      className="group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-xl hover:border-perscholas-primary/50 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col animate-fadeIn"
+                      className={`group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-xl hover:border-perscholas-primary/50 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col animate-fadeIn ${
+                        dismissingGrants.has(grant.id) ? 'opacity-50 scale-95' : ''
+                      }`}
                       style={{ animationDelay: `${index * 50}ms` }}
                     >
                       {/* Title Row with Match Score */}
@@ -674,6 +761,57 @@ export default function Dashboard() {
                             </span>
                           )}
                         </button>
+                      </div>
+
+                      {/* Feedback Section */}
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-medium text-gray-700">Is this a good match?</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {feedbackSubmitted.has(grant.id) ? (
+                            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              Thanks for your feedback!
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => submitFeedback(grant.id, true)}
+                                className="flex items-center space-x-1 px-2 py-1 rounded-full border border-green-200 text-green-700 hover:bg-green-50 transition-colors text-xs"
+                              >
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                                </svg>
+                                <span>Good</span>
+                              </button>
+                              <button
+                                onClick={() => submitFeedback(grant.id, false)}
+                                disabled={dismissingGrants.has(grant.id)}
+                                className="flex items-center space-x-1 px-2 py-1 rounded-full border border-red-200 text-red-700 hover:bg-red-50 transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {dismissingGrants.has(grant.id) ? (
+                                  <>
+                                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Removing...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.106-1.79l-.05-.025A4 4 0 0011.057 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
+                                    </svg>
+                                    <span>Poor Match</span>
+                                  </>
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

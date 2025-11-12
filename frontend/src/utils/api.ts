@@ -93,5 +93,25 @@ export const api = {
     }),
 
   getSchedulerStatus: () =>
-    fetch(`${API_BASE_URL}/api/scheduler/status`)
+    fetch(`${API_BASE_URL}/api/scheduler/status`),
+
+  // Feedback
+  submitOpportunityFeedback: (opportunityId: string, feedbackType: string) =>
+    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        feedback_type: feedbackType,
+        user_id: 'current_user'
+      })
+    }),
+
+  getOpportunityFeedback: (opportunityId: string) =>
+    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/feedback`),
+
+  dismissOpportunity: (opportunityId: string) =>
+    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/dismiss`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
 }
