@@ -33,7 +33,7 @@ export default function Dashboard() {
   const [fundingMax, setFundingMax] = useState<number | undefined>(undefined)
   const [dueInDays, setDueInDays] = useState<number | undefined>(undefined)
   const [sortBy, setSortBy] = useState<'match' | 'amount' | 'deadline'>('match')
-  const [tableSortBy, setTableSortBy] = useState<'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source'>('match')
+  const [tableSortBy, setTableSortBy] = useState<'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source' | 'created_at'>('match')
   const [tableSortOrder, setTableSortOrder] = useState<'asc' | 'desc'>('desc')
   const [savingGrants, setSavingGrants] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState<number>(1)
@@ -66,6 +66,16 @@ export default function Dashboard() {
   useEffect(() => {
     setCurrentPage(1)
   }, [rawGrants, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
+
+  function getPostedDateValue(grant: ScrapedGrant) {
+    const value = grant.created_at || grant.updated_at || ''
+    return value ? new Date(value).getTime() : 0
+  }
+
+  function getPostedDateLabel(grant: ScrapedGrant) {
+    const value = grant.created_at || grant.updated_at || ''
+    return value ? formatDate(value) : '—'
+  }
 
   const fetchGrants = async () => {
     try {
@@ -101,13 +111,13 @@ export default function Dashboard() {
     if (highMatchOnly) list = list.filter(g => g.match_score >= 80)
 
     if (recentPostsOnly) {
-      const twoWeeksAgo = new Date()
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+      const oneWeekAgo = new Date()
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
       list = list.filter(g => {
         const createdAt = g.created_at || g.updated_at
         if (!createdAt) return false
         const created = new Date(createdAt)
-        return created >= twoWeeksAgo
+        return created >= oneWeekAgo
       })
     }
 
@@ -145,6 +155,12 @@ export default function Dashboard() {
         })
       } else if (sortField === 'source') {
         list.sort((a, b) => order * (a.source || '').localeCompare(b.source || ''))
+      } else if (sortField === 'created_at') {
+        list.sort((a, b) => {
+          const aDate = getPostedDateValue(a)
+          const bDate = getPostedDateValue(b)
+          return order * (bDate - aDate)
+        })
       }
     } else {
       // Grid view sorting
@@ -164,14 +180,14 @@ export default function Dashboard() {
     return list
   }, [rawGrants, keywordSearch, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder])
 
-  const handleTableSort = (column: 'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source') => {
+  const handleTableSort = (column: 'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source' | 'created_at') => {
     if (tableSortBy === column) {
       // Toggle sort order if clicking the same column
       setTableSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
     } else {
       // Set new column and default to descending for match/amount, ascending for text
       setTableSortBy(column)
-      setTableSortOrder(column === 'match' || column === 'amount' ? 'desc' : 'asc')
+      setTableSortOrder(column === 'match' || column === 'amount' || column === 'created_at' ? 'desc' : 'asc')
     }
     setCurrentPage(1) // Reset to first page when sorting
   }
@@ -292,12 +308,11 @@ export default function Dashboard() {
     }).format(amount)
   }
 
-  const formatDate = (dateStr: string) => {
+  function formatDate(dateStr: string) {
     if (!dateStr || dateStr === 'Historical') return dateStr
     const date = new Date(dateStr)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
-
 
   const getMatchColor = (score: number) => {
     if (score >= 80) return 'bg-green-600'
@@ -558,7 +573,7 @@ export default function Dashboard() {
                       ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}>
-                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'}`}>Recent Posts Only (2 weeks)</span>
+                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'}`}>Recent Posts Only (1 week)</span>
                     <input
                       type="checkbox"
                       checked={recentPostsOnly}
@@ -692,7 +707,7 @@ export default function Dashboard() {
                       </div>
 
                       {/* Key Metrics Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
                         <div>
                           <p className="text-xs text-gray-500 mb-0.5">Funding</p>
                           <p className="text-sm font-bold text-green-600">{formatCurrency(grant.amount)}</p>
@@ -700,6 +715,10 @@ export default function Dashboard() {
                         <div>
                           <p className="text-xs text-gray-500 mb-0.5">Deadline</p>
                           <p className="text-sm font-bold text-gray-900">{formatDate(grant.deadline)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Added</p>
+                          <p className="text-sm font-bold text-blue-600">{getPostedDateLabel(grant)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500 mb-0.5">Source</p>
@@ -919,6 +938,16 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
+                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('created_at')}>
+                          <div className="flex items-center gap-1.5">
+                            <span>Added</span>
+                            {tableSortBy === 'created_at' && (
+                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
                         <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('source')}>
                           <div className="flex items-center gap-1.5">
                             <span>Source</span>
@@ -963,6 +992,11 @@ export default function Dashboard() {
                           <td className="px-2 py-3">
                             <div className="text-xs sm:text-sm text-gray-900 whitespace-nowrap">
                               {formatDate(grant.deadline)}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="text-xs sm:text-sm text-blue-600 whitespace-nowrap">
+                              {getPostedDateLabel(grant)}
                             </div>
                           </td>
                           <td className="px-2 py-3">
