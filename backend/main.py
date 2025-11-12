@@ -1,4 +1,5 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException, File, UploadFile
+
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -19,8 +20,14 @@ from scheduler_service import SchedulerService
 
 load_dotenv()
 
-# Claude Code will use API key from environment variable ANTHROPIC_API_KEY
-# No additional setup needed - Claude CLI reads this automatically
+# Setup Claude Code authentication from environment variables on server
+try:
+    from setup_claude_auth import setup_claude_credentials
+    if os.getenv('CLAUDE_ACCESS_TOKEN'):
+        setup_claude_credentials()
+        print("[STARTUP] Claude Code authentication configured successfully")
+except Exception as e:
+    print(f"[STARTUP] Warning: Could not setup Claude Code auth: {e}")
 
 def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro", timeout: int = 900) -> dict:
     """
@@ -28,6 +35,14 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
     Returns structured response from Claude Code session
     """
     try:
+        # Refresh token before running (in case it expired)
+        try:
+            from claude_token_refresh import refresh_claude_token
+            refresh_claude_token()
+        except Exception as e:
+            print(f"[Claude Code Session] Warning: Token refresh failed: {e}")
+            # Continue anyway - might still work
+
         # Create temporary file for the prompt if needed
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
             f.write(prompt)
@@ -35,12 +50,6 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
 
         # Set up environment variables similar to iron_man_wake
         env = os.environ.copy()
-
-        # Ensure API keys are set for Claude Code
-        if 'ANTHROPIC_API_KEY' not in env:
-            env['ANTHROPIC_API_KEY'] = os.getenv('ANTHROPIC_API_KEY', '')
-        if 'FIRECRAWL_API_KEY' not in env:
-            env['FIRECRAWL_API_KEY'] = os.getenv('FIRECRAWL_API_KEY', '')
 
         # Configure Claude Code environment for non-interactive session
         env.update({
@@ -53,13 +62,10 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
         print(f"[Claude Code Session] Prompt length: {len(prompt)} chars")
 
         # Execute Claude Code session similar to iron_man_wake but non-interactive
-        # Using --print flag for non-interactive mode
-        # Using Haiku 4.5 for faster, cheaper responses
-        # Using Bash tool to call Firecrawl API (cheaper than Anthropic WebSearch)
+        # Using --print flag for non-interactive mode with WebSearch enabled
         result = subprocess.run([
             'claude',
             '--print',
-            '--model', 'claude-haiku-4-5-20251001',
             '--allowed-tools', 'WebSearch', 'WebFetch', 'Bash', 'Read', 'Write',
             '--permission-mode', 'acceptEdits'
         ],
@@ -266,6 +272,11 @@ class ProposalRequest(BaseModel):
     deadline: str
     description: str
     requirements: List[str]
+
+
+class UpdateOpportunityDescriptionRequest(BaseModel):
+    description: str
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -611,9 +622,7 @@ async def save_opportunity(opportunity_id: str):
             "requirements": opportunity.get("requirements", []),
             "contact": opportunity.get("contact", ""),
             "application_url": opportunity.get("application_url", ""),
-            "match_score": opportunity.get("match_score", 75),  # Ensure match_score is saved
-            "source": opportunity.get("source", "agent"),  # Mark as Agent-discovered
-            "status": "active",
+            "source": opportunity.get("source", "Agent"),  # Mark as Agent-discovered
             "contact_name": opportunity.get("contact_name"),
             "contact_phone": opportunity.get("contact_phone"),
             "contact_description": opportunity.get("contact_description"),
@@ -630,15 +639,7 @@ async def save_opportunity(opportunity_id: str):
             "award_ceiling": opportunity.get("award_ceiling"),
             "attachments": opportunity.get("attachments", []),
             "version": opportunity.get("version"),
-            "last_updated_date": opportunity.get("last_updated_date"),
-            "geographic_focus": opportunity.get("geographic_focus"),  # State/region filtering
-            "award_type": opportunity.get("award_type"),
-            "anticipated_awards": opportunity.get("anticipated_awards"),
-            "consortium_required": opportunity.get("consortium_required", False),
-            "consortium_description": opportunity.get("consortium_description"),
-            "rfp_attachment_requirements": opportunity.get("rfp_attachment_requirements"),
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
+            "last_updated_date": opportunity.get("last_updated_date")
         }
 
         print(f"[SAVE] Saving Agent grant to scraped_grants: {opportunity['title'][:50]}...")
@@ -683,6 +684,50 @@ async def save_opportunity(opportunity_id: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save opportunity: {str(e)}")
+
+
+@app.patch("/api/opportunities/{opportunity_id}/description")
+async def update_opportunity_description(opportunity_id: str, payload: UpdateOpportunityDescriptionRequest):
+    """Update the description of a saved opportunity"""
+    new_description = payload.description.strip()
+    if not new_description:
+        raise HTTPException(status_code=400, detail="Description cannot be empty")
+
+    updated_at = datetime.now().isoformat()
+    updated_record = None
+    supabase_error = None
+
+    try:
+        result = supabase.table("saved_opportunities").update({
+            "description": new_description,
+            "updated_at": updated_at
+        }).eq("id", opportunity_id).execute()
+
+        if result.data:
+            updated_record = result.data[0]
+    except Exception as e:
+        supabase_error = e
+
+    if not updated_record:
+        for opp in opportunities_db:
+            if opp.get("id") == opportunity_id:
+                opp["description"] = new_description
+                opp["updated_at"] = updated_at
+                updated_record = opp
+                break
+
+    if not updated_record:
+        if supabase_error:
+            raise HTTPException(status_code=500, detail=f"Failed to update opportunity description: {supabase_error}")
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    return {
+        "status": "updated",
+        "opportunity_id": opportunity_id,
+        "description": updated_record.get("description", new_description),
+        "updated_at": updated_record.get("updated_at", updated_at)
+    }
+
 
 @app.delete("/api/opportunities/{opportunity_id}")
 async def delete_opportunity(opportunity_id: str):
@@ -1093,8 +1138,8 @@ Organization Context:
 User Search Request: {criteria.prompt}
 
 Please execute your grant discovery protocol:
-1. Search GRANTS.gov, NSF, DOL, and other State databases for current opportunities
-2. Look for press releases for grants and RFPS
+1. Search GRANTS.gov, NSF, DOL, and other federal databases for current opportunities
+2. Find foundation grants from major funders (Gates, Ford, JPMorgan Chase, Google.org, etc.)
 3. Look for corporate funding programs focused on workforce development and technology equity
 4. Focus specifically on opportunities that align with Per Scholas' mission of technology training for underserved communities
 
@@ -1134,11 +1179,10 @@ User Search Request: {criteria.prompt}
 Execute this multi-step process:
 
 1. Search current federal databases (GRANTS.gov, NSF, DOL) for technology workforce development opportunities
-2. Look for press releases for grants and RFPS
-3. Research foundation grants from major funders aligned with our mission
-4. Identify corporate funding programs for underserved communities
+2. Research foundation grants from major funders aligned with our mission
+3. Identify corporate funding programs for underserved communities
 4. Filter for opportunities with deadlines in next 3-6 months and funding >$50k
-6. Find at least 3-5 different opportunities from various sources
+5. Find at least 3-5 different opportunities from various sources
 
 Existing opportunities to avoid duplicates: {existing_list}
 
@@ -1175,13 +1219,7 @@ Example of CORRECT output:
       "award_ceiling": 250000,
       "attachments": [],
       "version": "1 or null",
-      "last_updated_date": "2025-01-01 or null",
-      "geographic_focus": "State(s) or region(s) where applicants must be located or can operate, e.g., 'California, Texas, New York' or 'Any US state' or null",
-      "award_type": "Type of award like 'Grant', 'Cooperative Agreement', 'Loan', 'Subsidy', etc. or null",
-      "anticipated_awards": "Expected number or range of awards, e.g., '5-10 awards' or '15 awards' or null",
-      "consortium_required": false,
-      "consortium_description": "Details about required consortium partnerships, lead applicant requirements, or null if not applicable",
-      "rfp_attachment_requirements": "Summary of attachment/document requirements for application, e.g., '1) Proposal narrative (max 25 pages) 2) Budget narrative 3) Letters of support (min 3)' or number of attachments if specified, or null"
+      "last_updated_date": "2025-01-01 or null"
     }}
   ]
 }}
@@ -1195,14 +1233,7 @@ REQUIREMENTS:
 - Do NOT include match_score (it will be calculated automatically)
 - requirements is array of strings
 - attachments is empty array [] (no attachment fetching)
-- Use null for optional fields if no data available
-- NEW FIELDS:
-  * geographic_focus: Extract state(s) or region(s) - CRITICAL for filtering in dashboard
-  * award_type: Type of award (Grant, Cooperative Agreement, Loan, etc.)
-  * anticipated_awards: Expected number of awards that will be given
-  * consortium_required: Boolean - does opportunity require multiple partner organizations?
-  * consortium_description: Details about consortium/partnership requirements if applicable
-  * rfp_attachment_requirements: Summary of required attachments/documents for proposal"""
+- Use null for optional fields if no data available"""
 
             job["current_task"] = "Creating Claude Code fundraising session..."
             job["progress"] = 50
@@ -1623,179 +1654,6 @@ async def download_proposal(proposal_id: int):
         print(f"[ERROR] Failed to serve proposal {proposal_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to serve proposal: {str(e)}")
 
-
-@app.post("/api/rfps/upload")
-async def upload_rfp(
-    file: UploadFile = File(...),
-    title: str = None,
-    funder: str = None,
-    deadline: str = None
-):
-    """
-    Upload an RFP PDF document for AI analysis.
-
-    The system will:
-    1. Save the PDF to server filesystem
-    2. Extract text content using PyPDF2
-    3. Generate AI summary and match analysis using LLM
-    4. Calculate match score based on keywords
-    5. Save to scraped_grants table for review
-
-    Args:
-        file: PDF file upload
-        title: Optional RFP title (will be extracted from PDF if not provided)
-        funder: Optional funder name
-        deadline: Optional deadline date
-
-    Returns:
-        Analysis results with match score and AI insights
-    """
-    try:
-        # Validate file type
-        if not file.filename.endswith('.pdf'):
-            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
-
-        # Create uploads directory if it doesn't exist
-        uploads_dir = os.path.join(os.path.dirname(__file__), 'uploaded_rfps')
-        os.makedirs(uploads_dir, exist_ok=True)
-
-        # Generate unique filename
-        file_id = str(uuid.uuid4())
-        safe_filename = f"{file_id}_{file.filename}"
-        file_path = os.path.join(uploads_dir, safe_filename)
-
-        # Save uploaded file
-        with open(file_path, 'wb') as f:
-            content = await file.read()
-            f.write(content)
-
-        print(f"[RFP UPLOAD] Saved file to {file_path}")
-
-        # Extract text from PDF
-        from semantic_service import SemanticService
-        semantic_service = SemanticService()
-        text_content = semantic_service.extract_text_from_pdf(file_path)
-
-        if not text_content or len(text_content.strip()) < 100:
-            raise HTTPException(status_code=400, detail="Could not extract sufficient text from PDF. File may be scanned/image-based.")
-
-        print(f"[RFP UPLOAD] Extracted {len(text_content)} characters of text")
-
-        # Use LLM to extract structured information from RFP
-        import google.generativeai as genai
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-        model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
-
-        extraction_prompt = f"""Extract key information from this RFP/grant opportunity document.
-
-Document text:
-{text_content[:8000]}
-
-Return ONLY valid JSON with this structure:
-{{
-  "title": "RFP title",
-  "funder": "Funding organization name",
-  "amount": 0,
-  "deadline": "YYYY-MM-DD or null",
-  "description": "2-3 sentence summary of what this grant funds",
-  "eligibility": "Who can apply",
-  "focus_areas": ["area1", "area2"]
-}}
-
-If a field cannot be determined, use null or empty string."""
-
-        response = model.generate_content(extraction_prompt)
-        import re
-        json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-
-        if json_match:
-            extracted_data = json.loads(json_match.group())
-        else:
-            extracted_data = {}
-
-        # Override with user-provided values
-        final_title = title or extracted_data.get('title') or file.filename
-        final_funder = funder or extracted_data.get('funder') or 'Unknown'
-        final_deadline = deadline or extracted_data.get('deadline')
-
-        # Calculate match score WITH semantic similarity
-        from match_scoring import calculate_match_score
-        from semantic_service import SemanticService
-
-        grant_data = {
-            'title': final_title,
-            'funder': final_funder,
-            'description': text_content,
-            'amount': extracted_data.get('amount', 0),
-            'deadline': final_deadline,
-            'source': 'user_upload'
-        }
-
-        # Find similar historical RFPs for semantic scoring (up to 50 points)
-        semantic_service = SemanticService()
-        query_text = f"{final_title} {text_content[:1000]}"
-        similar_rfps = semantic_service.find_similar_rfps(query_text, limit=5)
-
-        print(f"[RFP UPLOAD] Found {len(similar_rfps)} similar RFPs for semantic scoring")
-
-        match_score = calculate_match_score(grant_data, similar_rfps)
-
-        # Generate AI summary and reasoning
-        from llm_enhancement_service import LLMEnhancementService
-        llm_service = LLMEnhancementService()
-
-        enhanced_grant = {
-            **grant_data,
-            'match_score': match_score,
-            'opportunity_id': f"upload_{file_id}"
-        }
-
-        ai_enhanced = await llm_service.enhance_grant(enhanced_grant)
-
-        # Save directly to saved_opportunities table (skip inbox)
-        opportunity_record = {
-            'opportunity_id': f"upload_{file_id}",
-            'title': final_title,
-            'funder': final_funder,
-            'amount': extracted_data.get('amount', 0),
-            'deadline': final_deadline,
-            'description': extracted_data.get('description', text_content[:500]),
-            'match_score': match_score,
-            'source': 'user_upload',
-            'status': 'active',
-            'llm_summary': ai_enhanced.get('llm_summary'),
-            'detailed_match_reasoning': ai_enhanced.get('detailed_match_reasoning'),
-            'tags': ai_enhanced.get('tags', []),
-            'winning_strategies': ai_enhanced.get('winning_strategies', []),
-            'key_themes': ai_enhanced.get('key_themes', []),
-            'recommended_metrics': ai_enhanced.get('recommended_metrics', []),
-            'considerations': ai_enhanced.get('considerations', []),
-            'similar_past_proposals': ai_enhanced.get('similar_past_proposals', []),
-            'eligibility_explanation': extracted_data.get('eligibility')
-        }
-
-        result = supabase.table('saved_opportunities').insert(opportunity_record).execute()
-
-        print(f"[RFP UPLOAD] Saved directly to opportunities with match score: {match_score}%")
-
-        return {
-            'success': True,
-            'opportunity_id': result.data[0]['id'],
-            'match_score': match_score,
-            'title': final_title,
-            'funder': final_funder,
-            'llm_summary': ai_enhanced.get('llm_summary'),
-            'tags': ai_enhanced.get('tags', []),
-            'message': 'RFP uploaded and analyzed successfully! It now appears on this page.'
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"[ERROR] RFP upload failed: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to process RFP: {str(e)}")
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@ interface Opportunity {
   award_floor?: number
   award_ceiling?: number
   attachments?: Array<{
-    title: string
+  title: string
     url: string
     type: string
   }>
@@ -87,6 +87,10 @@ export default function OpportunitiesPage() {
   const [uploadingRfp, setUploadingRfp] = useState(false)
   const [uploadResult, setUploadResult] = useState<any>(null)
   const [descriptionModalOpportunity, setDescriptionModalOpportunity] = useState<Opportunity | null>(null)
+  const [isEditingDescription, setIsEditingDescription] = useState(false)
+  const [descriptionDraft, setDescriptionDraft] = useState('')
+  const [savingDescription, setSavingDescription] = useState(false)
+  const [descriptionError, setDescriptionError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOpportunities()
@@ -105,8 +109,68 @@ export default function OpportunitiesPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  useEffect(() => {
+    if (descriptionModalOpportunity) {
+      setDescriptionDraft(sanitizeDescription(descriptionModalOpportunity.description ?? ''))
+      setIsEditingDescription(false)
+      setDescriptionError(null)
+    }
+  }, [descriptionModalOpportunity])
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function formatDate(dateStr: string) {
+    if (!dateStr || dateStr === 'Historical') return dateStr
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  function getAddedDateValue(opportunity: Opportunity) {
+    const value = opportunity.saved_at || opportunity.created_at || opportunity.llm_enhanced_at || ''
+    return value ? new Date(value).getTime() : 0
+  }
+
+  function getAddedDateLabel(opportunity: Opportunity) {
+    const value = opportunity.saved_at || opportunity.created_at || opportunity.llm_enhanced_at || ''
+    return value ? formatDate(value) : '—'
+  }
+
+  function sanitizeDescription(raw: string) {
+    return raw
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<p\s*\/?>/gi, '\n')
+      .replace(/<\/?[^>]+>/gi, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  function getDescriptionText(opportunity: Opportunity) {
+    const raw = sanitizeDescription(opportunity.description ?? '')
+    if (raw) return raw
+    return 'No description has been provided yet. Click "Edit Description" to add important details for this opportunity.'
+  }
+
+  function getDescriptionParagraphs(description: string) {
+    const clean = sanitizeDescription(description)
+    if (!clean) return [
+      'No description has been provided yet. Click "Edit Description" to add important details for this opportunity.'
+    ]
+    return clean.split(/\n{2,}/).map(paragraph => paragraph.trim()).filter(Boolean)
+  }
+
+  function getDescriptionPreview(description: string, maxLength = 280) {
+    const clean = sanitizeDescription(description)
+    if (!clean) {
+      return 'No description has been provided yet. Click "View / Edit Description" to add important details.'
+    }
+    if (clean.length <= maxLength) return clean
+    return clean.slice(0, maxLength - 1).trimEnd() + '…'
   }
 
   const fetchOpportunities = async () => {
@@ -144,13 +208,12 @@ export default function OpportunitiesPage() {
     if (highMatchOnly) list = list.filter(o => o.match_score >= 80)
 
     if (recentPostsOnly) {
-      const twoWeeksAgo = new Date()
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+      const oneWeekAgo = new Date()
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
       list = list.filter(o => {
-        const createdAt = o.created_at || o.saved_at
-        if (!createdAt) return false
-        const created = new Date(createdAt)
-        return created >= twoWeeksAgo
+        const addedTs = getAddedDateValue(o)
+        if (!addedTs) return false
+        return addedTs >= oneWeekAgo.getTime()
       })
     }
 
@@ -273,6 +336,58 @@ export default function OpportunitiesPage() {
     }
   }
 
+  const handleSaveDescription = async () => {
+    if (!descriptionModalOpportunity) return
+
+    const trimmed = descriptionDraft.trim()
+    if (!trimmed) {
+      setDescriptionError('Description cannot be empty.')
+      return
+    }
+
+    setSavingDescription(true)
+    setDescriptionError(null)
+
+    try {
+      const response = await api.updateOpportunityDescription(descriptionModalOpportunity.id, trimmed)
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to update description.')
+      }
+
+      const updatedDescription = data.description ?? trimmed
+      const updatedAt = data.updated_at
+
+      setRawOpportunities(prev => prev.map(opp =>
+        opp.id === descriptionModalOpportunity.id
+          ? { ...opp, description: updatedDescription, updated_at: updatedAt || opp.updated_at }
+          : opp
+      ))
+
+      setDescriptionModalOpportunity(prev => prev ? {
+        ...prev,
+        description: updatedDescription,
+        updated_at: updatedAt || prev.updated_at
+      } : prev)
+
+      setDescriptionDraft(updatedDescription)
+      setIsEditingDescription(false)
+    } catch (error: any) {
+      setDescriptionError(error.message || 'Failed to update description.')
+    } finally {
+      setSavingDescription(false)
+    }
+  }
+
+  const handleCancelDescriptionEdit = () => {
+    if (descriptionModalOpportunity) {
+      setDescriptionDraft(sanitizeDescription(descriptionModalOpportunity.description ?? ''))
+    }
+    setDescriptionError(null)
+    setIsEditingDescription(false)
+  }
+
   const handleUploadRfp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setUploadingRfp(true)
@@ -293,7 +408,7 @@ export default function OpportunitiesPage() {
         body: formData
       })
 
-      const data = await response.json()
+        const data = await response.json()
 
       if (response.ok) {
         setUploadResult(data)
@@ -382,12 +497,6 @@ export default function OpportunitiesPage() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
-  }
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr || dateStr === 'Historical') return dateStr
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const totalPages = Math.max(1, Math.ceil(filteredOpportunities.length / itemsPerPage))
@@ -501,7 +610,7 @@ export default function OpportunitiesPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Pipeline</p>
             <p className="text-2xl sm:text-3xl font-bold text-gray-900">{filteredOpportunities.length}</p>
-          </div>
+            </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Total Value</p>
@@ -519,8 +628,8 @@ export default function OpportunitiesPage() {
               {filteredOpportunities.length > 0
                 ? Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length)
                 : 0}%
-            </p>
-          </div>
+              </p>
+            </div>
         </div>
 
         {/* Mobile Filter Button */}
@@ -584,7 +693,7 @@ export default function OpportunitiesPage() {
                       ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}>
-                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'}`}>Recent Posts Only (2 weeks)</span>
+                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'}`}>Recent Posts Only (1 week)</span>
                     <input
                       type="checkbox"
                       checked={recentPostsOnly}
@@ -702,10 +811,10 @@ export default function OpportunitiesPage() {
                     <p className="text-xs font-semibold text-perscholas-dark mb-1">AI Analysis Active</p>
                     <p className="text-xs text-gray-700 leading-relaxed">
                       Expand opportunities to view AI summaries, match reasoning, and similar RFPs.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              </p>
+            </div>
+          </div>
+        </div>
             </div>
           </aside>
 
@@ -715,27 +824,31 @@ export default function OpportunitiesPage() {
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-20 text-center">
                 <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-2xl flex items-center justify-center">
                   <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">No saved opportunities yet</h3>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">No saved opportunities yet</h3>
                 <p className="text-gray-600 text-lg mb-8">Save grants from the dashboard to analyze them here</p>
-                <a
-                  href="/dashboard"
+            <a
+              href="/dashboard"
                   className="inline-flex items-center gap-2 bg-perscholas-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-perscholas-dark transition-all"
-                >
+            >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   Discover Grants
-                </a>
-              </div>
-            ) : (
+            </a>
+          </div>
+        ) : (
               <div>
                 <div className="space-y-6 mb-8">
                   {paged.map((opportunity, index) => {
                     const isExpanded = expandedOpportunity === opportunity.id
                     const colors = getMatchColor(opportunity.match_score)
+                    const rawDescription = sanitizeDescription(opportunity.description ?? '')
+                    const hasDescription = rawDescription.length > 0
+                    const descriptionText = hasDescription ? rawDescription : getDescriptionText(opportunity)
+                    const descriptionPreview = getDescriptionPreview(descriptionText)
 
                     return (
                       <div
@@ -757,28 +870,33 @@ export default function OpportunitiesPage() {
                                 {opportunity.title}
                               </h3>
                               <p className="text-sm text-gray-600 font-medium">{opportunity.funder}</p>
-                            </div>
+                              <p className="text-xs text-gray-500 mt-0.5">Added {getAddedDateLabel(opportunity)}</p>
+                    </div>
                             <div className="flex flex-col items-end gap-2 flex-shrink-0">
                               <div className={`${colors.bg} text-white px-3.5 py-1.5 rounded-lg text-sm font-semibold`}>
                                 {opportunity.match_score}% Match
-                              </div>
+                  </div>
                             </div>
                           </div>
 
                           {/* Key Metrics */}
-                          <div className="grid grid-cols-3 gap-6 mb-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
                             <div className="flex flex-col items-start">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Funding Amount</span>
-                              <span className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</span>
-                            </div>
-                            <div className="flex flex-col items-center">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Due Date</span>
-                              <span className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</span>
+                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Funding Amount</span>
+                               <span className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</span>
+                             </div>
+                            <div className="flex flex-col items-start sm:items-center">
+                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Due Date</span>
+                               <span className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</span>
+                             </div>
+                            <div className="flex flex-col items-start lg:items-center">
+                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Added</span>
+                              <span className="text-lg font-bold text-blue-600">{getAddedDateLabel(opportunity)}</span>
                             </div>
                             <div className="flex flex-col items-end">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Rate This Match</span>
-                              <div className="flex items-center gap-1">
-                                {rfpDbSuccessMessage[opportunity.id] ? (
+                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Rate This Match</span>
+                               <div className="flex items-center gap-1">
+                                 {rfpDbSuccessMessage[opportunity.id] ? (
                                   <div className="flex items-center gap-1.5 text-xs font-semibold text-green-600">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -823,9 +941,29 @@ export default function OpportunitiesPage() {
                             <div className="mb-4">
                               <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold border ${getSourceBadge(opportunity.source)}`}>
                                 {getSourceLabel(opportunity.source)}
-                              </span>
+                    </span>
                             </div>
                           )}
+
+                          {/* Description Preview */}
+                          <div className="mb-4">
+                            <div className="border border-gray-200 bg-gray-50 rounded-lg p-4">
+                              <p className={`text-sm leading-relaxed ${hasDescription ? 'text-gray-700' : 'text-gray-500 italic'}`}>
+                                {descriptionPreview}
+                              </p>
+                              <div className="mt-3">
+                                <button
+                                  onClick={() => setDescriptionModalOpportunity(opportunity)}
+                                  className="inline-flex items-center gap-1.5 border border-perscholas-secondary text-perscholas-secondary px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-perscholas-secondary/10 transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  View / Edit Description
+                                </button>
+                              </div>
+                            </div>
+                          </div>
 
                           {/* ACCORDION SECTIONS */}
                           <div className="space-y-2 mb-4">
@@ -845,22 +983,9 @@ export default function OpportunitiesPage() {
                                   <p className="text-sm text-gray-700 leading-relaxed mb-3">
                                     {opportunity.llm_summary}
                                   </p>
-                                  {opportunity.description && (
-                                    <button
-                                      onClick={() => setDescriptionModalOpportunity(opportunity)}
-                                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-1 transition-colors"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                      View Full Description
-                                    </button>
-                                  )}
                                 </div>
                               </div>
                             )}
-
-
 
                             {/* Requirements & Eligibility */}
                             {(opportunity.eligibility_explanation || (opportunity.requirements && opportunity.requirements.length > 0) || opportunity.source === 'grants_gov' || opportunity.geographic_focus || opportunity.award_type || opportunity.anticipated_awards) && (
@@ -929,13 +1054,13 @@ export default function OpportunitiesPage() {
                                           {opportunity.requirements.map((req: string, idx: number) => (
                                             <li key={idx} className="flex items-start gap-2">
                                               <span className="text-orange-600 font-bold">•</span>
-                                              <span>{req}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                    
+                          <span>{req}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                                     {opportunity.source === 'grants_gov' && (
                                       <div className="border-l-4 border-blue-500 pl-3">
                                         <h5 className="text-sm font-bold text-gray-900 mb-1">Required Registrations</h5>
@@ -967,9 +1092,9 @@ export default function OpportunitiesPage() {
                                               <div className="flex items-start gap-2">
                                                 <span className="text-xs bg-orange-50 px-2 py-1 rounded border border-orange-200 text-orange-800 flex-shrink-0">
                                                   🤖 AI Analysis
-                                                </span>
+                    </span>
                                                 <span className="text-sm text-gray-700">{opportunity.geographic_focus}</span>
-                                              </div>
+                  </div>
                                             </div>
                                           )}
                                           
@@ -1186,8 +1311,8 @@ export default function OpportunitiesPage() {
                                             <a
                                               key={idx}
                                               href={attachment.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
+                      target="_blank"
+                      rel="noopener noreferrer"
                                               className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                                             >
                                               <div className="bg-perscholas-secondary p-2 rounded">
@@ -1212,7 +1337,7 @@ export default function OpportunitiesPage() {
                             {/* Similar Past RFPs */}
                             {opportunity.similar_past_proposals && opportunity.similar_past_proposals.length > 0 && (
                               <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                <button
+                    <button
                                   onClick={() => toggleAccordionSection(opportunity.id, 'similar')}
                                   className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
                                 >
@@ -1225,7 +1350,7 @@ export default function OpportunitiesPage() {
                                   <svg className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${expandedSections[opportunity.id]?.similar ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                   </svg>
-                                </button>
+                    </button>
                                 {expandedSections[opportunity.id]?.similar && (
                                   <div className="p-3 bg-white border-t border-gray-200 max-h-60 overflow-y-auto">
                                     <p className="text-sm text-gray-600 mb-3">
@@ -1259,7 +1384,7 @@ export default function OpportunitiesPage() {
                                                 {rfp.outcome === 'won' ? '✓ Won' : rfp.outcome}
                                               </span>
                                             )}
-                                          </div>
+                  </div>
                                           {rfp.similarity_score && (
                                             <span className="text-xs text-perscholas-secondary font-medium">
                                               {Math.round(rfp.similarity_score * 100)}%
@@ -1268,9 +1393,9 @@ export default function OpportunitiesPage() {
                                         </li>
                                       ))}
                                     </ul>
-                                  </div>
+                </div>
                                 )}
-                              </div>
+              </div>
                             )}
                           </div>
 
@@ -1290,8 +1415,8 @@ export default function OpportunitiesPage() {
                                   +{opportunity.tags.length - 8} more
                                 </span>
                               )}
-                            </div>
-                          )}
+          </div>
+        )}
 
                           {/* Action Buttons */}
                           <div className="pt-4 border-t border-gray-100">
@@ -1326,7 +1451,7 @@ export default function OpportunitiesPage() {
                                   'Remove'
                                 )}
                               </button>
-                            </div>
+      </div>
                           </div>
                         </div>
 
@@ -1579,36 +1704,110 @@ export default function OpportunitiesPage() {
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
-              <div className="prose prose-sm max-w-none">
-                {descriptionModalOpportunity.description.split('\n\n').map((paragraph, idx) => (
-                  <p key={idx} className="text-sm text-gray-700 leading-relaxed mb-4 last:mb-0">
-                    {paragraph}
+              {isEditingDescription ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Edit Description</label>
+                  <textarea
+                    value={descriptionDraft}
+                    onChange={(e) => setDescriptionDraft(e.target.value)}
+                    className="w-full min-h-[220px] text-sm leading-relaxed border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-perscholas-primary/30 focus:border-perscholas-primary resize-vertical"
+                    placeholder="Enter the full RFP description"
+                    disabled={savingDescription}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Tip: Use blank lines to separate paragraphs for better readability.
                   </p>
-                ))}
-              </div>
+                  {descriptionError && (
+                    <p className="text-sm text-red-600 mt-2">{descriptionError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  {(() => {
+                    const raw = sanitizeDescription(descriptionModalOpportunity.description ?? '')
+                    const paragraphs = raw
+                      ? getDescriptionParagraphs(raw)
+                      : getDescriptionParagraphs('')
+                    return paragraphs.map((paragraph, idx) => (
+                      <p
+                        key={idx}
+                        className={`text-sm leading-relaxed mb-4 last:mb-0 ${raw ? 'text-gray-700' : 'text-gray-500 italic'}`}
+                      >
+                        {paragraph}
+                      </p>
+                    ))
+                  })()}
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
-              {descriptionModalOpportunity.application_url && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex flex-wrap items-center gap-2">
                 <a
-                  href={descriptionModalOpportunity.application_url}
+                  href={descriptionModalOpportunity.application_url || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-perscholas-secondary text-white px-4 py-2 rounded-lg font-medium hover:bg-perscholas-primary transition-colors text-sm"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${descriptionModalOpportunity.application_url
+                    ? 'bg-perscholas-secondary text-white hover:bg-perscholas-primary'
+                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'}
+                  `}
+                  onClick={(e) => {
+                    if (!descriptionModalOpportunity.application_url) {
+                      e.preventDefault()
+                    }
+                  }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                   Apply Now
                 </a>
-              )}
-              <button
-                onClick={() => setDescriptionModalOpportunity(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors text-sm"
-              >
-                Close
-              </button>
+
+                {!isEditingDescription && (
+                  <button
+                    onClick={() => {
+                      setIsEditingDescription(true)
+                      setDescriptionError(null)
+                    }}
+                    className="px-4 py-2 border border-perscholas-secondary text-perscholas-secondary rounded-lg text-sm font-medium hover:bg-perscholas-secondary/10 transition-colors"
+                  >
+                    Edit Description
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setDescriptionModalOpportunity(null)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors text-sm"
+                >
+                  Close
+                </button>
+              </div>
+
+              {isEditingDescription ? (
+                <>
+                  <button
+                    onClick={handleCancelDescriptionEdit}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                    disabled={savingDescription}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDescription}
+                    disabled={savingDescription}
+                    className="px-4 py-2 bg-perscholas-secondary text-white rounded-lg text-sm font-medium hover:bg-perscholas-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {savingDescription ? (
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : null}
+                    Save Changes
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
