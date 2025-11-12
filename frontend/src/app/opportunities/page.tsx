@@ -18,6 +18,7 @@ interface Opportunity {
   source?: string
   created_at?: string
   saved_at?: string
+  updated_at?: string
   status?: string
   llm_summary?: string
   detailed_match_reasoning?: string

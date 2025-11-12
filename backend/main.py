@@ -277,6 +277,9 @@ class FeedbackRequest(BaseModel):
     feedback_type: str  # 'positive' or 'negative'
     user_id: str = "anonymous"
 
+class UpdateOpportunityDescriptionRequest(BaseModel):
+    description: str
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize scheduler on startup"""
