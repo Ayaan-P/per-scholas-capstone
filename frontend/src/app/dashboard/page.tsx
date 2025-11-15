@@ -701,30 +701,25 @@ export default function Dashboard() {
                           </h3>
                           <p className="text-xs text-gray-600 truncate">{grant.funder}</p>
                         </div>
-                        <div className={`flex-shrink-0 ${getMatchColor(grant.match_score)} text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-sm`}>
-                          {grant.match_score}%
+                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                          <div className={`${getMatchColor(grant.match_score)} text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-sm`}>
+                            {grant.match_score}%
+                          </div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getSourceBadge(grant.source)}`}>
+                            {getSourceLabel(grant.source)}
+                          </span>
                         </div>
                       </div>
 
                       {/* Key Metrics Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="grid grid-cols-2 gap-4 mb-4 p-4 sm:p-5 bg-gray-50 rounded-lg">
                         <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Funding</p>
-                          <p className="text-sm font-bold text-green-600">{formatCurrency(grant.amount)}</p>
+                          <p className="text-xs text-gray-500 font-medium mb-1">Funding</p>
+                          <p className="text-base font-bold text-green-600">{formatCurrency(grant.amount)}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Deadline</p>
-                          <p className="text-sm font-bold text-gray-900">{formatDate(grant.deadline)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Added</p>
-                          <p className="text-sm font-bold text-blue-600">{getPostedDateLabel(grant)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Source</p>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getSourceBadge(grant.source)}`}>
-                            {getSourceLabel(grant.source)}
-                          </span>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500 font-medium mb-1">Deadline</p>
+                          <p className="text-base font-bold text-gray-900">{formatDate(grant.deadline)}</p>
                         </div>
                       </div>
 

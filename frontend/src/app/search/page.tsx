@@ -24,6 +24,11 @@ export default function SearchPage() {
   const [searchPrompt, setSearchPrompt] = useState('')
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [recentPostsOnly, setRecentPostsOnly] = useState(false)
+  const [aiSearchEnabled, setAiSearchEnabled] = useState(true)
+  const [showSettings, setShowSettings] = useState(false)
+  const [schedulerFrequency, setSchedulerFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
+  const [selectedStates, setSelectedStates] = useState<string[]>(['CA', 'NY', 'TX'])
+  const [selectedCities, setSelectedCities] = useState<string[]>([])
 
   const saveOpportunity = async (opportunityId: string) => {
     setSavingIds(prev => new Set(prev).add(opportunityId))
@@ -106,6 +111,34 @@ export default function SearchPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
+  const saveSchedulerSettings = async () => {
+    try {
+      const response = await fetch('/api/scheduler/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scheduler_frequency: schedulerFrequency,
+          selected_states: selectedStates,
+          selected_cities: selectedCities.length > 0 ? selectedCities : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings')
+      }
+
+      const data = await response.json()
+      console.log('Scheduler settings saved:', data)
+      alert('Scheduler settings saved successfully!')
+      setShowSettings(false)
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      alert('Failed to save settings')
+    }
+  }
+
   // Filter opportunities based on recent posts filter
   const filteredOpportunities = recentPostsOnly 
     ? opportunities.filter(o => {
@@ -124,19 +157,124 @@ export default function SearchPage() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
-            <div className="flex items-center gap-2 sm:gap-3 mb-3">
-              <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+            <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  AI-Powered Opportunity Discovery
+                </h2>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                AI-Powered Opportunity Discovery
-              </h2>
+
+              <div className="flex items-center gap-3">
+                {/* Settings Button */}
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                  title="Open settings"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+
+                {/* AI Search Toggle */}
+                <label className={`flex items-center justify-between px-4 py-2 rounded-lg border cursor-pointer transition-all ${
+                  aiSearchEnabled
+                    ? 'border-perscholas-secondary bg-blue-50'
+                    : 'border-gray-300 bg-gray-50'
+                }`}>
+                  <span className={`text-sm font-medium mr-3 ${aiSearchEnabled ? 'text-perscholas-secondary' : 'text-gray-600'}`}>
+                    AI Search {aiSearchEnabled ? 'On' : 'Off'}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={aiSearchEnabled}
+                    onChange={(e) => setAiSearchEnabled(e.target.checked)}
+                    className="w-4 h-4 text-perscholas-secondary rounded focus:ring-2 focus:ring-perscholas-secondary/20"
+                  />
+                </label>
+              </div>
             </div>
+
             <p className="text-gray-600 text-base sm:text-lg mt-2">
               Deploy an agent to discover funding opportunities tailored to your specific needs. Be specific about focus areas, funding amounts, and deadlines for best results.
             </p>
+
+            {/* Settings Panel */}
+            {showSettings && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <h3 className="font-semibold text-gray-900 mb-4">Search Settings</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Scheduler Frequency */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Scheduler Frequency
+                    </label>
+                    <select
+                      value={schedulerFrequency}
+                      onChange={(e) => setSchedulerFrequency(e.target.value as 'daily' | 'weekly' | 'monthly')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">How often the AI search will run automatically</p>
+                  </div>
+
+                  {/* States */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Target States
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedStates.join(', ')}
+                      onChange={(e) => setSelectedStates(e.target.value.split(',').map(s => s.trim().toUpperCase()).filter(s => s))}
+                      placeholder="e.g., CA, NY, TX"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">State abbreviations separated by comma</p>
+                  </div>
+
+                  {/* Cities */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Target Cities (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedCities.join(', ')}
+                      onChange={(e) => setSelectedCities(e.target.value.split(',').map(c => c.trim()).filter(c => c))}
+                      placeholder="e.g., New York, Los Angeles, Chicago"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">City names separated by comma</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={saveSchedulerSettings}
+                    className="px-4 py-2 bg-perscholas-secondary hover:bg-perscholas-dark text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Save Settings
+                  </button>
+                  <button
+                    onClick={() => setShowSettings(false)}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -162,7 +300,7 @@ export default function SearchPage() {
 
             <button
               onClick={searchOpportunities}
-              disabled={isSearching || !searchPrompt.trim()}
+              disabled={isSearching || !searchPrompt.trim() || !aiSearchEnabled}
               className="w-full bg-perscholas-secondary hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2"
             >
               {isSearching ? (

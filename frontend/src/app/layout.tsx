@@ -59,6 +59,16 @@ export default function RootLayout({
                 >
                   Opportunities
                 </a>
+                <a
+                  href="/search"
+                  className={`font-medium transition-colors ${
+                    isActive('/search')
+                      ? 'text-perscholas-primary font-bold border-b-2 border-perscholas-primary pb-1'
+                      : 'text-gray-600 hover:text-perscholas-primary'
+                  }`}
+                >
+                  AI Search
+                </a>
               </nav>
 
               {/* Mobile Menu Button */}
@@ -104,6 +114,17 @@ export default function RootLayout({
                     }`}
                   >
                     Opportunities
+                  </a>
+                  <a
+                    href="/search"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                      isActive('/search')
+                        ? 'text-perscholas-primary font-bold bg-blue-50'
+                        : 'text-gray-600 hover:text-perscholas-primary hover:bg-gray-50'
+                    }`}
+                  >
+                    AI Search
                   </a>
                 </nav>
               </div>

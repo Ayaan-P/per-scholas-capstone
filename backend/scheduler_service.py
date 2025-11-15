@@ -34,6 +34,10 @@ class SchedulerService:
         self.scrapers = self._initialize_scrapers()
         self.job_history = []
 
+        # Load scheduler settings from database
+        self.scheduler_settings = self._load_scheduler_settings()
+        logger.info(f"Scheduler settings loaded: frequency={self.scheduler_settings['scheduler_frequency']}, locations={len(self.scheduler_settings['locations'])}")
+
         # Initialize semantic service for enhanced match scoring
         try:
             from semantic_service import SemanticService
@@ -65,6 +69,118 @@ class SchedulerService:
             logger.error(f"Failed to initialize Gmail scraper: {e}")
 
         return scrapers
+
+    def _load_scheduler_settings(self) -> Dict[str, Any]:
+        """Load scheduler settings from database, fallback to defaults if not found"""
+        try:
+            # Try to fetch settings from database
+            result = self.supabase.table("scheduler_settings").select("*").limit(1).execute()
+
+            if result.data and len(result.data) > 0:
+                settings = result.data[0]
+                selected_states = settings.get("selected_states", [])
+                selected_cities = settings.get("selected_cities", [])
+
+                # Reconstruct locations as (state, city) tuples
+                locations = list(zip(selected_states, selected_cities)) if selected_states and selected_cities else self._get_default_locations()
+
+                logger.info(f"Loaded scheduler settings from database: frequency={settings.get('scheduler_frequency')}, {len(locations)} locations")
+                return {
+                    "scheduler_frequency": settings.get("scheduler_frequency", "weekly"),
+                    "locations": locations
+                }
+            else:
+                logger.info("No scheduler settings found in database, using defaults")
+                return {
+                    "scheduler_frequency": "weekly",
+                    "locations": self._get_default_locations()
+                }
+        except Exception as e:
+            logger.warning(f"Failed to load scheduler settings from database: {e}, using defaults")
+            return {
+                "scheduler_frequency": "weekly",
+                "locations": self._get_default_locations()
+            }
+
+    def _get_default_locations(self) -> List[tuple]:
+        """Get default list of target locations"""
+        return [
+            ("Georgia", "Atlanta"),
+            ("Maryland", "Baltimore"),
+            ("Massachusetts", "Boston"),
+            ("Illinois", "Chicago"),
+            ("Texas", "Dallas/Houston"),
+            ("Colorado", "Denver"),
+            ("Michigan", "Detroit"),
+            ("Indiana", "Indianapolis"),
+            ("Missouri", "Kansas City/St. Louis"),
+            ("California", "Los Angeles/San Francisco"),
+            ("New York", "New York/Newark"),
+            ("Pennsylvania", "Philadelphia/Pittsburgh"),
+            ("North Carolina", "Charlotte/Raleigh"),
+            ("Florida", "Orlando/Tampa/Miami"),
+            ("Arizona", "Phoenix"),
+            ("Washington", "Seattle"),
+            ("Virginia", "Washington DC/Virginia"),
+            ("Ohio", "Cincinnati/Columbus/Cleveland"),
+            ("Tennessee", "Nashville"),
+        ]
+
+    def _get_ai_scrape_trigger(self):
+        """Get trigger for AI scraping based on scheduler_frequency setting"""
+        frequency = self.scheduler_settings.get("scheduler_frequency", "weekly").lower()
+
+        if frequency == "daily":
+            # Run every day at 2 AM
+            return CronTrigger(hour=2, minute=0)
+        elif frequency == "weekly":
+            # Run every Monday at 2 AM
+            return CronTrigger(day_of_week='mon', hour=2, minute=0)
+        elif frequency == "biweekly":
+            # Run every other Monday at 2 AM (approximated as a custom interval)
+            # Note: APScheduler doesn't directly support biweekly, so we'll use a 14-day interval
+            return IntervalTrigger(days=14, start_date=datetime.now())
+        elif frequency == "monthly":
+            # Run on the first day of every month at 2 AM
+            return CronTrigger(day=1, hour=2, minute=0)
+        else:
+            # Default to weekly if unknown frequency
+            logger.warning(f"Unknown scheduler frequency: {frequency}, defaulting to weekly")
+            return CronTrigger(day_of_week='mon', hour=2, minute=0)
+
+    async def reload_scheduler_settings(self):
+        """Reload settings from database and reschedule AI job dynamically"""
+        try:
+            logger.info("Reloading scheduler settings from database...")
+
+            # Load fresh settings
+            new_settings = self._load_scheduler_settings()
+            self.scheduler_settings = new_settings
+
+            # Reschedule the AI state/local opportunities job with new settings
+            try:
+                # Remove existing job
+                self.scheduler.remove_job('ai_state_local_job')
+                logger.info("Removed existing AI state/local job")
+            except Exception as e:
+                logger.warning(f"Job didn't exist or couldn't be removed: {e}")
+
+            # Add job with new trigger
+            ai_trigger = self._get_ai_scrape_trigger()
+            self.scheduler.add_job(
+                self._scrape_ai_state_local_opportunities,
+                trigger=ai_trigger,
+                id='ai_state_local_job',
+                name='AI Scrape State & Local Opportunities',
+                replace_existing=True
+            )
+
+            logger.info(f"AI state/local opportunities job rescheduled with frequency: {self.scheduler_settings['scheduler_frequency']}, locations: {len(self.scheduler_settings['locations'])}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to reload scheduler settings: {e}")
+            return False
 
     def start(self):
         """Start the scheduler with all configured jobs"""
@@ -106,14 +222,16 @@ class SchedulerService:
             max_instances=1
         )
 
-        # State and local grants - run biweekly on Monday at 2 AM
+        # State and local grants - run based on scheduler_frequency setting
+        ai_trigger = self._get_ai_scrape_trigger()
         self.scheduler.add_job(
             self._scrape_ai_state_local_opportunities,
-            trigger=CronTrigger(day_of_week='mon', hour=2, minute=0),
+            trigger=ai_trigger,
             id='ai_state_local_job',
             name='AI Scrape State & Local Opportunities',
             replace_existing=True
         )
+        logger.info(f"AI state/local opportunities job scheduled with frequency: {self.scheduler_settings['scheduler_frequency']}")
 
         # Gmail inbox - run every 15 minutes (if available)
         if 'gmail_inbox' in self.scrapers:
@@ -315,7 +433,7 @@ class SchedulerService:
 
 
     async def _scrape_ai_state_local_opportunities(self):
-        """Use same search endpoint logic to find state and local funding opportunities biweekly"""
+        """Use same search endpoint logic to find state and local funding opportunities based on scheduler settings"""
         job_id = self._create_job_record('ai_state_local', 'running')
 
         try:
@@ -348,28 +466,9 @@ Target Demographics:
 - Career changers from declining industries
 - Low-income individuals seeking economic mobility"""
 
-            # List of all target locations
-            locations = [
-                ("Georgia", "Atlanta"),
-                ("Maryland", "Baltimore"),
-                ("Massachusetts", "Boston"),
-                ("Illinois", "Chicago"),
-                ("Texas", "Dallas/Houston"),
-                ("Colorado", "Denver"),
-                ("Michigan", "Detroit"),
-                ("Indiana", "Indianapolis"),
-                ("Missouri", "Kansas City/St. Louis"),
-                ("California", "Los Angeles/San Francisco"),
-                ("New York", "New York/Newark"),
-                ("Pennsylvania", "Philadelphia/Pittsburgh"),
-                ("North Carolina", "Charlotte/Raleigh"),
-                ("Florida", "Orlando/Tampa/Miami"),
-                ("Arizona", "Phoenix"),
-                ("Washington", "Seattle"),
-                ("Virginia", "Washington DC/Virginia"),
-                ("Ohio", "Cincinnati/Columbus/Cleveland"),
-                ("Tennessee", "Nashville"),
-            ]
+            # Get target locations from scheduler settings (user-configured or defaults)
+            locations = self.scheduler_settings.get('locations', self._get_default_locations())
+            logger.info(f"Using {len(locations)} target locations from scheduler settings")
 
             all_grants = []
             total_found = 0
