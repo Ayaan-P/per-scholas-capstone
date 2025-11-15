@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../../utils/api'
 
 interface Opportunity {
@@ -18,6 +18,11 @@ interface Opportunity {
   saved_at?: string
 }
 
+interface LocationPair {
+  state: string
+  city: string
+}
+
 export default function SearchPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
@@ -27,8 +32,37 @@ export default function SearchPage() {
   const [aiSearchEnabled, setAiSearchEnabled] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [schedulerFrequency, setSchedulerFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
-  const [selectedStates, setSelectedStates] = useState<string[]>(['CA', 'NY', 'TX'])
-  const [selectedCities, setSelectedCities] = useState<string[]>([])
+  const [locations, setLocations] = useState<LocationPair[]>([
+    { state: 'California', city: 'Los Angeles/San Francisco' },
+    { state: 'New York', city: 'New York/Newark' },
+    { state: 'Texas', city: 'Dallas/Houston' }
+  ])
+  const [newState, setNewState] = useState('')
+  const [newCity, setNewCity] = useState('')
+
+  useEffect(() => {
+    const fetchSchedulerSettings = async () => {
+      try {
+        const response = await fetch(`${api.baseURL}/api/scheduler/settings`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.scheduler_frequency) {
+            setSchedulerFrequency(data.scheduler_frequency)
+          }
+          if (data.selected_states && data.selected_cities) {
+            const loadedLocations = data.selected_states.map((state: string, index: number) => ({
+              state: state,
+              city: data.selected_cities[index] || ''
+            }))
+            setLocations(loadedLocations)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load scheduler settings:', error)
+      }
+    }
+    fetchSchedulerSettings()
+  }, [])
 
   const saveOpportunity = async (opportunityId: string) => {
     setSavingIds(prev => new Set(prev).add(opportunityId))
@@ -111,9 +145,31 @@ export default function SearchPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
+  const addLocation = () => {
+    if (!newState.trim() || !newCity.trim()) {
+      alert('Please enter both state and city')
+      return
+    }
+    setLocations([...locations, { state: newState, city: newCity }])
+    setNewState('')
+    setNewCity('')
+  }
+
+  const removeLocation = (index: number) => {
+    setLocations(locations.filter((_, i) => i !== index))
+  }
+
   const saveSchedulerSettings = async () => {
     try {
-      const response = await fetch('/api/scheduler/settings', {
+      if (locations.length === 0) {
+        alert('Please add at least one location')
+        return
+      }
+
+      const selectedStates = locations.map(loc => loc.state)
+      const selectedCities = locations.map(loc => loc.city)
+
+      const response = await fetch(`${api.baseURL}/api/scheduler/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -121,12 +177,14 @@ export default function SearchPage() {
         body: JSON.stringify({
           scheduler_frequency: schedulerFrequency,
           selected_states: selectedStates,
-          selected_cities: selectedCities.length > 0 ? selectedCities : undefined,
+          selected_cities: selectedCities,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save settings')
+        const errorText = await response.text()
+        console.error('Save settings error:', response.status, errorText)
+        throw new Error(`Failed to save settings: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
@@ -135,7 +193,7 @@ export default function SearchPage() {
       setShowSettings(false)
     } catch (error) {
       console.error('Error saving settings:', error)
-      alert('Failed to save settings')
+      alert(`Failed to save settings: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -210,7 +268,7 @@ export default function SearchPage() {
               <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <h3 className="font-semibold text-gray-900 mb-4">Search Settings</h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-6">
                   {/* Scheduler Frequency */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -228,34 +286,56 @@ export default function SearchPage() {
                     <p className="text-xs text-gray-500 mt-1">How often the AI search will run automatically</p>
                   </div>
 
-                  {/* States */}
+                  {/* Target Locations - Customizable */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Target States
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Target Locations
                     </label>
-                    <input
-                      type="text"
-                      value={selectedStates.join(', ')}
-                      onChange={(e) => setSelectedStates(e.target.value.split(',').map(s => s.trim().toUpperCase()).filter(s => s))}
-                      placeholder="e.g., CA, NY, TX"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">State abbreviations separated by comma</p>
-                  </div>
 
-                  {/* Cities */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Target Cities (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedCities.join(', ')}
-                      onChange={(e) => setSelectedCities(e.target.value.split(',').map(c => c.trim()).filter(c => c))}
-                      placeholder="e.g., New York, Los Angeles, Chicago"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">City names separated by comma</p>
+                    {/* Current Locations List */}
+                    {locations.length > 0 && (
+                      <div className="border border-gray-200 rounded-lg p-3 bg-white mb-4 max-h-40 overflow-y-auto">
+                        {locations.map((loc, idx) => (
+                          <div key={idx} className="flex items-center justify-between py-2 px-2 hover:bg-gray-50 rounded">
+                            <span className="text-sm text-gray-700">{loc.state} - {loc.city}</span>
+                            <button
+                              onClick={() => removeLocation(idx)}
+                              className="text-red-500 hover:text-red-700 text-xs font-medium transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add New Location */}
+                    <div className="space-y-2 mb-4">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="State (e.g., California)"
+                          value={newState}
+                          onChange={(e) => setNewState(e.target.value)}
+                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
+                        />
+                        <input
+                          type="text"
+                          placeholder="City (e.g., San Francisco)"
+                          value={newCity}
+                          onChange={(e) => setNewCity(e.target.value)}
+                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
+                        />
+                      </div>
+                      <button
+                        onClick={addLocation}
+                        className="w-full px-3 py-2 text-sm border border-perscholas-secondary text-perscholas-secondary hover:bg-blue-50 rounded-lg font-medium transition-colors"
+                      >
+                        Add Location
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-gray-500">{locations.length} location{locations.length !== 1 ? 's' : ''} configured</p>
                   </div>
                 </div>
 
