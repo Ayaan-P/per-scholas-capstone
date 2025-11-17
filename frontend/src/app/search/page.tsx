@@ -112,7 +112,7 @@ export default function SearchPage() {
           alert('Search failed: ' + jobData.error)
           setIsSearching(false)
         } else {
-          // Still running, poll again
+          // poll again
           setTimeout(pollJob, 2000)
         }
       }
