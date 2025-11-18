@@ -280,6 +280,9 @@ class FeedbackRequest(BaseModel):
 class UpdateOpportunityDescriptionRequest(BaseModel):
     description: str
 
+class UpdateOpportunityNotesRequest(BaseModel):
+    notes: str
+
 class SchedulerSettingsRequest(BaseModel):
     scheduler_frequency: str  # 'daily', 'weekly', 'biweekly', 'monthly'
     selected_states: Optional[List[str]] = None
@@ -845,6 +848,47 @@ async def update_opportunity_description(opportunity_id: str, payload: UpdateOpp
         "status": "updated",
         "opportunity_id": opportunity_id,
         "description": updated_record.get("description", new_description),
+        "updated_at": updated_record.get("updated_at", updated_at)
+    }
+
+
+@app.patch("/api/opportunities/{opportunity_id}/notes")
+async def update_opportunity_notes(opportunity_id: str, payload: UpdateOpportunityNotesRequest):
+    """Update the notes of a saved opportunity"""
+    new_notes = payload.notes.strip() if payload.notes else ""
+
+    updated_at = datetime.now().isoformat()
+    updated_record = None
+    supabase_error = None
+
+    try:
+        result = supabase.table("saved_opportunities").update({
+            "notes": new_notes,
+            "updated_at": updated_at
+        }).eq("id", opportunity_id).execute()
+
+        if result.data:
+            updated_record = result.data[0]
+    except Exception as e:
+        supabase_error = e
+
+    if not updated_record:
+        for opp in opportunities_db:
+            if opp.get("id") == opportunity_id:
+                opp["notes"] = new_notes
+                opp["updated_at"] = updated_at
+                updated_record = opp
+                break
+
+    if not updated_record:
+        if supabase_error:
+            raise HTTPException(status_code=500, detail=f"Failed to update opportunity notes: {supabase_error}")
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    return {
+        "status": "updated",
+        "opportunity_id": opportunity_id,
+        "notes": updated_record.get("notes", new_notes),
         "updated_at": updated_record.get("updated_at", updated_at)
     }
 

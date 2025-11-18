@@ -32,6 +32,7 @@ interface Opportunity {
   anticipated_awards?: string
   similar_past_proposals?: any[]
   llm_enhanced_at?: string
+  notes?: string
 
   // UNIVERSAL COMPREHENSIVE FIELDS (work across all grant sources)
   contact_name?: string
@@ -89,10 +90,9 @@ export default function OpportunitiesPage() {
   const [uploadingRfp, setUploadingRfp] = useState(false)
   const [uploadResult, setUploadResult] = useState<any>(null)
   const [descriptionModalOpportunity, setDescriptionModalOpportunity] = useState<Opportunity | null>(null)
-  const [isEditingDescription, setIsEditingDescription] = useState(false)
-  const [descriptionDraft, setDescriptionDraft] = useState('')
-  const [savingDescription, setSavingDescription] = useState(false)
-  const [descriptionError, setDescriptionError] = useState<string | null>(null)
+  const [notesDraft, setNotesDraft] = useState<{ [key: string]: string }>({})
+  const [savingNotes, setSavingNotes] = useState<Set<string>>(new Set())
+  const [notesError, setNotesError] = useState<{ [key: string]: string | null }>({})
 
   useEffect(() => {
     fetchOpportunities()
@@ -111,13 +111,6 @@ export default function OpportunitiesPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  useEffect(() => {
-    if (descriptionModalOpportunity) {
-      setDescriptionDraft(sanitizeDescription(descriptionModalOpportunity.description ?? ''))
-      setIsEditingDescription(false)
-      setDescriptionError(null)
-    }
-  }, [descriptionModalOpportunity])
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -338,56 +331,52 @@ export default function OpportunitiesPage() {
     }
   }
 
-  const handleSaveDescription = async () => {
-    if (!descriptionModalOpportunity) return
-
-    const trimmed = descriptionDraft.trim()
-    if (!trimmed) {
-      setDescriptionError('Description cannot be empty.')
-      return
-    }
-
-    setSavingDescription(true)
-    setDescriptionError(null)
+  const handleSaveNotes = async (opportunityId: string) => {
+    const notes = notesDraft[opportunityId]?.trim() || ''
+    
+    setSavingNotes(prev => new Set(prev).add(opportunityId))
+    setNotesError(prev => ({ ...prev, [opportunityId]: null }))
 
     try {
-      const response = await api.updateOpportunityDescription(descriptionModalOpportunity.id, trimmed)
+      const response = await api.updateOpportunityNotes(opportunityId, notes)
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to update description.')
+        throw new Error(data.detail || 'Failed to save notes.')
       }
 
-      const updatedDescription = data.description ?? trimmed
+      const updatedNotes = data.notes ?? notes
       const updatedAt = data.updated_at
 
       setRawOpportunities(prev => prev.map(opp =>
-        opp.id === descriptionModalOpportunity.id
-          ? { ...opp, description: updatedDescription, updated_at: updatedAt || opp.updated_at }
+        opp.id === opportunityId
+          ? { ...opp, notes: updatedNotes, updated_at: updatedAt || opp.updated_at }
           : opp
       ))
 
-      setDescriptionModalOpportunity(prev => prev ? {
-        ...prev,
-        description: updatedDescription,
-        updated_at: updatedAt || prev.updated_at
-      } : prev)
-
-      setDescriptionDraft(updatedDescription)
-      setIsEditingDescription(false)
+      // Clear the draft for this opportunity
+      setNotesDraft(prev => {
+        const next = { ...prev }
+        delete next[opportunityId]
+        return next
+      })
     } catch (error: any) {
-      setDescriptionError(error.message || 'Failed to update description.')
+      setNotesError(prev => ({ ...prev, [opportunityId]: error.message || 'Failed to save notes.' }))
     } finally {
-      setSavingDescription(false)
+      setSavingNotes(prev => {
+        const next = new Set(prev)
+        next.delete(opportunityId)
+        return next
+      })
     }
   }
 
-  const handleCancelDescriptionEdit = () => {
-    if (descriptionModalOpportunity) {
-      setDescriptionDraft(sanitizeDescription(descriptionModalOpportunity.description ?? ''))
+  const handleNotesChange = (opportunityId: string, value: string) => {
+    setNotesDraft(prev => ({ ...prev, [opportunityId]: value }))
+    // Clear error when user starts typing
+    if (notesError[opportunityId]) {
+      setNotesError(prev => ({ ...prev, [opportunityId]: null }))
     }
-    setDescriptionError(null)
-    setIsEditingDescription(false)
   }
 
   const handleUploadRfp = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -962,7 +951,7 @@ export default function OpportunitiesPage() {
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
-                                  View / Edit Description
+                                  View Description
                                 </button>
                               </div>
                             </div>
@@ -1400,6 +1389,70 @@ export default function OpportunitiesPage() {
                                 )}
               </div>
                             )}
+
+                            {/* Notes Section */}
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="p-3 bg-gray-50 border-b border-gray-200">
+                                <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                  Notes
+                                </span>
+                              </div>
+                              <div className="p-3 bg-white">
+                                <textarea
+                                  value={notesDraft[opportunity.id] !== undefined ? notesDraft[opportunity.id] : (opportunity.notes || '')}
+                                  onChange={(e) => handleNotesChange(opportunity.id, e.target.value)}
+                                  placeholder="Add your notes about this opportunity..."
+                                  className="w-full min-h-[120px] text-sm leading-relaxed border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-perscholas-primary/30 focus:border-perscholas-primary resize-vertical"
+                                  disabled={savingNotes.has(opportunity.id)}
+                                />
+                                {notesError[opportunity.id] && (
+                                  <p className="text-sm text-red-600 mt-2">{notesError[opportunity.id]}</p>
+                                )}
+                                <div className="flex items-center justify-end gap-2 mt-3">
+                                  {(notesDraft[opportunity.id] !== undefined && notesDraft[opportunity.id] !== (opportunity.notes || '')) && (
+                                    <button
+                                      onClick={() => {
+                                        setNotesDraft(prev => {
+                                          const next = { ...prev }
+                                          delete next[opportunity.id]
+                                          return next
+                                        })
+                                        setNotesError(prev => ({ ...prev, [opportunity.id]: null }))
+                                      }}
+                                      className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-100 transition-colors"
+                                      disabled={savingNotes.has(opportunity.id)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleSaveNotes(opportunity.id)}
+                                    disabled={savingNotes.has(opportunity.id) || (notesDraft[opportunity.id] === undefined || notesDraft[opportunity.id] === (opportunity.notes || ''))}
+                                    className="px-3 py-1.5 bg-perscholas-secondary text-white rounded-lg text-xs font-medium hover:bg-perscholas-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                                  >
+                                    {savingNotes.has(opportunity.id) ? (
+                                      <>
+                                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Saving...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Save Notes
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
                           {/* Tags */}
@@ -1707,41 +1760,22 @@ export default function OpportunitiesPage() {
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
-              {isEditingDescription ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Edit Description</label>
-                  <textarea
-                    value={descriptionDraft}
-                    onChange={(e) => setDescriptionDraft(e.target.value)}
-                    className="w-full min-h-[220px] text-sm leading-relaxed border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-perscholas-primary/30 focus:border-perscholas-primary resize-vertical"
-                    placeholder="Enter the full RFP description"
-                    disabled={savingDescription}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    Tip: Use blank lines to separate paragraphs for better readability.
-                  </p>
-                  {descriptionError && (
-                    <p className="text-sm text-red-600 mt-2">{descriptionError}</p>
-                  )}
-                </div>
-              ) : (
-                <div className="prose prose-sm max-w-none">
-                  {(() => {
-                    const raw = sanitizeDescription(descriptionModalOpportunity.description ?? '')
-                    const paragraphs = raw
-                      ? getDescriptionParagraphs(raw)
-                      : getDescriptionParagraphs('')
-                    return paragraphs.map((paragraph, idx) => (
-                      <p
-                        key={idx}
-                        className={`text-sm leading-relaxed mb-4 last:mb-0 ${raw ? 'text-gray-700' : 'text-gray-500 italic'}`}
-                      >
-                        {paragraph}
-                      </p>
-                    ))
-                  })()}
-                </div>
-              )}
+              <div className="prose prose-sm max-w-none">
+                {(() => {
+                  const raw = sanitizeDescription(descriptionModalOpportunity.description ?? '')
+                  const paragraphs = raw
+                    ? getDescriptionParagraphs(raw)
+                    : getDescriptionParagraphs('')
+                  return paragraphs.map((paragraph, idx) => (
+                    <p
+                      key={idx}
+                      className={`text-sm leading-relaxed mb-4 last:mb-0 ${raw ? 'text-gray-700' : 'text-gray-500 italic'}`}
+                    >
+                      {paragraph}
+                    </p>
+                  ))
+                })()}
+              </div>
             </div>
 
             {/* Modal Footer */}
@@ -1767,18 +1801,6 @@ export default function OpportunitiesPage() {
                   Apply Now
                 </a>
 
-                {!isEditingDescription && (
-                  <button
-                    onClick={() => {
-                      setIsEditingDescription(true)
-                      setDescriptionError(null)
-                    }}
-                    className="px-4 py-2 border border-perscholas-secondary text-perscholas-secondary rounded-lg text-sm font-medium hover:bg-perscholas-secondary/10 transition-colors"
-                  >
-                    Edit Description
-                  </button>
-                )}
-
                 <button
                   onClick={() => setDescriptionModalOpportunity(null)}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors text-sm"
@@ -1786,31 +1808,6 @@ export default function OpportunitiesPage() {
                   Close
                 </button>
               </div>
-
-              {isEditingDescription ? (
-                <>
-                  <button
-                    onClick={handleCancelDescriptionEdit}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
-                    disabled={savingDescription}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveDescription}
-                    disabled={savingDescription}
-                    className="px-4 py-2 bg-perscholas-secondary text-white rounded-lg text-sm font-medium hover:bg-perscholas-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {savingDescription ? (
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : null}
-                    Save Changes
-                  </button>
-                </>
-              ) : null}
             </div>
           </div>
         </div>
