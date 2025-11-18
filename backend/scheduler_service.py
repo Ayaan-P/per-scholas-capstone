@@ -575,12 +575,12 @@ REQUIREMENTS:
   * consortium_description: Details about consortium/partnership requirements if applicable
   * rfp_attachment_requirements: Summary of required attachments/documents for proposal"""
 
-                    # Call same Claude Code session as search endpoint
-                    from main import create_claude_code_session, parse_orchestration_response
+                    # Call same Gemini CLI session as search endpoint
+                    from main import create_gemini_cli_session, parse_orchestration_response
 
-                    result = create_claude_code_session(
+                    result = create_gemini_cli_session(
                         prompt=orchestration_prompt,
-                        session_type="fundraising-cro",
+                        session_type="fundraising",
                         timeout=900
                     )
 

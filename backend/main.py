@@ -123,6 +123,87 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
         }
 
 
+def create_gemini_cli_session(prompt: str, session_type: str = "fundraising", timeout: int = 900) -> dict:
+    """
+    Create a Gemini CLI session for opportunity discovery
+    Returns structured response from Gemini CLI session
+    """
+    try:
+        # Create temporary file for the prompt
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write(prompt)
+            temp_prompt_file = f.name
+
+        # Set up environment variables
+        env = os.environ.copy()
+
+        # Ensure GEMINI_API_KEY is set (should come from environment)
+        if 'GEMINI_API_KEY' not in env:
+            raise Exception("GEMINI_API_KEY environment variable not set")
+
+        print(f"[Gemini CLI Session] Starting {session_type} session...")
+        print(f"[Gemini CLI Session] Prompt length: {len(prompt)} chars")
+
+        # Execute Gemini CLI session with web search enabled
+        # Using positional prompt argument for one-shot (non-interactive) mode
+        result = subprocess.run([
+            'gemini',
+            '--approval-mode', 'yolo',  # Auto-approve tool usage
+            prompt
+        ],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
+        cwd=os.getcwd()
+        )
+
+        print(f"[Gemini CLI Session] Completed with return code: {result.returncode}")
+        print(f"[Gemini CLI Session] Output length: {len(result.stdout)} chars")
+        print(f"[Gemini CLI Session] Stdout: {result.stdout[:500]}...")  # Print first 500 chars
+
+        if result.stderr:
+            print(f"[Gemini CLI Session] Stderr: {result.stderr[:500]}...")
+
+        # Clean up temp file
+        try:
+            os.unlink(temp_prompt_file)
+        except:
+            pass
+
+        if result.returncode == 0:
+            return {
+                'success': True,
+                'output': result.stdout,
+                'error': None,
+                'session_type': session_type
+            }
+        else:
+            error_msg = result.stderr if result.stderr else result.stdout
+            print(f"[Gemini CLI Session] FAILED - Error: {error_msg}")
+            return {
+                'success': False,
+                'output': result.stdout,
+                'error': error_msg,
+                'session_type': session_type
+            }
+
+    except subprocess.TimeoutExpired:
+        return {
+            'success': False,
+            'output': '',
+            'error': f'Gemini CLI session timed out after {timeout} seconds',
+            'session_type': session_type
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'output': '',
+            'error': str(e),
+            'session_type': session_type
+        }
+
+
 def parse_orchestration_response(orchestration_result):
     """Parse Claude Code orchestration result to extract structured opportunities"""
     try:
@@ -1446,17 +1527,17 @@ REQUIREMENTS:
 - attachments is empty array [] (no attachment fetching)
 - Use null for optional fields if no data available"""
 
-            job["current_task"] = "Creating Claude Code fundraising session..."
+            job["current_task"] = "Creating Gemini CLI fundraising session..."
             job["progress"] = 50
 
-            # Create Claude Code session (with grants service fallback)
-            print(f"[Claude Code Session] Starting fundraising opportunity discovery...")
+            # Create Gemini CLI session (with grants service fallback)
+            print(f"[Gemini CLI Session] Starting fundraising opportunity discovery...")
 
-            # Use grants service API if available, otherwise fall back to Claude Code
-            use_api = False  # Set to False to use Claude Code instead
+            # Use grants service API if available, otherwise fall back to Gemini CLI
+            use_api = False  # Set to False to use Gemini CLI instead
 
             if use_api:
-                print(f"[Claude Code Session] Fetching real grants data...")
+                print(f"[Gemini CLI Session] Fetching real grants data...")
                 search_keywords = criteria.prompt if criteria.prompt and criteria.prompt != "hi" else "technology workforce development"
                 # Clean the search keywords - remove newlines and extra whitespace
                 search_keywords = search_keywords.strip()
@@ -1467,21 +1548,21 @@ REQUIREMENTS:
                 print(f"[DEBUG] Retrieved {len(real_grants)} real grants")
                 orchestration_result = json.dumps({"opportunities": real_grants})
             else:
-                session_result = create_claude_code_session(
+                session_result = create_gemini_cli_session(
                     prompt=orchestration_prompt,
-                    session_type="fundraising-cro",
+                    session_type="fundraising",
                     timeout=900
                 )
 
                 if not session_result['success']:
-                    raise Exception(f"Claude Code session failed: {session_result['error']}")
+                    raise Exception(f"Gemini CLI session failed: {session_result['error']}")
 
                 orchestration_result = session_result['output']
 
             # Save raw response for debugging
-            with open('/tmp/last_claude_response.txt', 'w') as f:
+            with open('/tmp/last_gemini_response.txt', 'w') as f:
                 f.write(orchestration_result)
-            print(f"[DEBUG] Saved raw Claude response to /tmp/last_claude_response.txt")
+            print(f"[DEBUG] Saved raw Gemini response to /tmp/last_gemini_response.txt")
 
             job["current_task"] = "Processing fundraising session results..."
             job["progress"] = 80
@@ -1489,10 +1570,10 @@ REQUIREMENTS:
             # Parse the orchestrated response
             opportunities = parse_orchestration_response(orchestration_result)
 
-            # Score opportunities using match_scoring (Claude is just a scraper)
+            # Score opportunities using match_scoring (Gemini is just a scraper)
             if opportunities and semantic_service:
                 from match_scoring import calculate_match_score
-                print(f"[SCORING] Scoring {len(opportunities)} opportunities from Claude agent...")
+                print(f"[SCORING] Scoring {len(opportunities)} opportunities from Gemini CLI agent...")
 
                 for opp in opportunities:
                     try:
@@ -1764,14 +1845,14 @@ This partnership with {request.funder} will create lasting economic mobility for
 *Generated on {datetime.now().strftime("%B %d, %Y")} for {request.funder}*
                 '''.strip()
             else:
-                session_result = create_claude_code_session(
+                session_result = create_gemini_cli_session(
                     prompt=proposal_orchestration_prompt,
-                    session_type="fundraising-cro",
+                    session_type="fundraising",
                     timeout=900
                 )
 
                 if not session_result['success']:
-                    raise Exception(f"Claude Code session failed: {session_result['error']}")
+                    raise Exception(f"Gemini CLI session failed: {session_result['error']}")
 
                 proposal_result = session_result['output']
             job["current_task"] = "Processing proposal session results..."
