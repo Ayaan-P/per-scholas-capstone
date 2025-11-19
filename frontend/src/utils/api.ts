@@ -34,6 +34,13 @@ export const api = {
       body: JSON.stringify({ description })
     }),
 
+  updateOpportunityNotes: (opportunityId: string, notes: string) =>
+    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/notes`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes })
+    }),
+
   generateOpportunitySummary: (opportunityId: string) =>
     fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/generate-summary`, {
       method: 'POST',
