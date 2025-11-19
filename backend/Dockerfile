@@ -10,8 +10,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code CLI and Gemini CLI globally
+RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # Install Python dependencies
 COPY requirements.txt .
