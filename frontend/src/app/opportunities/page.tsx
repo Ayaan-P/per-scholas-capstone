@@ -872,20 +872,20 @@ export default function OpportunitiesPage() {
                           </div>
 
                           {/* Key Metrics */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-4">
                             <div className="flex flex-col items-start">
                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Funding Amount</span>
-                               <span className="text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</span>
+                               <span className="text-base sm:text-lg font-bold text-green-600">{formatCurrency(opportunity.amount)}</span>
                              </div>
-                            <div className="flex flex-col items-start sm:items-center">
+                            <div className="flex flex-col items-start">
                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Due Date</span>
-                               <span className="text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</span>
+                               <span className="text-base sm:text-lg font-bold text-gray-900">{formatDate(opportunity.deadline)}</span>
                              </div>
-                            <div className="flex flex-col items-start lg:items-center">
+                            <div className="flex flex-col items-start">
                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Added</span>
-                              <span className="text-lg font-bold text-blue-600">{getAddedDateLabel(opportunity)}</span>
+                              <span className="text-base sm:text-lg font-bold text-blue-600">{getAddedDateLabel(opportunity)}</span>
                             </div>
-                            <div className="flex flex-col items-end">
+                            <div className="flex flex-col items-start lg:items-end">
                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Rate This Match</span>
                                <div className="flex items-center gap-1">
                                  {rfpDbSuccessMessage[opportunity.id] ? (

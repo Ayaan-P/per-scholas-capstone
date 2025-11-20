@@ -879,11 +879,11 @@ export default function Dashboard() {
             ) : (
               /* Table View */
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="w-full">
+                <div className="w-full overflow-x-auto">
                   <table className="w-full" style={{ tableLayout: 'auto' }}>
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('match')}>
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('match')}>
                           <div className="flex items-center gap-1.5">
                             <span>Match</span>
                             {tableSortBy === 'match' && (
@@ -893,9 +893,10 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleTableSort('title')}>
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleTableSort('title')}>
                           <div className="flex items-center gap-1.5">
-                            <span>Title</span>
+                            <span className="hidden sm:inline">Title</span>
+                            <span className="sm:hidden">Name</span>
                             {tableSortBy === 'title' && (
                               <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -903,7 +904,7 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors hidden lg:table-cell" onClick={() => handleTableSort('funder')}>
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors hidden lg:table-cell" onClick={() => handleTableSort('funder')}>
                           <div className="flex items-center gap-1.5">
                             <span>Funder</span>
                             {tableSortBy === 'funder' && (
@@ -913,9 +914,10 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('amount')}>
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('amount')}>
                           <div className="flex items-center gap-1.5">
-                            <span>Funding</span>
+                            <span className="hidden sm:inline">Funding</span>
+                            <span className="sm:hidden">$</span>
                             {tableSortBy === 'amount' && (
                               <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -923,9 +925,10 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('deadline')}>
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('deadline')}>
                           <div className="flex items-center gap-1.5">
-                            <span>Deadline</span>
+                            <span className="hidden sm:inline">Deadline</span>
+                            <span className="sm:hidden">Due</span>
                             {tableSortBy === 'deadline' && (
                               <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -933,7 +936,7 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('created_at')}>
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('created_at')}>
                           <div className="flex items-center gap-1.5">
                             <span>Added</span>
                             {tableSortBy === 'created_at' && (
@@ -943,7 +946,7 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('source')}>
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('source')}>
                           <div className="flex items-center gap-1.5">
                             <span>Source</span>
                             {tableSortBy === 'source' && (
@@ -953,53 +956,54 @@ export default function Dashboard() {
                             )}
                           </div>
                         </th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden xl:table-cell">
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden xl:table-cell">
                           Description
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                          Actions
+                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                          <span className="hidden sm:inline">Actions</span>
+                          <span className="sm:hidden">Act</span>
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paged.map((grant) => (
                         <tr key={grant.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-2 py-3">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold text-white ${getMatchColor(grant.match_score)}`}>
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
+                            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-bold text-white ${getMatchColor(grant.match_score)}`}>
                               {grant.match_score}%
                             </span>
                           </td>
-                          <td className="px-2 py-3">
-                            <div className="text-xs sm:text-sm font-semibold text-gray-900 truncate max-w-[200px]" title={grant.title}>
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
+                            <div className="text-xs sm:text-sm font-semibold text-gray-900 truncate max-w-[100px] sm:max-w-[200px]" title={grant.title}>
                               {grant.title}
                             </div>
                           </td>
-                          <td className="px-2 py-3 hidden lg:table-cell">
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3 hidden lg:table-cell">
                             <div className="text-xs sm:text-sm text-gray-600 truncate max-w-[150px]" title={grant.funder}>
                               {grant.funder}
                             </div>
                           </td>
-                          <td className="px-2 py-3">
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
                             <div className="text-xs sm:text-sm font-bold text-green-600 whitespace-nowrap">
                               {formatCurrency(grant.amount)}
                             </div>
                           </td>
-                          <td className="px-2 py-3">
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
                             <div className="text-xs sm:text-sm text-gray-900 whitespace-nowrap">
                               {formatDate(grant.deadline)}
                             </div>
                           </td>
-                          <td className="px-2 py-3">
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
                             <div className="text-xs sm:text-sm text-blue-600 whitespace-nowrap">
                               {getPostedDateLabel(grant)}
                             </div>
                           </td>
-                          <td className="px-2 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getSourceBadge(grant.source)}`}>
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
+                            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-xs font-semibold border ${getSourceBadge(grant.source)}`}>
                               {getSourceLabel(grant.source)}
                             </span>
                           </td>
-                          <td className="px-2 py-3 hidden xl:table-cell">
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3 hidden xl:table-cell">
                             <div>
                               <p className="text-xs text-gray-600 line-clamp-1" title={grant.description}>
                                 {grant.description}
@@ -1014,23 +1018,24 @@ export default function Dashboard() {
                               )}
                             </div>
                           </td>
-                          <td className="px-2 py-3">
-                            <div className="flex items-center justify-center gap-1.5">
+                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
+                            <div className="flex items-center justify-center gap-0.5 sm:gap-1.5">
                               {grant.application_url && (
                                 <a
                                   href={grant.application_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="px-2 py-1 border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50 transition-colors"
+                                  className="px-1.5 sm:px-2 py-0.5 sm:py-1 border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50 transition-colors"
                                   title="View RFP"
                                 >
-                                  RFP
+                                  <span className="hidden sm:inline">RFP</span>
+                                  <span className="sm:hidden">📄</span>
                                 </a>
                               )}
                               <button
                                 onClick={() => handleSaveGrant(grant.id)}
                                 disabled={savingGrants.has(grant.id)}
-                                className="px-2 py-1 bg-perscholas-primary text-white rounded text-xs font-medium hover:bg-perscholas-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-perscholas-primary text-white rounded text-xs font-medium hover:bg-perscholas-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Save Grant"
                               >
                                 {savingGrants.has(grant.id) ? (

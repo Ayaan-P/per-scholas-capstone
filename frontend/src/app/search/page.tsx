@@ -241,13 +241,13 @@ export default function SearchPage() {
                 </button>
 
                 {/* AI Search Toggle */}
-                <label className={`flex items-center justify-between px-4 py-2 rounded-lg border cursor-pointer transition-all ${
+                <label className={`flex items-center justify-between px-2 sm:px-4 py-2 rounded-lg border cursor-pointer transition-all whitespace-nowrap ${
                   aiSearchEnabled
                     ? 'border-perscholas-secondary bg-blue-50'
                     : 'border-gray-300 bg-gray-50'
                 }`}>
-                  <span className={`text-sm font-medium mr-3 ${aiSearchEnabled ? 'text-perscholas-secondary' : 'text-gray-600'}`}>
-                    AI Search {aiSearchEnabled ? 'On' : 'Off'}
+                  <span className={`text-xs sm:text-sm font-medium mr-2 sm:mr-3 ${aiSearchEnabled ? 'text-perscholas-secondary' : 'text-gray-600'}`}>
+                    AI {aiSearchEnabled ? 'On' : 'Off'}
                   </span>
                   <input
                     type="checkbox"
@@ -311,7 +311,7 @@ export default function SearchPage() {
 
                     {/* Add New Location */}
                     <div className="space-y-2 mb-4">
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
                           placeholder="State (e.g., California)"
@@ -491,18 +491,18 @@ export default function SearchPage() {
                     </div>
 
                     {/* Key Metrics */}
-                    <div className="grid grid-cols-3 gap-6 mb-6 pb-6 border-b border-gray-200">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6 mb-6 pb-6 border-b border-gray-200">
                       <div>
                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Funding Amount</span>
-                        <span className="text-lg font-bold text-green-600">{formatCurrency(opp.amount)}</span>
+                        <span className="text-base sm:text-lg font-bold text-green-600">{formatCurrency(opp.amount)}</span>
                       </div>
-                      <div className="text-center">
+                      <div className="sm:text-center">
                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Deadline</span>
-                        <span className="text-lg font-bold text-gray-900">{formatDate(opp.deadline)}</span>
+                        <span className="text-base sm:text-lg font-bold text-gray-900">{formatDate(opp.deadline)}</span>
                       </div>
-                      <div className="text-right">
+                      <div className="sm:text-right">
                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Grant ID</span>
-                        <span className="text-sm font-mono text-gray-700 break-words">{opp.id.slice(0, 12)}...</span>
+                        <span className="text-xs sm:text-sm font-mono text-gray-700 break-words">{opp.id.slice(0, 12)}...</span>
                       </div>
                     </div>
 
@@ -538,13 +538,13 @@ export default function SearchPage() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3 flex-wrap">
+                    <div className="grid grid-cols-1 sm:flex gap-3">
                       {opp.application_url && (
                         <a
                           href={opp.application_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 border border-perscholas-secondary text-perscholas-secondary px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
+                          className="flex items-center justify-center sm:justify-start gap-2 border border-perscholas-secondary text-perscholas-secondary px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -555,7 +555,7 @@ export default function SearchPage() {
                       <button
                         onClick={() => saveOpportunity(opp.id)}
                         disabled={isSaving}
-                        className="flex items-center gap-2 bg-perscholas-secondary hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        className="flex items-center justify-center sm:justify-start gap-2 bg-perscholas-secondary hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
                       >
                         {isSaving ? (
                           <>
