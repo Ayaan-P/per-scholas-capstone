@@ -463,6 +463,33 @@ async def get_organization_config():
         "updated_at": None
     }
 
+def parse_amount(amount_text: Any) -> Optional[int]:
+    """Parse funding amount from text, returning integer in dollars"""
+    if not amount_text:
+        return None
+
+    if isinstance(amount_text, int):
+        return amount_text
+
+    # Convert to string if needed
+    text = str(amount_text).lower()
+
+    # Extract first number (with optional decimals) found in the string
+    import re
+    match = re.search(r'\$?([\d,]+(?:\.\d{2})?)', text)
+    if match:
+        try:
+            # Remove commas and convert to int
+            num_str = match.group(1).replace(',', '')
+            # If it has decimals, convert to int (remove decimals)
+            if '.' in num_str:
+                return int(float(num_str))
+            return int(num_str)
+        except (ValueError, AttributeError):
+            return None
+
+    return None
+
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     """Extract text from PDF file bytes"""
     try:
@@ -498,7 +525,7 @@ Return ONLY valid JSON, no markdown or additional text."""
 
         gemini_key = os.getenv("GEMINI_API_KEY")
         genai.configure(api_key=gemini_key)
-        model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+        model = genai.GenerativeModel('gemini-3-flash-preview')
         response = model.generate_content(prompt)
 
         response_text = response.text
@@ -1019,7 +1046,7 @@ async def generate_opportunity_summary(opportunity_id: str, user_id: str = Depen
 
         # Use Gemini to generate summary
         genai.configure(api_key=gemini_key)
-        model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+        model = genai.GenerativeModel('gemini-3-flash-preview')
 
         prompt = f"""Analyze this grant opportunity and provide a comprehensive understanding of what this RFP offers.
 
@@ -1322,15 +1349,15 @@ async def update_opportunity_notes(opportunity_id: str, payload: UpdateOpportuni
 async def delete_opportunity(opportunity_id: str, user_id: str = Depends(get_current_user)):
     """Delete a saved opportunity from the database"""
     try:
-        # Delete from saved_opportunities table
-        result = supabase.table("saved_opportunities").delete().eq("id", opportunity_id).eq("user_id", user_id).execute()
+        # Delete from saved_opportunities table by opportunity_id, not id
+        result = supabase_admin.table("saved_opportunities").delete().eq("opportunity_id", opportunity_id).eq("user_id", user_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Opportunity not found")
 
         # Also remove from local cache if exists
         global opportunities_db
-        opportunities_db = [opp for opp in opportunities_db if opp.get("id") != opportunity_id]
+        opportunities_db = [opp for opp in opportunities_db if opp.get("opportunity_id") != opportunity_id]
 
         return {
             "status": "deleted",
@@ -1603,7 +1630,7 @@ async def upload_rfp(
             "title": analyzed_data.get("title", title or "Uploaded RFP"),
             "description": analyzed_data.get("description", "User-uploaded grant opportunity"),
             "funder": analyzed_data.get("funder", funder or "Unknown"),
-            "amount": analyzed_data.get("amount"),
+            "amount": parse_amount(analyzed_data.get("amount")),
             "deadline": analyzed_data.get("deadline", deadline),
             "requirements": analyzed_data.get("key_requirements", []),
             "tags": analyzed_data.get("tags", []),
