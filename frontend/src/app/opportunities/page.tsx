@@ -254,7 +254,7 @@ export default function OpportunitiesPage() {
       if (response.ok) {
         // Remove from opportunities list with a slight delay for visual feedback
         setTimeout(() => {
-          setRawOpportunities(prev => prev.filter(opp => opp.id !== opportunityId))
+          setRawOpportunities(prev => prev.filter(opp => opp.opportunity_id !== opportunityId))
           setDismissingOpportunities(prev => {
             const newSet = new Set(prev)
             newSet.delete(opportunityId)
@@ -913,7 +913,7 @@ export default function OpportunitiesPage() {
                                       </svg>
                                     </button>
                                     <button
-                                      onClick={() => handleDismiss(opportunity.id)}
+                                      onClick={() => handleDismiss(opportunity.opportunity_id)}
                                       className="p-1.5 hover:bg-red-100 rounded-md transition-colors border-2 border-red-500 bg-red-50"
                                       title="Poor match - Remove from list"
                                     >
@@ -1490,11 +1490,11 @@ export default function OpportunitiesPage() {
                                 </a>
                               )}
                               <button
-                                onClick={() => handleDismiss(opportunity.id)}
-                                disabled={dismissingOpportunities.has(opportunity.id)}
+                                onClick={() => handleDismiss(opportunity.opportunity_id)}
+                                disabled={dismissingOpportunities.has(opportunity.opportunity_id)}
                                 className="border border-red-200 text-red-600 px-4 py-2.5 rounded-lg font-medium hover:bg-red-50 hover:border-red-300 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {dismissingOpportunities.has(opportunity.id) ? (
+                                {dismissingOpportunities.has(opportunity.opportunity_id) ? (
                                   <span className="flex items-center justify-center gap-2">
                                     <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
