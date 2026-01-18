@@ -386,6 +386,9 @@ export default function OpportunitiesPage() {
 
     const formData = new FormData(event.currentTarget)
     const file = formData.get('file') as File
+    const title = formData.get('title') as string
+    const funder = formData.get('funder') as string
+    const deadline = formData.get('deadline') as string
 
     if (!file) {
       alert('Please select a PDF file')
@@ -394,12 +397,8 @@ export default function OpportunitiesPage() {
     }
 
     try {
-      const response = await fetch(`${api.baseURL}/api/rfps/upload`, {
-        method: 'POST',
-        body: formData
-      })
-
-        const data = await response.json()
+      const response = await api.uploadRfp(file, title || undefined, funder || undefined, deadline || undefined)
+      const data = await response.json()
 
       if (response.ok) {
         setUploadResult(data)

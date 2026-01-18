@@ -1,54 +1,105 @@
+import { supabase } from './supabaseClient'
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// Helper to get auth headers
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  }
+
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`
+  }
+
+  return headers
+}
+
+// Helper to get auth token only (without content-type)
+async function getAuthToken() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token || null
+}
+
+// Wrapper for authenticated fetch calls
+async function authenticatedFetch(url: string, options: RequestInit = {}) {
+  const headers = await getAuthHeaders()
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {})
+    }
+  })
+}
 
 export const api = {
   baseURL: API_BASE_URL,
 
   // Opportunities
-  searchOpportunities: (data: any) =>
-    fetch(`${API_BASE_URL}/api/search-opportunities`, {
+  searchOpportunities: async (data: any) => {
+    const headers = await getAuthHeaders()
+    return fetch(`${API_BASE_URL}/api/search-opportunities`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(data)
-    }),
+    })
+  },
 
   getOpportunities: () =>
-    fetch(`${API_BASE_URL}/api/opportunities`),
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities`),
 
   saveOpportunity: (opportunityId: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/save`, {
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/save`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
     }),
 
   deleteOpportunity: (opportunityId: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}`, {
+      method: 'DELETE'
     }),
 
   updateOpportunityDescription: (opportunityId: string, description: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/description`, {
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/description`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ description })
     }),
 
   updateOpportunityNotes: (opportunityId: string, notes: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/notes`, {
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/notes`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notes })
     }),
 
   generateOpportunitySummary: (opportunityId: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/generate-summary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/generate-summary`, {
+      method: 'POST'
     }),
 
   getSimilarRfps: (opportunityId: string) =>
-    fetch(`${API_BASE_URL}/api/rfps/similar/${opportunityId}`),
+    authenticatedFetch(`${API_BASE_URL}/api/rfps/similar/${opportunityId}`),
+
+  uploadRfp: async (file: File, title?: string, funder?: string, deadline?: string) => {
+    const token = await getAuthToken()
+    const formData = new FormData()
+    formData.append('file', file)
+    if (title) formData.append('title', title)
+    if (funder) formData.append('funder', funder)
+    if (deadline) formData.append('deadline', deadline)
+
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    return fetch(`${API_BASE_URL}/api/rfps/upload`, {
+      method: 'POST',
+      headers,
+      body: formData
+    })
+  },
 
   loadRfps: () =>
     fetch(`${API_BASE_URL}/api/rfps/load`, {
@@ -101,9 +152,9 @@ export const api = {
     fetch(`${API_BASE_URL}/api/scraped-grants?${new URLSearchParams(params as any).toString()}`),
 
   saveScrapedGrant: (grantId: string) =>
-    fetch(`${API_BASE_URL}/api/scraped-grants/${grantId}/save`, {
+    authenticatedFetch(`${API_BASE_URL}/api/scraped-grants/${grantId}/save`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      body: JSON.stringify({})
     }),
 
   getSchedulerStatus: () =>
@@ -127,5 +178,15 @@ export const api = {
     fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/dismiss`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
+    }),
+
+  // Organization Config
+  getOrganizationConfig: () =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/config`),
+
+  saveOrganizationConfig: (config: any) =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/config`, {
+      method: 'POST',
+      body: JSON.stringify(config)
     })
 }
