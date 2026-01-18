@@ -21,6 +21,9 @@ from scrapers.gmail_scraper import GmailInboxScraper
 # Import centralized keyword configuration
 from search_keywords import get_keywords_for_source, get_high_priority_keywords
 
+# Import category service
+from category_service import get_category_service
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -439,77 +442,72 @@ class SchedulerService:
         try:
             logger.info("Starting AI-powered state and local opportunities scrape...")
 
-            # Per Scholas context (same as search endpoint)
-            per_scholas_context = """Per Scholas is a leading national nonprofit that advances economic equity through rigorous,
-tuition-free technology training for individuals from underrepresented communities.
+            # Load organization context from database (configurable per organization)
+            from main import get_organization_config
+            org_config = get_organization_config()
+            org_name = org_config.get('name', 'the organization')
+            org_context = f"""{org_name}
 
-Mission: To advance economic equity by providing access to technology careers for individuals
-from underrepresented communities.
+Mission: {org_config.get('mission', 'To advance economic equity')}
 
 Programs:
-- Cybersecurity Training (16-week intensive program)
-- Cloud Computing (AWS/Azure certification tracks)
-- Software Development (Full-stack development)
-- IT Support (CompTIA certification preparation)
+{chr(10).join(['- ' + p for p in org_config.get('programs', ['Technology training'])])}
 
-Impact:
-- 20,000+ graduates to date
-- 85% job placement rate
-- 150% average salary increase
-- 24 markets across the United States
-- Focus on underrepresented minorities, women, veterans
+Focus Areas:
+{chr(10).join(['- ' + f for f in org_config.get('focus_areas', ['Technology careers'])])}
 
 Target Demographics:
-- Individuals from underrepresented communities
-- Women seeking technology careers
-- Veterans transitioning to civilian workforce
-- Career changers from declining industries
-- Low-income individuals seeking economic mobility"""
+{chr(10).join(['- ' + d for d in org_config.get('target_demographics', ['Underrepresented communities'])])}
+
+Impact Metrics:
+{org_config.get('impact_metrics', 'Advancing economic equity')}"""
 
             # Get target locations from scheduler settings (user-configured or defaults)
             locations = self.scheduler_settings.get('locations', self._get_default_locations())
             logger.info(f"Using {len(locations)} target locations from scheduler settings")
 
+            # Get categories to search for (default to Workforce Development if not configured)
+            category_ids = self.scheduler_settings.get('search_categories', [1])  # 1 = Workforce Development
+            if not category_ids:
+                category_ids = [1]
+
+            category_service = get_category_service()
+            categories_to_search = [category_service.get_category_by_id(cid) for cid in category_ids if cid]
+            logger.info(f"Searching for {len(categories_to_search)} categories: {[c['name'] for c in categories_to_search if c]}")
+
             all_grants = []
             total_found = 0
 
-            # Search each location using exact search endpoint logic
+            # Search each location for each category
             for state, city in locations:
-                try:
-                    logger.info(f"Searching for state/local opportunities in {state} ({city})...")
+                for category in categories_to_search:
+                    if not category:
+                        continue
 
-                    # Build the same orchestration prompt as the search endpoint
-                    search_request = f"Find state and local grant opportunities in {state} (specifically {city}). Focus on state workforce development grants, local economic development grants, community college funding programs, technology training initiatives, career development grants, and programs targeting underserved communities."
-
-                    # Get existing opportunities to avoid duplicates (same as search endpoint)
                     try:
-                        existing_result = self.supabase.table("saved_opportunities").select("title, funder").execute()
-                        existing_opps = [f"{opp['title']} - {opp['funder']}" for opp in existing_result.data]
-                        existing_list = "; ".join(existing_opps) if existing_opps else "None"
-                    except:
-                        existing_list = "None"
+                        logger.info(f"Searching for {category['name']} opportunities in {state} ({city})...")
 
-                    # Build EXACT same orchestration prompt as search endpoint
-                    orchestration_prompt = f"""You are a fundraising-cro agent for Per Scholas. Find MULTIPLE (3-5) REAL, CURRENT funding opportunities using web search and research.
+                        # Build search request using category service
+                        orchestration_prompt = category_service.build_orchestration_prompt(
+                            category_id=category['id'],
+                            location=(state, city),
+                            organization_context=org_context,
+                        )
 
-Organization Context:
-{per_scholas_context}
+                        if not orchestration_prompt:
+                            logger.warning(f"Could not build prompt for category {category['id']}")
+                            continue
 
-User Search Request: {search_request}
+                        # Get existing opportunities to avoid duplicates (same as search endpoint)
+                        try:
+                            existing_result = self.supabase.table("saved_opportunities").select("title, funder").execute()
+                            existing_opps = [f"{opp['title']} - {opp['funder']}" for opp in existing_result.data]
+                            existing_list = "; ".join(existing_opps) if existing_opps else "None"
+                        except:
+                            existing_list = "None"
 
-Execute this multi-step process:
-
-1. Search current federal databases (GRANTS.gov, NSF, DOL) for technology workforce development opportunities
-2. Look for press releases for grants and RFPS
-3. Research foundation grants from major funders aligned with our mission
-4. Identify corporate funding programs for underserved communities
-4. Filter for opportunities with deadlines in next 3-6 months and funding >$50k
-6. Find at least 3-5 different opportunities from various sources
-
-IMPORTANT - NEW/DIFFERENT FUNDING SOURCES ONLY:
-Do NOT include opportunities where Per Scholas is already listed as a current funding recipient or grantee.
-Focus on finding NEW and DIFFERENT funding sources that align with our mission but are not current funding relationships.
-Research which organizations are already funding Per Scholas and exclude those from results.
+                        # Add JSON format requirements to the orchestration prompt
+                        orchestration_prompt += f"""
 
 Existing opportunities to avoid duplicates: {existing_list}
 
@@ -517,63 +515,28 @@ CRITICAL OUTPUT FORMAT - READ CAREFULLY:
 You MUST return ONLY raw JSON - NO markdown code blocks, NO explanatory text, NO ```json markers.
 Your response should START with {{ and END with }}.
 
-Example of CORRECT output:
-{{
-  "opportunities": [
-    {{
-      "id": "unique-id-string",
-      "title": "Full grant title",
-      "funder": "Organization name",
-      "amount": 100000,
-      "deadline": "2025-12-31",
-      "description": "Detailed description of opportunity",
-      "requirements": ["Requirement 1", "Requirement 2"],
-      "contact": "email@agency.gov",
-      "application_url": "https://...",
-      "contact_name": "Contact Person Name or null",
-      "contact_phone": "555-1234 or null",
-      "contact_description": "Additional contact info or null",
-      "eligibility_explanation": "Who can apply or null",
-      "cost_sharing": false,
-      "cost_sharing_description": "Cost sharing details or null",
-      "additional_info_url": "https://... or null",
-      "additional_info_text": "Extra info or null",
-      "archive_date": "2025-12-31 or null",
-      "forecast_date": "2025-01-01 or null",
-      "close_date_explanation": "Deadline details or null",
-      "expected_number_of_awards": "5-10 or null",
-      "award_floor": 50000,
-      "award_ceiling": 250000,
-      "attachments": [],
-      "version": "1 or null",
-      "last_updated_date": "2025-01-01 or null",
-      "geographic_focus": "State(s) or region(s) where applicants must be located or can operate, e.g., 'California, Texas, New York' or 'Any US state' or null",
-      "award_type": "Type of award like 'Grant', 'Cooperative Agreement', 'Loan', 'Subsidy', etc. or null",
-      "anticipated_awards": "Expected number or range of awards, e.g., '5-10 awards' or '15 awards' or null",
-      "consortium_required": false,
-      "consortium_description": "Details about required consortium partnerships, lead applicant requirements, or null if not applicable",
-      "rfp_attachment_requirements": "Summary of attachment/document requirements for application, e.g., '1) Proposal narrative (max 25 pages) 2) Budget narrative 3) Letters of support (min 3)' or number of attachments if specified, or null"
-    }}
-  ]
-}}
+Return JSON with opportunities array. Each opportunity must have all these fields:
+- id, title, funder, amount, deadline, description, requirements, contact, application_url
+- contact_name, contact_phone, contact_description (or null)
+- eligibility_explanation, cost_sharing, cost_sharing_description
+- additional_info_url, additional_info_text, archive_date, forecast_date
+- close_date_explanation, expected_number_of_awards, award_floor, award_ceiling
+- attachments, version, last_updated_date
+- geographic_focus: State(s) or region(s) where applicants can operate
+- award_type: Type of award (Grant, Cooperative Agreement, Loan, Subsidy, etc.)
+- anticipated_awards: Expected number/range of awards
+- consortium_required: Boolean
+- consortium_description: Consortium/partnership details or null
+- rfp_attachment_requirements: Summary of attachment requirements or null
 
 REQUIREMENTS:
-- Return ONLY the JSON object (no markdown blocks, no extra text)
+- Return ONLY the JSON object (no markdown, no extra text)
 - Start with {{ and end with }}
 - All string fields use double quotes
 - amount, award_floor, award_ceiling are integers (no commas)
 - deadline dates in YYYY-MM-DD format
-- Do NOT include match_score (it will be calculated automatically)
-- requirements is array of strings
-- attachments is empty array [] (no attachment fetching)
 - Use null for optional fields if no data available
-- NEW FIELDS:
-  * geographic_focus: Extract state(s) or region(s) - CRITICAL for filtering in dashboard
-  * award_type: Type of award (Grant, Cooperative Agreement, Loan, etc.)
-  * anticipated_awards: Expected number of awards that will be given
-  * consortium_required: Boolean - does opportunity require multiple partner organizations?
-  * consortium_description: Details about consortium/partnership requirements if applicable
-  * rfp_attachment_requirements: Summary of required attachments/documents for proposal"""
+- Do NOT include match_score (it will be calculated automatically)"""
 
                     # Call same Gemini CLI session as search endpoint
                     from main import create_gemini_cli_session, parse_orchestration_response
