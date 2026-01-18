@@ -20,6 +20,15 @@ interface ScrapedGrant {
   created_at: string
   updated_at: string
   posted_date?: string
+  category_id?: number
+}
+
+interface Category {
+  id: number
+  name: string
+  description: string
+  color: string
+  icon?: string
 }
 
 export default function Dashboard() {
@@ -45,9 +54,12 @@ export default function Dashboard() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<string>>(new Set())
   const [feedbackCounts, setFeedbackCounts] = useState<Record<string, {positive: number, negative: number}>>({})
   const [dismissingGrants, setDismissingGrants] = useState<Set<string>>(new Set())
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     fetchGrants()
+    fetchCategories()
   }, [])
 
   useEffect(() => {
@@ -59,13 +71,25 @@ export default function Dashboard() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  const fetchCategories = async () => {
+    try {
+      const response = await api.getCategories()
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data.categories || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+    }
+  }
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [rawGrants, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy])
+  }, [rawGrants, keywordSearch, highMatchOnly, fundingMin, fundingMax, dueInDays, sortBy, selectedCategories])
 
   function getPostedDateValue(grant: ScrapedGrant) {
     const value = grant.created_at || grant.updated_at || ''
@@ -99,6 +123,10 @@ export default function Dashboard() {
 
     // Filter out dismissed grants first
     list = list.filter(g => g.status !== 'dismissed')
+
+    if (selectedCategories.size > 0) {
+      list = list.filter(g => g.category_id && selectedCategories.has(g.category_id))
+    }
 
     if (keywordSearch.trim()) {
       const keywords = keywordSearch.toLowerCase().trim()
@@ -178,7 +206,7 @@ export default function Dashboard() {
     }
 
     return list
-  }, [rawGrants, keywordSearch, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder])
+  }, [rawGrants, keywordSearch, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder, selectedCategories])
 
   const handleTableSort = (column: 'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source' | 'created_at') => {
     if (tableSortBy === column) {
@@ -525,7 +553,7 @@ export default function Dashboard() {
                 <svg className="w-5 h-5 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays) && (
+                {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays || selectedCategories.size > 0) && (
                   <span className="absolute -top-2 -right-2 flex h-4 w-4">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-perscholas-accent opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-4 w-4 bg-perscholas-accent items-center justify-center">
@@ -582,6 +610,38 @@ export default function Dashboard() {
                     />
                   </label>
 
+                  {/* Categories Filter */}
+                  {categories.length > 0 && (
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 mb-2 block">Categories</label>
+                      <div className="space-y-2">
+                        {categories.map((category) => (
+                          <label key={category.id} className="flex items-start gap-2 p-2 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.has(category.id)}
+                              onChange={(e) => {
+                                const newSet = new Set(selectedCategories)
+                                if (e.target.checked) {
+                                  newSet.add(category.id)
+                                } else {
+                                  newSet.delete(category.id)
+                                }
+                                setSelectedCategories(newSet)
+                              }}
+                              className="w-4 h-4 text-perscholas-primary rounded focus:ring-2 focus:ring-perscholas-primary/20 flex-shrink-0 mt-0.5"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium text-gray-900">{category.name}</p>
+                              {category.description && (
+                                <p className="text-xs text-gray-600 line-clamp-2">{category.description}</p>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Keyword Search */}
                   <div>
@@ -647,6 +707,24 @@ export default function Dashboard() {
                         <option value="deadline">Due Date</option>
                       </select>
                     </div>
+                  )}
+
+                  {/* Clear Filters Button */}
+                  {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays || selectedCategories.size > 0) && (
+                    <button
+                      onClick={() => {
+                        setKeywordSearch('')
+                        setHighMatchOnly(false)
+                        setRecentPostsOnly(false)
+                        setFundingMin(undefined)
+                        setFundingMax(undefined)
+                        setDueInDays(undefined)
+                        setSelectedCategories(new Set())
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Clear All Filters
+                    </button>
                   )}
                 </div>
               </div>

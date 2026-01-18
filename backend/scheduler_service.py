@@ -538,28 +538,28 @@ REQUIREMENTS:
 - Use null for optional fields if no data available
 - Do NOT include match_score (it will be calculated automatically)"""
 
-                    # Call same Gemini CLI session as search endpoint
-                    from main import create_gemini_cli_session, parse_orchestration_response
+                        # Call same Gemini CLI session as search endpoint
+                        from main import create_gemini_cli_session, parse_orchestration_response
 
-                    result = create_gemini_cli_session(
-                        prompt=orchestration_prompt,
-                        session_type="fundraising",
-                        timeout=900
-                    )
+                        result = create_gemini_cli_session(
+                            prompt=orchestration_prompt,
+                            session_type="fundraising",
+                            timeout=900
+                        )
 
-                    if result.get('success'):
-                        # Parse same way as search endpoint
-                        opportunities = parse_orchestration_response(result.get('output', ''))
-                        if opportunities:
-                            logger.info(f"Found {len(opportunities)} opportunities in {state}")
-                            total_found += len(opportunities)
-                            all_grants.extend(opportunities)
-                    else:
-                        logger.warning(f"AI search failed for {state}: {result.get('error', 'Unknown error')}")
+                        if result.get('success'):
+                            # Parse same way as search endpoint
+                            opportunities = parse_orchestration_response(result.get('output', ''))
+                            if opportunities:
+                                logger.info(f"Found {len(opportunities)} opportunities in {state}")
+                                total_found += len(opportunities)
+                                all_grants.extend(opportunities)
+                        else:
+                            logger.warning(f"AI search failed for {state}: {result.get('error', 'Unknown error')}")
 
-                except Exception as e:
-                    logger.warning(f"Failed to search {state}: {e}")
-                    continue
+                    except Exception as e:
+                        logger.warning(f"Failed to search {state}: {e}")
+                        continue
 
             # Store all found grants
             saved_count = await self._store_grants(all_grants, 'Agent')
