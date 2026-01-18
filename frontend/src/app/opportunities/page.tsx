@@ -56,12 +56,21 @@ interface Opportunity {
   }>
   version?: string
   last_updated_date?: string
+  category_id?: number
 }
 
 interface OpportunitySummary {
   overview: string
   key_details: string[]
   funding_priorities: string[]
+}
+
+interface Category {
+  id: number
+  name: string
+  description: string
+  color: string
+  icon?: string
 }
 
 
@@ -83,6 +92,9 @@ export default function OpportunitiesPage() {
   const [loadingSummary, setLoadingSummary] = useState<{ [key: string]: boolean }>({})
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<Set<number>>(new Set())
+  const [loadingCategories, setLoadingCategories] = useState(true)
   const [dismissingOpportunities, setDismissingOpportunities] = useState<Set<string>>(new Set())
   const [addingToRfpDb, setAddingToRfpDb] = useState<Set<string>>(new Set())
   const [rfpDbSuccessMessage, setRfpDbSuccessMessage] = useState<{ [key: string]: string }>({})
@@ -100,7 +112,25 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
+  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy, selectedCategories])
+
+  // Load categories on mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await api.getCategories()
+        if (response.ok) {
+          const data = await response.json()
+          setCategories(data.categories || [])
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error)
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+    loadCategories()
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -225,6 +255,11 @@ export default function OpportunitiesPage() {
       })
     }
 
+    // Apply category filter (if categories selected)
+    if (selectedCategories.size > 0) {
+      list = list.filter(o => o.category_id !== undefined && selectedCategories.has(o.category_id))
+    }
+
     if (sortBy === 'match') {
       list.sort((a, b) => (b.match_score || 0) - (a.match_score || 0))
     } else if (sortBy === 'amount') {
@@ -238,7 +273,7 @@ export default function OpportunitiesPage() {
     }
 
     return list
-  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
+  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy, selectedCategories])
 
   const handleDismiss = async (opportunityId: string) => {
     if (!confirm('Are you sure you want to dismiss this opportunity? This action cannot be undone.')) {
@@ -768,8 +803,42 @@ export default function OpportunitiesPage() {
                     </select>
                   </div>
 
+                  {/* Category Filter */}
+                  {!loadingCategories && categories.length > 0 && (
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 mb-2 block">Categories</label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {categories.map((cat) => (
+                          <label key={cat.id} className={`flex items-center p-2.5 rounded-lg border cursor-pointer transition-all ${
+                            selectedCategories.has(cat.id)
+                              ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
+                              : 'border-gray-200 hover:bg-gray-50'
+                          }`}>
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.has(cat.id)}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedCategories)
+                                if (e.target.checked) {
+                                  newSelected.add(cat.id)
+                                } else {
+                                  newSelected.delete(cat.id)
+                                }
+                                setSelectedCategories(newSelected)
+                              }}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500/20"
+                            />
+                            <span className={`text-sm font-medium ml-2 ${selectedCategories.has(cat.id) ? 'text-blue-700' : 'text-gray-700'}`}>
+                              {cat.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Clear Filters Button */}
-                  {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays) && (
+                  {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays || selectedCategories.size > 0) && (
                     <button
                       onClick={() => {
                         setHighMatchOnly(false)
@@ -778,6 +847,7 @@ export default function OpportunitiesPage() {
                         setFundingMin(undefined)
                         setFundingMax(undefined)
                         setDueInDays(undefined)
+                        setSelectedCategories(new Set())
                       }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:scale-95 transition-all"
                     >
