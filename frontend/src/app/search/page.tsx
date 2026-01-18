@@ -16,20 +16,11 @@ interface Opportunity {
   application_url: string
   created_at?: string
   saved_at?: string
-  category_id?: number
 }
 
 interface LocationPair {
   state: string
   city: string
-}
-
-interface Category {
-  id: number
-  name: string
-  description: string
-  color: string
-  icon?: string
 }
 
 export default function SearchPage() {
@@ -48,9 +39,6 @@ export default function SearchPage() {
   ])
   const [newState, setNewState] = useState('')
   const [newCity, setNewCity] = useState('')
-  const [categories, setCategories] = useState<Category[]>([])
-  const [selectedCategories, setSelectedCategories] = useState<Set<number>>(new Set())
-  const [loadingCategories, setLoadingCategories] = useState(true)
 
   useEffect(() => {
     const fetchSchedulerSettings = async () => {
@@ -74,24 +62,6 @@ export default function SearchPage() {
       }
     }
     fetchSchedulerSettings()
-  }, [])
-
-  // Load categories on mount
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const response = await api.getCategories()
-        if (response.ok) {
-          const data = await response.json()
-          setCategories(data.categories || [])
-        }
-      } catch (error) {
-        console.error('Failed to load categories:', error)
-      } finally {
-        setLoadingCategories(false)
-      }
-    }
-    loadCategories()
   }, [])
 
   const saveOpportunity = async (opportunityId: string) => {
@@ -227,25 +197,17 @@ export default function SearchPage() {
     }
   }
 
-  // Filter opportunities based on recent posts and category filters
-  const filteredOpportunities = opportunities.filter(o => {
-    // Apply recent posts filter
-    if (recentPostsOnly) {
-      const twoWeeksAgo = new Date()
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
-      const createdAt = o.created_at || o.saved_at
-      if (!createdAt) return false
-      const created = new Date(createdAt)
-      if (created < twoWeeksAgo) return false
-    }
-
-    // Apply category filter (if categories selected)
-    if (selectedCategories.size > 0 && o.category_id !== undefined) {
-      return selectedCategories.has(o.category_id)
-    }
-
-    return true
-  })
+  // Filter opportunities based on recent posts filter
+  const filteredOpportunities = recentPostsOnly 
+    ? opportunities.filter(o => {
+        const twoWeeksAgo = new Date()
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+        const createdAt = o.created_at || o.saved_at
+        if (!createdAt) return false
+        const created = new Date(createdAt)
+        return created >= twoWeeksAgo
+      })
+    : opportunities
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -255,7 +217,7 @@ export default function SearchPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
             <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="bg-blue-600 p-2 sm:p-2.5 rounded-xl">
+                <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
                   <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -281,17 +243,17 @@ export default function SearchPage() {
                 {/* AI Search Toggle */}
                 <label className={`flex items-center justify-between px-2 sm:px-4 py-2 rounded-lg border cursor-pointer transition-all whitespace-nowrap ${
                   aiSearchEnabled
-                    ? 'border-blue-600 bg-blue-50'
+                    ? 'border-perscholas-secondary bg-blue-50'
                     : 'border-gray-300 bg-gray-50'
                 }`}>
-                  <span className={`text-xs sm:text-sm font-medium mr-2 sm:mr-3 ${aiSearchEnabled ? 'text-blue-600' : 'text-gray-600'}`}>
+                  <span className={`text-xs sm:text-sm font-medium mr-2 sm:mr-3 ${aiSearchEnabled ? 'text-perscholas-secondary' : 'text-gray-600'}`}>
                     AI {aiSearchEnabled ? 'On' : 'Off'}
                   </span>
                   <input
                     type="checkbox"
                     checked={aiSearchEnabled}
                     onChange={(e) => setAiSearchEnabled(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-600/20"
+                    className="w-4 h-4 text-perscholas-secondary rounded focus:ring-2 focus:ring-perscholas-secondary/20"
                   />
                 </label>
               </div>
@@ -315,7 +277,7 @@ export default function SearchPage() {
                     <select
                       value={schedulerFrequency}
                       onChange={(e) => setSchedulerFrequency(e.target.value as 'daily' | 'weekly' | 'monthly')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
                     >
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
@@ -355,19 +317,19 @@ export default function SearchPage() {
                           placeholder="State (e.g., California)"
                           value={newState}
                           onChange={(e) => setNewState(e.target.value)}
-                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
                         />
                         <input
                           type="text"
                           placeholder="City (e.g., San Francisco)"
                           value={newCity}
                           onChange={(e) => setNewCity(e.target.value)}
-                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent"
                         />
                       </div>
                       <button
                         onClick={addLocation}
-                        className="w-full px-3 py-2 text-sm border border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg font-medium transition-colors"
+                        className="w-full px-3 py-2 text-sm border border-perscholas-secondary text-perscholas-secondary hover:bg-blue-50 rounded-lg font-medium transition-colors"
                       >
                         Add Location
                       </button>
@@ -380,7 +342,7 @@ export default function SearchPage() {
                 <div className="flex gap-3 mt-4">
                   <button
                     onClick={saveSchedulerSettings}
-                    className="px-4 py-2 bg-blue-600 hover:bg-perscholas-dark text-white rounded-lg text-sm font-medium transition-colors"
+                    className="px-4 py-2 bg-perscholas-secondary hover:bg-perscholas-dark text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     Save Settings
                   </button>
@@ -408,7 +370,7 @@ export default function SearchPage() {
                 value={searchPrompt}
                 onChange={(e) => setSearchPrompt(e.target.value)}
                 placeholder="Example: Find federal grants for cybersecurity workforce development programs targeting underserved communities in urban areas, amount $100K-$500K, due within 90 days"
-                className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent resize-none h-24 text-sm"
+                className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent resize-none h-24 text-sm"
                 disabled={isSearching}
               />
               <p className="text-xs text-gray-500 mt-2">
@@ -419,7 +381,7 @@ export default function SearchPage() {
             <button
               onClick={searchOpportunities}
               disabled={isSearching || !searchPrompt.trim() || !aiSearchEnabled}
-              className="w-full bg-blue-600 hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full bg-perscholas-secondary hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2"
             >
               {isSearching ? (
                 <>
@@ -443,27 +405,27 @@ export default function SearchPage() {
           {isSearching && (
             <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="bg-blue-600 p-1.5 rounded-lg flex-shrink-0">
+                <div className="bg-perscholas-secondary p-1.5 rounded-lg flex-shrink-0">
                   <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 </div>
-                <span className="text-blue-600 font-semibold">
+                <span className="text-perscholas-secondary font-semibold">
                   Agent executing search strategy...
                 </span>
               </div>
               <div className="space-y-2 text-sm text-gray-700 ml-8">
                 <div className="flex items-center gap-2">
-                  <span className="text-blue-600">✓</span>
+                  <span className="text-perscholas-secondary">✓</span>
                   <span>Connecting to GRANTS.gov and foundation databases</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-blue-600">✓</span>
-                  <span>Applying semantic analysis for mission alignment</span>
+                  <span className="text-perscholas-secondary">✓</span>
+                  <span>Applying semantic analysis for Per Scholas mission alignment</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-blue-600">✓</span>
+                  <span className="text-perscholas-secondary">✓</span>
                   <span>Scoring opportunities by fit, feasibility, and timeline</span>
                 </div>
               </div>
@@ -477,80 +439,38 @@ export default function SearchPage() {
         {/* Results Section */}
         {opportunities.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
-            <div className="flex flex-col gap-6 mb-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                    Discovery Results
-                  </h2>
-                  <p className="text-gray-600 text-sm mt-1">
-                    {filteredOpportunities.length} of {opportunities.length} opportunities shown
-                  </p>
-                </div>
-
-                {/* Recent Posts Filter */}
-                <div className="flex-shrink-0">
-                  <label className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                    recentPostsOnly
-                      ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}>
-                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'} mr-3`}>Recent Posts Only (2 weeks)</span>
-                    <input
-                      type="checkbox"
-                      checked={recentPostsOnly}
-                      onChange={(e) => setRecentPostsOnly(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </label>
-                </div>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  Discovery Results
+                </h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  {filteredOpportunities.length} of {opportunities.length} opportunities shown
+                </p>
               </div>
-
-              {/* Category Filter */}
-              {!loadingCategories && categories.length > 0 && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Filter by Category</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                    {categories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          const newSelected = new Set(selectedCategories)
-                          if (newSelected.has(cat.id)) {
-                            newSelected.delete(cat.id)
-                          } else {
-                            newSelected.add(cat.id)
-                          }
-                          setSelectedCategories(newSelected)
-                        }}
-                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                          selectedCategories.has(cat.id)
-                            ? `bg-blue-100 border-blue-500 text-blue-700`
-                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-                        }`}
-                        title={cat.description}
-                      >
-                        {cat.name}
-                      </button>
-                    ))}
-                  </div>
-                  {selectedCategories.size > 0 && (
-                    <button
-                      onClick={() => setSelectedCategories(new Set())}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Clear filters
-                    </button>
-                  )}
-                </div>
-              )}
+              
+              {/* Recent Posts Filter - Only shows when there are search results */}
+              <div className="flex-shrink-0">
+                <label className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                  recentPostsOnly
+                    ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'} mr-3`}>Recent Posts Only (2 weeks)</span>
+                  <input
+                    type="checkbox"
+                    checked={recentPostsOnly}
+                    onChange={(e) => setRecentPostsOnly(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </label>
+              </div>
             </div>
 
             <div className="space-y-6">
               {filteredOpportunities.map((opp) => {
                 const colors = getMatchColor(opp.match_score)
                 const isSaving = savingIds.has(opp.id)
-                const oppCategory = opp.category_id ? categories.find(c => c.id === opp.category_id) : null
 
                 return (
                   <div
@@ -563,14 +483,7 @@ export default function SearchPage() {
                         <h3 className="text-lg font-semibold text-gray-900 leading-snug mb-1">
                           {opp.title}
                         </h3>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm text-gray-600 font-medium">{opp.funder}</p>
-                          {oppCategory && (
-                            <span className="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded">
-                              {oppCategory.name}
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-sm text-gray-600 font-medium">{opp.funder}</p>
                       </div>
                       <div className={`${colors.bg} ${colors.text} px-3.5 py-1.5 rounded-lg text-sm font-semibold flex-shrink-0 whitespace-nowrap`}>
                         {opp.match_score}% Match
@@ -618,7 +531,7 @@ export default function SearchPage() {
                     {opp.contact && (
                       <div className="mb-6 pb-6 border-b border-gray-200">
                         <h4 className="text-sm font-semibold text-gray-900 mb-2">Contact</h4>
-                        <a href={`mailto:${opp.contact}`} className="text-sm text-blue-600 hover:underline">
+                        <a href={`mailto:${opp.contact}`} className="text-sm text-perscholas-secondary hover:underline">
                           {opp.contact}
                         </a>
                       </div>
@@ -631,7 +544,7 @@ export default function SearchPage() {
                           href={opp.application_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-center sm:justify-start gap-2 border border-blue-600 text-blue-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
+                          className="flex items-center justify-center sm:justify-start gap-2 border border-perscholas-secondary text-perscholas-secondary px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -642,7 +555,7 @@ export default function SearchPage() {
                       <button
                         onClick={() => saveOpportunity(opp.id)}
                         disabled={isSaving}
-                        className="flex items-center justify-center sm:justify-start gap-2 bg-blue-600 hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
+                        className="flex items-center justify-center sm:justify-start gap-2 bg-perscholas-secondary hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
                       >
                         {isSaving ? (
                           <>
@@ -685,7 +598,7 @@ export default function SearchPage() {
             </p>
             <a
               href="/opportunities"
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-perscholas-dark transition-colors"
+              className="inline-flex items-center gap-2 bg-perscholas-secondary text-white px-8 py-3 rounded-lg font-semibold hover:bg-perscholas-dark transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
