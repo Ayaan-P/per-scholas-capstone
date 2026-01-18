@@ -1,24 +1,29 @@
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+import os
+from dotenv import load_dotenv
+
+# Load environment variables FIRST, before any imports that need them
+load_dotenv()
+
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from auth_service import get_current_user, optional_token
 import asyncio
 import uuid
-import os
 import subprocess
 import tempfile
+import io
 from grants_service import GrantsGovService
 # from semantic_service import SemanticService  # Disabled for Render free tier
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
 from supabase import create_client, Client
-from dotenv import load_dotenv
-from anthropic import Anthropic
+import google.generativeai as genai
 from scheduler_service import SchedulerService
-
-load_dotenv()
+import PyPDF2
 
 # Setup Claude Code authentication from environment variables on server
 try:
@@ -295,11 +300,18 @@ app = FastAPI(title="PerScholas Fundraising API")
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://zjqwpvdcpzeguhdwrskr.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcXdwdmRjcHplZ3VoZHdyc2tyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNTczMzcsImV4cCI6MjA3MzgzMzMzN30.Ba46pLQFygSQoe-TZ4cRvLCpmT707zw2JT8qIRSjopU")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+# Anon client for regular queries
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Anthropic client configuration
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+# Service role client for admin operations (bypasses RLS)
+supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) if SUPABASE_SERVICE_ROLE_KEY else supabase
+
+# Gemini API configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # Semantic service for RFP matching - initialize eagerly for better performance
 try:
@@ -376,6 +388,299 @@ class SchedulerSettingsResponse(BaseModel):
     selected_cities: List[str]
     created_at: str
     updated_at: str
+
+class OrganizationConfigRequest(BaseModel):
+    name: str
+    mission: str
+    focus_areas: Optional[List[str]] = None
+    impact_metrics: Optional[Dict[str, Any]] = None
+    programs: Optional[List[str]] = None
+    target_demographics: Optional[List[str]] = None
+
+class OrganizationConfig(BaseModel):
+    id: Optional[str] = None
+    name: str
+    mission: str
+    focus_areas: List[str]
+    impact_metrics: Dict[str, Any]
+    programs: List[str]
+    target_demographics: List[str]
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+class UserInitializationRequest(BaseModel):
+    email: str
+    organization_name: str
+    mission: Optional[str] = None
+    role: Optional[str] = "admin"
+
+def get_default_organization_config():
+    """Get default organization configuration"""
+    return {
+        "name": "Your Organization",
+        "mission": "Advancing opportunity through technology and education",
+        "focus_areas": ["Technology", "Education", "Community Development"],
+        "impact_metrics": {
+            "graduates": "1000+",
+            "job_placement_rate": "85%",
+            "salary_increase": "150%"
+        },
+        "programs": ["Training Program 1", "Training Program 2"],
+        "target_demographics": ["Underrepresented communities", "Career changers", "Low-income individuals"]
+    }
+
+async def get_organization_config():
+    """Fetch organization configuration from database or return default"""
+    try:
+        result = supabase.table("organization_config").select("*").limit(1).execute()
+        if result.data and len(result.data) > 0:
+            config = result.data[0]
+            return {
+                "id": config.get("id"),
+                "name": config.get("name", "Your Organization"),
+                "mission": config.get("mission", ""),
+                "focus_areas": config.get("focus_areas", []),
+                "impact_metrics": config.get("impact_metrics", {}),
+                "programs": config.get("programs", []),
+                "target_demographics": config.get("target_demographics", []),
+                "created_at": config.get("created_at"),
+                "updated_at": config.get("updated_at")
+            }
+    except Exception as e:
+        print(f"[ORG CONFIG] Error fetching from database: {e}")
+
+    # Return default config if database fails or empty
+    default = get_default_organization_config()
+    return {
+        "id": None,
+        "name": default["name"],
+        "mission": default["mission"],
+        "focus_areas": default["focus_areas"],
+        "impact_metrics": default["impact_metrics"],
+        "programs": default["programs"],
+        "target_demographics": default["target_demographics"],
+        "created_at": None,
+        "updated_at": None
+    }
+
+def extract_text_from_pdf(file_bytes: bytes) -> str:
+    """Extract text from PDF file bytes"""
+    try:
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text.strip()
+    except Exception as e:
+        print(f"[PDF EXTRACTION] Error: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to extract text from PDF: {str(e)}")
+
+async def analyze_uploaded_rfp(pdf_text: str, title: Optional[str] = None, funder: Optional[str] = None, deadline: Optional[str] = None) -> Dict[str, Any]:
+    """Use Gemini to analyze uploaded RFP and extract metadata"""
+    try:
+        prompt = f"""Analyze this RFP/grant document and extract key information. Return a JSON object with:
+- title: The grant/RFP title (use provided title if given, otherwise extract)
+- funder: The funding organization (use provided if given, otherwise extract)
+- deadline: Application deadline (use provided if given, otherwise extract)
+- description: 2-3 sentence summary of the opportunity
+- amount: Estimated funding amount if mentioned, or null
+- tags: Array of 3-5 relevant tags/categories
+- key_requirements: Array of main eligibility/requirement bullet points (3-5 items)
+
+Document text:
+{pdf_text[:4000]}
+
+Provided title: {title or 'Not provided'}
+Provided funder: {funder or 'Not provided'}
+Provided deadline: {deadline or 'Not provided'}
+
+Return ONLY valid JSON, no markdown or additional text."""
+
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        genai.configure(api_key=gemini_key)
+        model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+        response = model.generate_content(prompt)
+
+        response_text = response.text
+        # Parse JSON from response
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            extracted = json.loads(json_match.group())
+        else:
+            extracted = json.loads(response_text)
+
+        return extracted
+    except Exception as e:
+        print(f"[RFP ANALYSIS] Error: {e}")
+        # Return minimal structured data on error
+        return {
+            "title": title or "Uploaded RFP",
+            "funder": funder or "Unknown",
+            "deadline": deadline,
+            "description": "RFP document uploaded by user",
+            "tags": ["user-uploaded"],
+            "key_requirements": []
+        }
+
+@app.post("/api/auth/initialize")
+async def initialize_user(request: UserInitializationRequest, user_id: str = Depends(get_current_user)):
+    """Initialize user after signup - creates user record and organization"""
+    try:
+        # Check if user already exists in users table
+        user_check = supabase.table("users").select("id").eq("id", user_id).execute()
+
+        if user_check.data and len(user_check.data) > 0:
+            # User already initialized
+            return {"status": "already_initialized", "message": "User already initialized"}
+
+        # Create organization config for the new user
+        org_data = {
+            "name": request.organization_name,
+            "mission": request.mission or "Advancing opportunity through education and community development",
+            "focus_areas": [],
+            "impact_metrics": {},
+            "programs": [],
+            "target_demographics": [],
+            "owner_id": user_id
+        }
+
+        org_result = supabase.table("organization_config").insert(org_data).execute()
+
+        if not org_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create organization")
+
+        org_id = org_result.data[0].get("id")
+
+        # Create user record
+        user_data = {
+            "id": user_id,
+            "email": request.email,
+            "organization_id": org_id,
+            "role": request.role or "admin"
+        }
+
+        user_result = supabase.table("users").insert(user_data).execute()
+
+        if not user_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create user record")
+
+        return {
+            "status": "initialized",
+            "user_id": user_id,
+            "organization_id": org_id,
+            "message": "User initialized successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[AUTH] Error initializing user: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to initialize user: {str(e)}")
+
+@app.get("/api/organization/config")
+async def get_organization_configuration(user_id: str = Depends(get_current_user)):
+    """Get current organization configuration for authenticated user"""
+    try:
+        # Get user's organization from users table
+        user_result = supabase.table("users").select("organization_id").eq("id", user_id).execute()
+
+        if not user_result.data or len(user_result.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        organization_id = user_result.data[0].get("organization_id")
+
+        if not organization_id:
+            raise HTTPException(status_code=404, detail="User has no organization")
+
+        # Get organization config
+        config_result = supabase.table("organization_config").select("*").eq("id", organization_id).execute()
+
+        if not config_result.data:
+            raise HTTPException(status_code=404, detail="Organization config not found")
+
+        config = config_result.data[0]
+        return {
+            "id": config.get("id"),
+            "name": config.get("name"),
+            "mission": config.get("mission"),
+            "focus_areas": config.get("focus_areas", []),
+            "impact_metrics": config.get("impact_metrics", {}),
+            "programs": config.get("programs", []),
+            "target_demographics": config.get("target_demographics", []),
+            "created_at": config.get("created_at"),
+            "updated_at": config.get("updated_at")
+        }
+    except Exception as e:
+        print(f"[ORG CONFIG] Error getting config: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving configuration")
+
+@app.post("/api/organization/config")
+async def save_organization_configuration(config_request: OrganizationConfigRequest, user_id: str = Depends(get_current_user)):
+    """Save or update organization configuration for authenticated user"""
+    try:
+        # Get user's organization
+        user_result = supabase.table("users").select("organization_id").eq("id", user_id).execute()
+
+        if not user_result.data or len(user_result.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        organization_id = user_result.data[0].get("organization_id")
+
+        config_data = {
+            "name": config_request.name,
+            "mission": config_request.mission,
+            "focus_areas": config_request.focus_areas or [],
+            "impact_metrics": config_request.impact_metrics or {},
+            "programs": config_request.programs or [],
+            "target_demographics": config_request.target_demographics or []
+        }
+
+        if organization_id:
+            # Update existing config
+            update_result = supabase.table("organization_config").update(config_data).eq("id", organization_id).execute()
+            if update_result.data:
+                saved_config = update_result.data[0]
+                return {
+                    "status": "updated",
+                    "id": saved_config.get("id"),
+                    "name": saved_config.get("name"),
+                    "mission": saved_config.get("mission"),
+                    "focus_areas": saved_config.get("focus_areas"),
+                    "impact_metrics": saved_config.get("impact_metrics"),
+                    "programs": saved_config.get("programs"),
+                    "target_demographics": saved_config.get("target_demographics"),
+                    "updated_at": saved_config.get("updated_at")
+                }
+        else:
+            # Create new config
+            config_data["owner_id"] = user_id
+            insert_result = supabase.table("organization_config").insert(config_data).execute()
+            if insert_result.data:
+                saved_config = insert_result.data[0]
+                org_id = saved_config.get("id")
+
+                # Link user to organization
+                user_update = supabase.table("users").update({"organization_id": org_id}).eq("id", user_id).execute()
+
+                return {
+                    "status": "created",
+                    "id": saved_config.get("id"),
+                    "name": saved_config.get("name"),
+                    "mission": saved_config.get("mission"),
+                    "focus_areas": saved_config.get("focus_areas"),
+                    "impact_metrics": saved_config.get("impact_metrics"),
+                    "programs": saved_config.get("programs"),
+                    "target_demographics": saved_config.get("target_demographics"),
+                    "created_at": saved_config.get("created_at")
+                }
+
+        raise HTTPException(status_code=500, detail="Failed to save configuration")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ORG CONFIG] Error saving: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save organization configuration: {str(e)}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -506,9 +811,10 @@ async def save_scheduler_settings(settings: SchedulerSettingsRequest):
 @app.post("/api/search-opportunities")
 async def start_opportunity_search(
     criteria: SearchCriteria,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user)
 ):
-    """Start AI-powered opportunity discovery"""
+    """Start AI-powered opportunity discovery with organization-specific matching"""
     job_id = str(uuid.uuid4())
 
     # Initialize job
@@ -522,9 +828,9 @@ async def start_opportunity_search(
         "created_at": datetime.now().isoformat()
     }
 
-    # Start background task
+    # Start background task with user_id for organization-aware matching
     import asyncio
-    asyncio.create_task(run_opportunity_search(job_id, criteria))
+    asyncio.create_task(run_opportunity_search(job_id, criteria, user_id))
 
     return {"job_id": job_id, "status": "started"}
 
@@ -537,15 +843,16 @@ async def get_job_status(job_id: str):
     return jobs_db[job_id]
 
 @app.get("/api/opportunities")
-async def get_opportunities():
-    """Get all saved opportunities from database"""
+async def get_opportunities(user_id: str = Depends(get_current_user)):
+    """Get user's saved opportunities from database (with RLS isolation)"""
     try:
-        # Query from unified saved_opportunities table
-        result = supabase.table("saved_opportunities").select("*").order("saved_at", desc=True).execute()
+        # Use admin client to bypass RLS, then filter by authenticated user_id for security
+        result = supabase_admin.table("saved_opportunities").select("*").eq("user_id", user_id).order("saved_at", desc=True).execute()
         return {"opportunities": result.data}
     except Exception as e:
-        # Fallback to in-memory cache if database is unavailable
-        return {"opportunities": opportunities_db}
+        print(f"[GET OPPORTUNITIES] Error: {e}")
+        # Fallback to empty list if database unavailable
+        return {"opportunities": []}
 
 @app.get("/api/scraped-grants")
 async def get_scraped_grants(
@@ -621,8 +928,9 @@ async def run_scheduler_job(job_name: str):
         raise HTTPException(status_code=500, detail=f"Failed to run job: {str(e)}")
 
 @app.post("/api/scraped-grants/{grant_id}/save")
-async def save_scraped_grant(grant_id: str):
+async def save_scraped_grant(grant_id: str, user_id: str = Depends(get_current_user)):
     """Start LLM enhancement job for a scraped grant (async with progress tracking)"""
+    print(f"[SAVE GRANT] Request received for grant_id={grant_id}, user_id={user_id}")
     try:
         # Fetch the grant from scraped_grants table
         result = supabase.table("scraped_grants").select("*").eq("id", grant_id).execute()
@@ -632,8 +940,8 @@ async def save_scraped_grant(grant_id: str):
 
         grant = result.data[0]
 
-        # Check if already saved in unified table
-        existing = supabase.table("saved_opportunities").select("id").eq("opportunity_id", grant["opportunity_id"]).execute()
+        # Check if already saved in unified table by this user
+        existing = supabase.table("saved_opportunities").select("id").eq("opportunity_id", grant["opportunity_id"]).eq("user_id", user_id).execute()
 
         if existing.data:
             return {
@@ -654,11 +962,12 @@ async def save_scraped_grant(grant_id: str):
             "created_at": datetime.now().isoformat(),
             "grant_id": grant_id,
             "grant_title": grant.get("title"),
-            "source": grant.get("source", "grants_gov")  # Include source field for LLM enhancement
+            "source": grant.get("source", "grants_gov"),  # Include source field for LLM enhancement
+            "user_id": user_id  # Store user_id for org-specific matching
         }
 
-        # Start background task
-        asyncio.create_task(run_llm_enhancement(job_id, grant_id))
+        # Start background task with user_id for org-specific matching
+        asyncio.create_task(run_llm_enhancement(job_id, grant_id, user_id))
 
         return {
             "status": "processing",
@@ -672,24 +981,24 @@ async def save_scraped_grant(grant_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to start enhancement: {str(e)}")
 
 @app.post("/api/opportunities/{opportunity_id}/generate-summary")
-async def generate_opportunity_summary(opportunity_id: str):
+async def generate_opportunity_summary(opportunity_id: str, user_id: str = Depends(get_current_user)):
     """Generate an AI-powered summary for a saved opportunity"""
     try:
-        # Fetch the opportunity from saved_opportunities
-        result = supabase.table("saved_opportunities").select("*").eq("id", opportunity_id).execute()
-        
+        # Fetch the opportunity from saved_opportunities, filtered by user_id for security
+        result = supabase.table("saved_opportunities").select("*").eq("id", opportunity_id).eq("user_id", user_id).execute()
+
         if not result.data:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
         opportunity = result.data[0]
         
-        # Check if we have an Anthropic API key
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
-        if not anthropic_key or anthropic_key == "your_anthropic_key_here_if_you_have_one":
+        # Check if we have a Gemini API key
+        gemini_key = os.getenv("GEMINI_API_KEY", "")
+        if not gemini_key:
             # Return a structured summary without AI
             description = opportunity.get("description", "No description available")
             requirements = opportunity.get("requirements", [])
-            
+
             return {
                 "summary": {
                     "overview": description[:500] + ("..." if len(description) > 500 else ""),
@@ -707,10 +1016,11 @@ async def generate_opportunity_summary(opportunity_id: str):
                     ]
                 }
             }
-        
-        # Use Anthropic Claude to generate summary
-        client = Anthropic(api_key=anthropic_key)
-        
+
+        # Use Gemini to generate summary
+        genai.configure(api_key=gemini_key)
+        model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+
         prompt = f"""Analyze this grant opportunity and provide a comprehensive understanding of what this RFP offers.
 
 Grant Details:
@@ -744,17 +1054,10 @@ Provide a structured analysis in JSON format with these sections:
 
 Return ONLY valid JSON, no other text."""
 
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1500,
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }]
-        )
-        
+        response = model.generate_content(prompt)
+
         # Parse the response
-        summary_text = response.content[0].text
+        summary_text = response.text
         try:
             summary = json.loads(summary_text)
         except:
@@ -777,7 +1080,7 @@ Return ONLY valid JSON, no other text."""
         raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
 @app.post("/api/opportunities/{opportunity_id}/save")
-async def save_opportunity(opportunity_id: str):
+async def save_opportunity(opportunity_id: str, user_id: str = Depends(get_current_user)):
     """Save a specific opportunity to the database with RFP similarity analysis"""
     # Find opportunity in current job results
     opportunity = None
@@ -788,8 +1091,47 @@ async def save_opportunity(opportunity_id: str):
                     opportunity = opp
                     break
 
+    # If not in search cache, check scraped_grants table
     if not opportunity:
-        raise HTTPException(status_code=404, detail="Opportunity not found")
+        try:
+            result = supabase.table("scraped_grants").select("*").eq("id", opportunity_id).execute()
+            if result.data:
+                grant = result.data[0]
+                # Convert scraped_grant format to opportunity format
+                opportunity = {
+                    "id": grant.get("id"),
+                    "title": grant.get("title"),
+                    "funder": grant.get("funder"),
+                    "amount": grant.get("amount"),
+                    "deadline": grant.get("deadline"),
+                    "description": grant.get("description"),
+                    "requirements": grant.get("requirements", []),
+                    "contact": grant.get("contact", ""),
+                    "application_url": grant.get("application_url", ""),
+                    "source": grant.get("source", ""),
+                    "contact_name": grant.get("contact_name"),
+                    "contact_phone": grant.get("contact_phone"),
+                    "contact_description": grant.get("contact_description"),
+                    "eligibility_explanation": grant.get("eligibility_explanation"),
+                    "cost_sharing": grant.get("cost_sharing", False),
+                    "cost_sharing_description": grant.get("cost_sharing_description"),
+                    "additional_info_url": grant.get("additional_info_url"),
+                    "additional_info_text": grant.get("additional_info_text"),
+                    "archive_date": grant.get("archive_date"),
+                    "forecast_date": grant.get("forecast_date"),
+                    "close_date_explanation": grant.get("close_date_explanation"),
+                    "expected_number_of_awards": grant.get("expected_number_of_awards"),
+                    "award_floor": grant.get("award_floor"),
+                    "award_ceiling": grant.get("award_ceiling"),
+                    "attachments": grant.get("attachments", []),
+                    "version": grant.get("version"),
+                    "last_updated_date": grant.get("last_updated_date")
+                }
+        except Exception as e:
+            print(f"[SAVE] Error checking scraped_grants: {e}")
+
+    if not opportunity:
+        raise HTTPException(status_code=404, detail="Opportunity not found in search results or database")
 
     try:
         # Generate embedding and find similar RFPs using semantic service
@@ -873,11 +1215,13 @@ async def save_opportunity(opportunity_id: str):
             "created_at": datetime.now().isoformat(),
             "grant_id": scraped_grant_id,
             "grant_title": opportunity.get("title"),
-            "source": opportunity.get("source", "Agent")
+            "source": opportunity.get("source", "Agent"),
+            "user_id": user_id  # Store user_id for org-specific matching
         }
 
-        # Start background LLM enhancement task (will move to saved_opportunities)
-        asyncio.create_task(run_llm_enhancement(enhancement_job_id, scraped_grant_id))
+        # Start background LLM enhancement task (will move to saved_opportunities) with org-specific matching
+        print(f"[SAVE] Creating background LLM enhancement task. user_id={user_id}, grant_id={scraped_grant_id}")
+        asyncio.create_task(run_llm_enhancement(enhancement_job_id, scraped_grant_id, user_id))
 
         return {
             "status": "processing",
@@ -891,7 +1235,7 @@ async def save_opportunity(opportunity_id: str):
 
 
 @app.patch("/api/opportunities/{opportunity_id}/description")
-async def update_opportunity_description(opportunity_id: str, payload: UpdateOpportunityDescriptionRequest):
+async def update_opportunity_description(opportunity_id: str, payload: UpdateOpportunityDescriptionRequest, user_id: str = Depends(get_current_user)):
     """Update the description of a saved opportunity"""
     new_description = payload.description.strip()
     if not new_description:
@@ -905,7 +1249,7 @@ async def update_opportunity_description(opportunity_id: str, payload: UpdateOpp
         result = supabase.table("saved_opportunities").update({
             "description": new_description,
             "updated_at": updated_at
-        }).eq("id", opportunity_id).execute()
+        }).eq("id", opportunity_id).eq("user_id", user_id).execute()
 
         if result.data:
             updated_record = result.data[0]
@@ -934,7 +1278,7 @@ async def update_opportunity_description(opportunity_id: str, payload: UpdateOpp
 
 
 @app.patch("/api/opportunities/{opportunity_id}/notes")
-async def update_opportunity_notes(opportunity_id: str, payload: UpdateOpportunityNotesRequest):
+async def update_opportunity_notes(opportunity_id: str, payload: UpdateOpportunityNotesRequest, user_id: str = Depends(get_current_user)):
     """Update the notes of a saved opportunity"""
     new_notes = payload.notes.strip() if payload.notes else ""
 
@@ -946,7 +1290,7 @@ async def update_opportunity_notes(opportunity_id: str, payload: UpdateOpportuni
         result = supabase.table("saved_opportunities").update({
             "notes": new_notes,
             "updated_at": updated_at
-        }).eq("id", opportunity_id).execute()
+        }).eq("id", opportunity_id).eq("user_id", user_id).execute()
 
         if result.data:
             updated_record = result.data[0]
@@ -975,11 +1319,11 @@ async def update_opportunity_notes(opportunity_id: str, payload: UpdateOpportuni
 
 
 @app.delete("/api/opportunities/{opportunity_id}")
-async def delete_opportunity(opportunity_id: str):
+async def delete_opportunity(opportunity_id: str, user_id: str = Depends(get_current_user)):
     """Delete a saved opportunity from the database"""
     try:
         # Delete from saved_opportunities table
-        result = supabase.table("saved_opportunities").delete().eq("id", opportunity_id).execute()
+        result = supabase.table("saved_opportunities").delete().eq("id", opportunity_id).eq("user_id", user_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -999,14 +1343,14 @@ async def delete_opportunity(opportunity_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete opportunity: {str(e)}")
 
 @app.post("/api/opportunities/{opportunity_id}/add-to-rfp-db")
-async def add_opportunity_to_rfp_database(opportunity_id: str):
+async def add_opportunity_to_rfp_database(opportunity_id: str, user_id: str = Depends(get_current_user)):
     """
     Add a saved opportunity to the RFP database for algorithm training.
     This allows users to refine the matching algorithm through feedback.
     """
     try:
         # Fetch the opportunity from saved_opportunities (including existing embedding)
-        result = supabase.table("saved_opportunities").select("*").eq("id", opportunity_id).execute()
+        result = supabase.table("saved_opportunities").select("*").eq("id", opportunity_id).eq("user_id", user_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Opportunity not found")
@@ -1210,12 +1554,109 @@ async def load_rfps():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load RFPs: {str(e)}")
 
+@app.post("/api/rfps/upload")
+async def upload_rfp(
+    file: UploadFile = File(...),
+    title: Optional[str] = None,
+    funder: Optional[str] = None,
+    deadline: Optional[str] = None,
+    user_id: str = Depends(get_current_user)
+):
+    """Upload and analyze an RFP/grant document"""
+    try:
+        print(f"[RFP UPLOAD] Starting upload for user {user_id}")
+
+        # Validate file is PDF
+        if file.content_type != "application/pdf":
+            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+        # Read file bytes
+        file_bytes = await file.read()
+        if len(file_bytes) == 0:
+            raise HTTPException(status_code=400, detail="File is empty")
+        if len(file_bytes) > 50 * 1024 * 1024:  # 50MB limit
+            raise HTTPException(status_code=400, detail="File is too large (max 50MB)")
+
+        print(f"[RFP UPLOAD] File size: {len(file_bytes)} bytes")
+
+        # Extract text from PDF
+        pdf_text = extract_text_from_pdf(file_bytes)
+        if not pdf_text or len(pdf_text) < 50:
+            raise HTTPException(status_code=400, detail="Could not extract meaningful text from PDF")
+
+        print(f"[RFP UPLOAD] Extracted {len(pdf_text)} characters from PDF")
+
+        # Analyze with Claude
+        analyzed_data = await analyze_uploaded_rfp(pdf_text, title, funder, deadline)
+
+        print(f"[RFP UPLOAD] Analysis complete: {analyzed_data.get('title')}")
+
+        # Generate unique opportunity_id
+        opportunity_id = f"user-upload-{uuid.uuid4()}"
+
+        # Calculate match score (simple for now - will be enhanced based on org profile)
+        match_score = 75  # Default score for user uploads
+
+        # Prepare opportunity data for saving
+        opportunity_data = {
+            "opportunity_id": opportunity_id,
+            "title": analyzed_data.get("title", title or "Uploaded RFP"),
+            "description": analyzed_data.get("description", "User-uploaded grant opportunity"),
+            "funder": analyzed_data.get("funder", funder or "Unknown"),
+            "amount": analyzed_data.get("amount"),
+            "deadline": analyzed_data.get("deadline", deadline),
+            "requirements": analyzed_data.get("key_requirements", []),
+            "tags": analyzed_data.get("tags", []),
+            "source": "user_upload",
+            "match_score": match_score,
+            "user_id": user_id,
+            "created_at": datetime.now().isoformat(),
+            "saved_at": datetime.now().isoformat(),
+            "contact": "User uploaded document",
+            "application_url": None,
+            "embedding": None,
+            "llm_summary": None,
+            "detailed_match_reasoning": None,
+            "winning_strategies": [],
+            "key_themes": [],
+            "recommended_metrics": [],
+            "considerations": [],
+            "similar_past_proposals": [],
+            "status": "active"
+        }
+
+        # Save to database
+        result = supabase_admin.table("saved_opportunities").insert(opportunity_data).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to save opportunity to database")
+
+        print(f"[RFP UPLOAD] Successfully saved opportunity {opportunity_id}")
+
+        # Return success response with analyzed data
+        return {
+            "message": "RFP uploaded and analyzed successfully",
+            "title": analyzed_data.get("title", title or "Uploaded RFP"),
+            "funder": analyzed_data.get("funder", funder or "Unknown"),
+            "deadline": analyzed_data.get("deadline", deadline),
+            "match_score": match_score,
+            "llm_summary": analyzed_data.get("description", ""),
+            "tags": analyzed_data.get("tags", []),
+            "opportunity_id": opportunity_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[RFP UPLOAD] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
 @app.get("/api/rfps/similar/{opportunity_id}")
-async def get_similar_rfps(opportunity_id: str):
+async def get_similar_rfps(opportunity_id: str, user_id: str = Depends(get_current_user)):
     """Get similar RFPs for a saved opportunity using semantic search"""
     try:
         # Find opportunity in saved opportunities
-        result = supabase.table("saved_opportunities").select("*").eq("opportunity_id", opportunity_id).execute()
+        result = supabase.table("saved_opportunities").select("*").eq("opportunity_id", opportunity_id).eq("user_id", user_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Saved opportunity not found")
@@ -1295,11 +1736,11 @@ async def update_proposal_status(proposal_id: str, status_update: dict):
         raise HTTPException(status_code=500, detail=f"Failed to update proposal: {str(e)}")
 
 @app.get("/api/dashboard/stats")
-async def get_dashboard_stats():
+async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
     """Get dashboard statistics"""
     try:
         # Get opportunities count and funding from unified table
-        opportunities_result = supabase.table("saved_opportunities").select("amount").execute()
+        opportunities_result = supabase.table("saved_opportunities").select("amount").eq("user_id", user_id).execute()
         opportunities = opportunities_result.data
 
         # Get proposals count
@@ -1388,7 +1829,7 @@ async def get_analytics(range: str = "30d"):
         ]
     }
 
-async def run_llm_enhancement(job_id: str, grant_id: str):
+async def run_llm_enhancement(job_id: str, grant_id: str, user_id: str = None):
     """Background task for LLM enhancement with progress updates"""
     job = jobs_db[job_id]
 
@@ -1399,8 +1840,9 @@ async def run_llm_enhancement(job_id: str, grant_id: str):
         job["current_task"] = "Generating AI summary..."
         job["progress"] = 25
 
-        # Run LLM enhancement
-        enhanced_grant = await enhance_and_save_grant(grant_id, supabase)
+        # Run LLM enhancement with user_id for org-specific matching
+        # Use admin client to bypass RLS and properly insert with user_id
+        enhanced_grant = await enhance_and_save_grant(grant_id, supabase_admin, user_id)
 
         # Update progress
         job["current_task"] = "Extracting tags and reasoning..."
@@ -1425,9 +1867,9 @@ async def run_llm_enhancement(job_id: str, grant_id: str):
         job["current_task"] = f"Error: {str(e)}"
         print(f"[LLM Enhancement Job] Failed: {e}")
 
-async def run_opportunity_search(job_id: str, criteria: SearchCriteria):
-    """Execute Claude Code fundraising-cro agent for opportunity discovery"""
-    print(f"[BACKGROUND TASK] Starting run_opportunity_search for job {job_id}")
+async def run_opportunity_search(job_id: str, criteria: SearchCriteria, user_id: str = None):
+    """Execute Claude Code fundraising-cro agent for opportunity discovery with org-aware matching"""
+    print(f"[BACKGROUND TASK] Starting run_opportunity_search for job {job_id}, user {user_id}")
     job = jobs_db[job_id]
 
     try:
@@ -1436,54 +1878,49 @@ async def run_opportunity_search(job_id: str, criteria: SearchCriteria):
         job["current_task"] = "Initializing fundraising-cro agent..."
         job["progress"] = 10
 
-        # Prepare context for fundraising agent
-        per_scholas_context = """
-Per Scholas is a leading national nonprofit that advances economic equity through rigorous,
-tuition-free technology training for individuals from underrepresented communities.
+        # Get organization configuration
+        org_config = await get_organization_config()
 
-Mission: To advance economic equity by providing access to technology careers for individuals
-from underrepresented communities.
+        # Build organization context from config
+        programs_text = "\n".join([f"- {prog}" for prog in org_config.get("programs", ["Program 1", "Program 2"])])
+        metrics = org_config.get("impact_metrics", {})
+        metrics_text = "\n".join([f"- {k.replace('_', ' ').title()}: {v}" for k, v in metrics.items()])
+        demographics_text = "\n".join([f"- {demo}" for demo in org_config.get("target_demographics", ["Diverse communities"])])
+
+        organization_context = f"""
+{org_config.get('name', 'Your Organization')} is a nonprofit organization dedicated to creating positive impact.
+
+Mission: {org_config.get('mission', 'Advancing opportunity through education and community development.')}
 
 Programs:
-- Cybersecurity Training (16-week intensive program)
-- Cloud Computing (AWS/Azure certification tracks)
-- Software Development (Full-stack development)
-- IT Support (CompTIA certification preparation)
+{programs_text}
 
 Impact:
-- 20,000+ graduates to date
-- 85% job placement rate
-- 150% average salary increase
-- 24 markets across the United States
-- Focus on underrepresented minorities, women, veterans
+{metrics_text}
 
 Target Demographics:
-- Individuals from underrepresented communities
-- Women seeking technology careers
-- Veterans transitioning to civilian workforce
-- Career changers from declining industries
-- Low-income individuals seeking economic mobility
+{demographics_text}
 """
 
         fundraising_prompt = f"""
-I need you to find actual, current funding opportunities for Per Scholas.
+I need you to find actual, current funding opportunities for {org_config.get('name', 'our organization')}.
 
 Organization Context:
-{per_scholas_context}
+{organization_context}
 
 User Search Request: {criteria.prompt}
 
 Please execute your grant discovery protocol:
 1. Search GRANTS.gov, NSF, DOL, and other federal databases for current opportunities
-2. Find foundation grants from major funders (Gates, Ford, JPMorgan Chase, Google.org, etc.)
-3. Look for corporate funding programs focused on workforce development and technology equity
-4. Focus specifically on opportunities that align with Per Scholas' mission of technology training for underserved communities
+2. Find foundation grants from major funders
+3. Look for corporate funding programs aligned with the organization's mission
+4. Focus on opportunities that match {org_config.get('name', 'the organization')}'s mission and goals
 
 For each opportunity found, provide:
 - Title and funder organization
 - Funding amount range
 - Application deadline
-- Match score (0-100) for Per Scholas fit based on mission alignment
+- Match score (0-100) for fit based on mission alignment
 - Detailed description and key requirements
 - Contact information and application URL if available
 
@@ -1498,25 +1935,25 @@ Priority should be given to opportunities with deadlines in the next 3-6 months 
         try:
             # Get existing opportunities to avoid duplicates from unified table
             try:
-                existing_result = supabase.table("saved_opportunities").select("title, funder").execute()
+                existing_result = supabase.table("saved_opportunities").select("title, funder").eq("user_id", user_id).execute()
                 existing_opps = [f"{opp['title']} - {opp['funder']}" for opp in existing_result.data]
                 existing_list = "; ".join(existing_opps) if existing_opps else "None"
             except:
                 existing_list = "None"
 
             # Create comprehensive prompt for fundraising-cro agent
-            orchestration_prompt = f"""You are a fundraising-cro agent for Per Scholas. Find MULTIPLE (3-5) REAL, CURRENT funding opportunities using web search and research.
+            orchestration_prompt = f"""You are a fundraising-cro agent for {org_config.get('name', 'the organization')}. Find MULTIPLE (3-5) REAL, CURRENT funding opportunities using web search and research.
 
 Organization Context:
-{per_scholas_context}
+{organization_context}
 
 User Search Request: {criteria.prompt}
 
 Execute this multi-step process:
 
-1. Search current federal databases (GRANTS.gov, NSF, DOL) for technology workforce development opportunities
-2. Research foundation grants from major funders aligned with our mission
-3. Identify corporate funding programs for underserved communities
+1. Search current federal databases (GRANTS.gov, NSF, DOL) for relevant funding opportunities
+2. Research foundation grants from major funders aligned with the organization's mission
+3. Identify corporate funding programs supporting the organization's focus areas
 4. Filter for opportunities with deadlines in next 3-6 months and funding >$50k
 5. Find at least 3-5 different opportunities from various sources
 
@@ -1588,7 +2025,8 @@ REQUIREMENTS:
                 print(f"[DEBUG] Search keywords: '{search_keywords}'")
 
                 grants_service = GrantsGovService(supabase_client=supabase)
-                real_grants = grants_service.search_grants(search_keywords, limit=10)
+                # Pass user_id for organization-aware matching
+                real_grants = grants_service.search_grants(search_keywords, limit=10, user_id=user_id)
                 print(f"[DEBUG] Retrieved {len(real_grants)} real grants")
                 orchestration_result = json.dumps({"opportunities": real_grants})
             else:
@@ -1995,5 +2433,5 @@ async def download_proposal(proposal_id: int):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8001))
+    port = int(os.environ.get("PORT") or 8000)
     uvicorn.run(app, host="0.0.0.0", port=port)
