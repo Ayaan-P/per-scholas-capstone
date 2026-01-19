@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../utils/supabaseClient'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -104,7 +105,10 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <div className="mb-8">
+        <div className="mb-8 text-center">
+          <div className="flex justify-center mb-4">
+            <Image src="/logo.png" alt="FundSync Logo" width={60} height={60} className="h-16 w-auto" />
+          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Get Started</h1>
           <p className="text-gray-600">Create your FundSync account</p>
         </div>

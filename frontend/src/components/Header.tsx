@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 
 export function Header() {
   const pathname = usePathname()
@@ -36,7 +37,7 @@ export function Header() {
           {/* Logo */}
           <div className="flex items-center space-x-2 sm:space-x-4">
             <a href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-4">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600">FundSync</h1>
+              <Image src="/logo.png" alt="FundSync Logo" width={40} height={40} className="h-8 sm:h-10 w-auto" />
               <div className="hidden sm:block h-6 sm:h-8 w-px bg-gray-300"></div>
               <span className="hidden md:block text-base lg:text-lg font-medium text-gray-700">
                 Fundraising Intelligence Platform
