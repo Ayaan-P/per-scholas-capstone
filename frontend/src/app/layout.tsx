@@ -13,7 +13,7 @@ export default function RootLayout({
     <AuthProvider>
       <html lang="en">
         <head>
-          <title>FundSync | Fundraising Intelligence Platform</title>
+          <title>FundFish | Fundraising Intelligence Platform</title>
           <meta name="description" content="Enterprise-grade AI platform for funding opportunity discovery and proposal generation for nonprofits" />
         </head>
         <body className="bg-gray-50 min-h-screen">

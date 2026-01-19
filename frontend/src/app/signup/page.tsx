@@ -107,10 +107,10 @@ export default function SignupPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
-            <Image src="/logo.png" alt="FundSync Logo" width={60} height={60} className="h-16 w-auto" />
+            <Image src="/logo.png" alt="FundFish Logo" width={60} height={60} className="h-16 w-auto" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Get Started</h1>
-          <p className="text-gray-600">Create your FundSync account</p>
+          <p className="text-gray-600">Create your FundFish account</p>
         </div>
 
         {error && (
