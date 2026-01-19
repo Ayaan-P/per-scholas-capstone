@@ -188,5 +188,12 @@ export const api = {
     authenticatedFetch(`${API_BASE_URL}/api/organization/config`, {
       method: 'POST',
       body: JSON.stringify(config)
-    })
+    }),
+
+  // Categories
+  getCategories: () =>
+    fetch(`${API_BASE_URL}/api/categories`),
+
+  getCategoryDetail: (categoryId: number) =>
+    fetch(`${API_BASE_URL}/api/categories/${categoryId}`)
 }
