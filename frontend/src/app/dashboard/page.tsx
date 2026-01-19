@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
 
