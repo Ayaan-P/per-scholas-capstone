@@ -6,10 +6,11 @@ This demonstrates the backend working with real funding opportunities
 import requests
 import json
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import xml.etree.ElementTree as ET
 import re
 from semantic_service import SemanticService
+from organization_matching_service import OrganizationMatchingService
 
 class GrantsGovService:
     def __init__(self, supabase_client=None):
@@ -25,6 +26,16 @@ class GrantsGovService:
         except Exception as e:
             print(f"[GRANTS] Could not initialize semantic service: {e}")
             self.semantic_service = None
+        # Initialize organization matching service for org-aware scoring
+        try:
+            self.org_matching_service = OrganizationMatchingService(supabase_client) if supabase_client else None
+            if self.org_matching_service:
+                print("[GRANTS] Organization matching service initialized for org-aware grant matching")
+        except Exception as e:
+            print(f"[GRANTS] Could not initialize organization matching service: {e}")
+            self.org_matching_service = None
+        # Cache organization profiles to avoid repeated database queries
+        self.org_profile_cache = {}
 
     def search_grants_via_script(self, keywords: str = "technology workforce", limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -85,12 +96,42 @@ class GrantsGovService:
             print(f"Error calling grants script: {e}")
             return self._get_mock_grants()
 
-    def search_grants(self, keywords: str = "technology workforce", limit: int = 5) -> List[Dict[str, Any]]:
+    def search_grants(self, keywords: str = "technology workforce", limit: int = 5, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Search grants.gov using the same API as the working shell script
+        Search grants.gov using the same API as the working shell script.
+        If user_id is provided, uses organization-specific matching for more accurate results.
         """
         try:
             import requests
+
+            # Fetch organization profile for org-aware matching if user_id provided
+            org_profile = None
+            if user_id and self.org_matching_service:
+                try:
+                    # Check cache first
+                    if user_id in self.org_profile_cache:
+                        org_profile = self.org_profile_cache[user_id]
+                    else:
+                        # Fetch from database
+                        import asyncio
+                        org_profile = asyncio.run(self.org_matching_service.get_organization_profile(user_id))
+                        if org_profile:
+                            self.org_profile_cache[user_id] = org_profile
+                            print(f"[GRANTS SERVICE] Loaded organization profile for {org_profile.get('name', 'Unknown')}")
+                except Exception as e:
+                    print(f"[GRANTS SERVICE] Could not load org profile for user {user_id}: {e}")
+                    org_profile = None
+
+            # If org profile exists, build organization-specific search keywords
+            if org_profile and self.org_matching_service:
+                try:
+                    primary_kw, secondary_kw = self.org_matching_service.build_search_keywords(org_profile)
+                    # Use org-specific keywords for search
+                    search_keywords = ' '.join(primary_kw + secondary_kw[:5])  # Use top secondary keywords
+                    print(f"[GRANTS SERVICE] Using org-specific keywords: {search_keywords}")
+                    keywords = search_keywords
+                except Exception as e:
+                    print(f"[GRANTS SERVICE] Could not build org keywords, using provided keywords: {e}")
 
             print(f"[GRANTS SERVICE] Searching for: {keywords}")
 
@@ -173,7 +214,8 @@ class GrantsGovService:
                         "last_updated_date": opportunity_details.get('last_updated_date')
                     }
                     # Calculate enhanced match score after building the full opportunity
-                    opp["match_score"] = self._calculate_enhanced_match_score(opp)
+                    # Pass org_profile for organization-specific scoring
+                    opp["match_score"] = self._calculate_enhanced_match_score(opp, org_profile=org_profile)
                     opportunities.append(opp)
 
                 print(f"[GRANTS SERVICE] Found {len(opportunities)} opportunities")
@@ -319,7 +361,8 @@ class GrantsGovService:
                     "application_url": opp.get('link', f"https://grants.gov/view/{opp.get('opportunityNumber', 'opportunity')}")
                 }
                 # Calculate enhanced match score after building the full grant
-                grant["match_score"] = self._calculate_enhanced_match_score(grant)
+                # Note: org_profile is not available in _parse_grants_response, fallback to standard scoring
+                grant["match_score"] = self._calculate_enhanced_match_score(grant, org_profile=None)
 
                 grants.append(grant)
 
@@ -388,10 +431,67 @@ class GrantsGovService:
 
         return min(95, base_score)
 
-    def _calculate_enhanced_match_score(self, grant: Dict[str, Any]) -> int:
-        """Calculate enhanced match score using semantic similarity with historical RFPs"""
+    def _calculate_enhanced_match_score(self, grant: Dict[str, Any], org_profile: Optional[Dict[str, Any]] = None) -> int:
+        """
+        Calculate enhanced match score using semantic similarity with historical RFPs.
+        If org_profile is provided, uses organization-specific matching for more accurate scoring.
+
+        Args:
+            grant: Grant opportunity dictionary
+            org_profile: Optional organization profile for org-aware scoring
+
+        Returns:
+            Match score 0-100
+        """
         try:
-            # Check if this grant already exists in the database with a match score
+            # If organization profile provided, use org-aware scoring
+            if org_profile and self.org_matching_service:
+                try:
+                    print(f"[GRANTS] Calculating org-aware match score for '{grant.get('title', 'Unknown')[:60]}...'")
+
+                    # Build semantic similarity scores using semantic service
+                    rfp_similarities = []
+                    if self.semantic_service:
+                        try:
+                            grant_text = f"{grant.get('title', '')} {grant.get('description', '')}"
+                            rfp_similarities = self.semantic_service.find_similar_rfps(grant_text, limit=3)
+                        except Exception as e:
+                            print(f"[GRANTS] Could not find similar RFPs: {e}")
+
+                    # Get keyword matching score (using org-specific keywords)
+                    primary_kw, secondary_kw = self.org_matching_service.build_search_keywords(org_profile)
+                    all_keywords = primary_kw + secondary_kw
+                    grant_text = (grant.get('title', '') + ' ' + grant.get('description', '')).lower()
+                    keyword_matches = sum(1 for kw in all_keywords if kw.lower() in grant_text)
+                    keyword_score = min(100, (keyword_matches * 10) if all_keywords else 0)
+
+                    # Get semantic similarity score
+                    semantic_score = 0
+                    if rfp_similarities:
+                        best_similarity = max(rfp.get('similarity_score', 0) for rfp in rfp_similarities)
+                        if best_similarity >= 0.85:
+                            semantic_score = min(100, int(85 + (best_similarity - 0.85) * 33))
+                        elif best_similarity >= 0.70:
+                            semantic_score = min(85, int(70 + (best_similarity - 0.70) * 66))
+                        elif best_similarity >= 0.55:
+                            semantic_score = min(70, int(55 + (best_similarity - 0.55) * 66))
+
+                    # Calculate organization-aware match score
+                    org_scores = self.org_matching_service.calculate_organization_match_score(
+                        org_profile, grant, keyword_score, semantic_score
+                    )
+                    org_aware_score = int(org_scores.get('overall_score', 50))
+
+                    print(f"[GRANTS] Org-aware score breakdown for '{grant.get('title', 'Unknown')[:50]}...':")
+                    print(f"  Overall: {org_aware_score}, Keyword: {org_scores.get('keyword_matching', 0):.0f}, Semantic: {org_scores.get('semantic_similarity', 0):.0f}")
+                    print(f"  Funding: {org_scores.get('funding_alignment', 0):.0f}, Demographics: {org_scores.get('demographic_alignment', 0):.0f}, Geographic: {org_scores.get('geographic_alignment', 0):.0f}")
+
+                    return org_aware_score
+
+                except Exception as e:
+                    print(f"[GRANTS] Error in org-aware scoring, falling back to standard: {e}")
+
+            # Check if this grant already exists in the database with a match score (fallback path)
             opportunity_id = grant.get('id') or grant.get('opportunity_id')
             if opportunity_id and self.supabase:
                 try:
@@ -407,7 +507,7 @@ class GrantsGovService:
                 except Exception as e:
                     print(f"[GRANTS] Could not check for cached score: {e}")
 
-            # Import the standalone scoring service
+            # Import the standalone scoring service (fallback to standard Per Scholas-specific scoring)
             from match_scoring import calculate_match_score
 
             # Find similar RFPs using semantic search if available

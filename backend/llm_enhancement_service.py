@@ -347,13 +347,14 @@ Generate 3-5 relevant tags based on the matched keywords and grant focus."""
 
 
 # Convenience function for API endpoint
-async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, Any]:
+async def enhance_and_save_grant(grant_id: str, supabase: Client, user_id: str = None) -> Dict[str, Any]:
     """
     Enhancement pipeline triggered on save button.
 
     Args:
         grant_id: ID of grant in scraped_grants table
         supabase: Supabase client
+        user_id: Optional user ID for org-specific match score calculation
 
     Returns:
         Enhanced grant data saved to unified saved_opportunities table
@@ -369,14 +370,37 @@ async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, A
     service = LLMEnhancementService()
     enhanced = await service.enhance_grant(grant)
 
-    # 3. Save to unified saved_opportunities table
+    # 3. Calculate org-specific match score if user_id provided
+    org_specific_score = enhanced.get('match_score')  # Default to generic score
+    if user_id:
+        try:
+            from organization_matching_service import OrganizationMatchingService
+            org_matching_service = OrganizationMatchingService(supabase)
+            org_profile = await org_matching_service.get_organization_profile(user_id)
+
+            if org_profile:
+                # Calculate org-specific match score
+                org_specific_score = await org_matching_service.calculate_organization_match_score(
+                    org_profile=org_profile,
+                    grant=grant,
+                    keywords=grant.get('keywords', []),
+                    grant_description=grant.get('description', '')
+                )
+                print(f"[SAVE GRANT] Calculated org-specific score: {org_specific_score}% (generic was {enhanced.get('match_score')}%)")
+        except Exception as e:
+            print(f"[SAVE GRANT] Error calculating org-specific score: {e}")
+            # Fall back to generic score if matching service fails
+
+    # 4. Save to unified saved_opportunities table with org-specific or generic score
+    print(f"[SAVE GRANT] Preparing to save with user_id={user_id} (type={type(user_id).__name__})")
     opp_data = {
+        'user_id': user_id,  # NEW: Store user_id for user isolation
         'opportunity_id': enhanced.get('opportunity_id'),  # Use opportunity_id field from scraped_grants
         'title': enhanced.get('title'),
         'funder': enhanced.get('funder'),
         'amount': enhanced.get('amount'),
         'deadline': enhanced.get('deadline'),
-        'match_score': enhanced.get('match_score'),
+        'match_score': org_specific_score,  # Use org-specific score if calculated, otherwise generic
         'description': enhanced.get('description'),
         'requirements': enhanced.get('requirements', []),
         'contact': enhanced.get('contact', ''),
@@ -413,6 +437,25 @@ async def enhance_and_save_grant(grant_id: str, supabase: Client) -> Dict[str, A
         # saved_at, created_at, updated_at are auto-generated
     }
 
-    supabase.table('saved_opportunities').insert(opp_data).execute()
-
-    return enhanced
+    try:
+        # Try to insert new opportunity
+        result = supabase.table('saved_opportunities').insert(opp_data).execute()
+        print(f"[SAVE GRANT] Successfully saved opportunity: {opp_data.get('title')[:50]}...")
+        return enhanced
+    except Exception as e:
+        # If duplicate exists, delete old NULL row and insert new one with user_id
+        if '23505' in str(e) or 'unique constraint' in str(e).lower():
+            print(f"[SAVE GRANT] Opportunity exists, replacing with user-specific version...")
+            try:
+                # Delete the old row (likely has user_id=NULL)
+                supabase.table('saved_opportunities').delete().eq('opportunity_id', opp_data['opportunity_id']).execute()
+                # Now insert the new one with user_id
+                supabase.table('saved_opportunities').insert(opp_data).execute()
+                print(f"[SAVE GRANT] Successfully saved opportunity with user_id: {opp_data.get('title')[:50]}...")
+                return enhanced
+            except Exception as replace_error:
+                print(f"[SAVE GRANT] ERROR replacing opportunity: {replace_error}")
+                raise replace_error
+        else:
+            print(f"[SAVE GRANT] ERROR saving: {e}")
+            raise
