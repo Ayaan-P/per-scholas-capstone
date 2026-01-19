@@ -3,6 +3,8 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 requests==2.31.0
 python-dotenv==1.0.0
+PyJWT==2.8.1
+cryptography==41.0.7
 supabase==1.0.3
 anthropic==0.40.0
 sentence-transformers==2.2.2
