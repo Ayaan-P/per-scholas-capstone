@@ -38,6 +38,7 @@ export function Header() {
           <div className="flex items-center space-x-2 sm:space-x-4">
             <a href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-4">
               <Image src="/logo.png" alt="FundFish Logo" width={40} height={40} className="h-8 sm:h-10 w-auto" />
+              <h1 className="text-xl sm:text-2xl font-bold" style={{color: '#c2e9ff'}}>fundfish</h1>
               <div className="hidden sm:block h-6 sm:h-8 w-px bg-gray-300"></div>
               <span className="hidden md:block text-base lg:text-lg font-medium text-gray-700">
                 Fundraising Intelligence Platform
