@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { api } from '@/lib/api'
+import { api } from '@/utils/api'
 import UpgradeModal from '@/components/UpgradeModal'
 import SearchAllocation from '@/components/SearchAllocation'
 
