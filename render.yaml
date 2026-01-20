@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: perscholas-fundraising-backend
+    root_dir: backend
+    runtime: docker
+    plan: standard
+
+    # Environment variables required for the backend to run
+    envVars:
+      # Supabase Configuration
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # Stripe Configuration
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLIC_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      # Stripe Price IDs
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_10_CREDITS
+        sync: false
+      - key: STRIPE_PRICE_20_CREDITS
+        sync: false
+      - key: STRIPE_PRICE_100_CREDITS
+        sync: false
+
+      # API Keys
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SAM_GOV_API_KEY
+        sync: false
+
+      # Server Configuration
+      - key: PORT
+        value: "8000"
+      - key: FASTAPI_ENV
+        value: "production"
+      - key: DEBUG
+        value: "false"
+
+      # Optional: Claude Code Integration
+      - key: CLAUDE_ACCESS_TOKEN
+        sync: false
+      - key: CLAUDE_USER_ID
+        sync: false
+
+# Build configuration
+build:
+  dockerfile: Dockerfile
+  context: backend
