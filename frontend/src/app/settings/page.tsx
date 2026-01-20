@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { api } from '../../utils/api'
 import { ProtectedRoute } from '../../components/ProtectedRoute'
+import { CreditBalance } from '../../components/CreditBalance'
+import { UpgradeModal } from '../../components/UpgradeModal'
 
 interface OrganizationConfig {
   id?: string
@@ -134,6 +136,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [activeTab, setActiveTab] = useState('basic')
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -197,7 +200,31 @@ export default function SettingsPage() {
 
   return (
     <ProtectedRoute>
+      <UpgradeModal
+        isOpen={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        reason="upgrade"
+      />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Credits Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Search Credits</h2>
+              <p className="text-gray-600 text-sm">Manage your search credits and upgrade your plan</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <CreditBalance />
+              <button
+                onClick={() => setUpgradeModalOpen(true)}
+                className="px-6 py-2 bg-perscholas-secondary text-white rounded-lg hover:bg-perscholas-dark font-medium transition-colors whitespace-nowrap"
+              >
+                Buy Credits
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Organization Profile</h1>
           <p className="text-gray-600 mb-8">Help us understand your organization so we can match you with the best funding opportunities</p>

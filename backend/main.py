@@ -18,12 +18,15 @@ import io
 from grants_service import GrantsGovService
 # from semantic_service import SemanticService  # Disabled for Render free tier
 from typing import List, Dict, Any, Optional
+from credits_service import CreditsService
+from credits_routes import router as credits_router
 from datetime import datetime, timedelta
 import json
 from supabase import create_client, Client
 import google.generativeai as genai
 from scheduler_service import SchedulerService
 import PyPDF2
+import httpx
 
 # Setup Claude Code authentication from environment variables on server
 try:
@@ -308,6 +311,15 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Service role client for admin operations (bypasses RLS)
 supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) if SUPABASE_SERVICE_ROLE_KEY else supabase
 
+# Helper function for creating auth headers for Supabase API calls
+def _make_org_config_auth_headers():
+    """Create authorization headers for service role access to Supabase API"""
+    return {
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Content-Type": "application/json"
+    }
+
 # Gemini API configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
@@ -333,6 +345,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include credits router
+app.include_router(credits_router)
 
 # In-memory job tracking (database for persistence)
 jobs_db: Dict[str, Dict[str, Any]] = {}
@@ -592,11 +607,17 @@ async def initialize_user(request: UserInitializationRequest, user_id: str = Dep
         if not user_result.data:
             raise HTTPException(status_code=500, detail="Failed to create user record")
 
+        # Initialize credits for new user (Free tier - 5 credits/month)
+        credits_result = CreditsService.initialize_user_credits(user_id, plan="free")
+        if not credits_result["success"]:
+            print(f"[AUTH] Warning: Failed to initialize credits for user {user_id}: {credits_result.get('error')}")
+
         return {
             "status": "initialized",
             "user_id": user_id,
             "organization_id": org_id,
-            "message": "User initialized successfully"
+            "message": "User initialized successfully",
+            "credits_initialized": credits_result.get("success", False)
         }
 
     except HTTPException:
@@ -609,24 +630,38 @@ async def initialize_user(request: UserInitializationRequest, user_id: str = Dep
 async def get_organization_configuration(user_id: str = Depends(get_current_user)):
     """Get current organization configuration for authenticated user"""
     try:
-        # Get user's organization from users table
-        user_result = supabase.table("users").select("organization_id").eq("id", user_id).execute()
+        headers = _make_org_config_auth_headers()
 
-        if not user_result.data or len(user_result.data) == 0:
+        # Get user's organization from users table
+        with httpx.Client() as client:
+            user_url = f"{SUPABASE_URL}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_response = client.get(user_url, headers=headers)
+
+        if user_response.status_code != 200:
             raise HTTPException(status_code=404, detail="User not found")
 
-        organization_id = user_result.data[0].get("organization_id")
+        user_data = user_response.json()
+        if not user_data or len(user_data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        organization_id = user_data[0].get("organization_id")
 
         if not organization_id:
             raise HTTPException(status_code=404, detail="User has no organization")
 
         # Get organization config
-        config_result = supabase.table("organization_config").select("*").eq("id", organization_id).execute()
+        with httpx.Client() as client:
+            config_url = f"{SUPABASE_URL}/rest/v1/organization_config?select=*&id=eq.{organization_id}"
+            config_response = client.get(config_url, headers=headers)
 
-        if not config_result.data:
+        if config_response.status_code != 200:
             raise HTTPException(status_code=404, detail="Organization config not found")
 
-        config = config_result.data[0]
+        config_data = config_response.json()
+        if not config_data:
+            raise HTTPException(status_code=404, detail="Organization config not found")
+
+        config = config_data[0]
         return {
             "id": config.get("id"),
             "name": config.get("name"),
@@ -638,6 +673,8 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
             "created_at": config.get("created_at"),
             "updated_at": config.get("updated_at")
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[ORG CONFIG] Error getting config: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving configuration")
@@ -646,13 +683,21 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
 async def save_organization_configuration(config_request: OrganizationConfigRequest, user_id: str = Depends(get_current_user)):
     """Save or update organization configuration for authenticated user"""
     try:
-        # Get user's organization
-        user_result = supabase.table("users").select("organization_id").eq("id", user_id).execute()
+        headers = _make_org_config_auth_headers()
 
-        if not user_result.data or len(user_result.data) == 0:
+        # Get user's organization
+        with httpx.Client() as client:
+            user_url = f"{SUPABASE_URL}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_response = client.get(user_url, headers=headers)
+
+        if user_response.status_code != 200:
             raise HTTPException(status_code=404, detail="User not found")
 
-        organization_id = user_result.data[0].get("organization_id")
+        user_data = user_response.json()
+        if not user_data or len(user_data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        organization_id = user_data[0].get("organization_id")
 
         config_data = {
             "name": config_request.name,
@@ -665,42 +710,71 @@ async def save_organization_configuration(config_request: OrganizationConfigRequ
 
         if organization_id:
             # Update existing config
-            update_result = supabase.table("organization_config").update(config_data).eq("id", organization_id).execute()
-            if update_result.data:
-                saved_config = update_result.data[0]
-                return {
-                    "status": "updated",
-                    "id": saved_config.get("id"),
-                    "name": saved_config.get("name"),
-                    "mission": saved_config.get("mission"),
-                    "focus_areas": saved_config.get("focus_areas"),
-                    "impact_metrics": saved_config.get("impact_metrics"),
-                    "programs": saved_config.get("programs"),
-                    "target_demographics": saved_config.get("target_demographics"),
-                    "updated_at": saved_config.get("updated_at")
-                }
+            with httpx.Client() as client:
+                update_response = client.patch(
+                    f"{SUPABASE_URL}/rest/v1/organization_config?id=eq.{organization_id}",
+                    headers=headers,
+                    json=config_data
+                )
+
+            if update_response.status_code in [200, 204]:
+                # Fetch updated config to return
+                with httpx.Client() as client:
+                    fetch_response = client.get(
+                        f"{SUPABASE_URL}/rest/v1/organization_config?select=*&id=eq.{organization_id}",
+                        headers=headers
+                    )
+
+                if fetch_response.status_code == 200:
+                    config_list = fetch_response.json()
+                    if config_list:
+                        saved_config = config_list[0]
+                        return {
+                            "status": "updated",
+                            "id": saved_config.get("id"),
+                            "name": saved_config.get("name"),
+                            "mission": saved_config.get("mission"),
+                            "focus_areas": saved_config.get("focus_areas"),
+                            "impact_metrics": saved_config.get("impact_metrics"),
+                            "programs": saved_config.get("programs"),
+                            "target_demographics": saved_config.get("target_demographics"),
+                            "updated_at": saved_config.get("updated_at")
+                        }
         else:
             # Create new config
             config_data["owner_id"] = user_id
-            insert_result = supabase.table("organization_config").insert(config_data).execute()
-            if insert_result.data:
-                saved_config = insert_result.data[0]
-                org_id = saved_config.get("id")
+            with httpx.Client() as client:
+                insert_response = client.post(
+                    f"{SUPABASE_URL}/rest/v1/organization_config",
+                    headers=headers,
+                    json=config_data
+                )
 
-                # Link user to organization
-                user_update = supabase.table("users").update({"organization_id": org_id}).eq("id", user_id).execute()
+            if insert_response.status_code in [200, 201]:
+                insert_data = insert_response.json()
+                if insert_data and len(insert_data) > 0:
+                    saved_config = insert_data[0]
+                    org_id = saved_config.get("id")
 
-                return {
-                    "status": "created",
-                    "id": saved_config.get("id"),
-                    "name": saved_config.get("name"),
-                    "mission": saved_config.get("mission"),
-                    "focus_areas": saved_config.get("focus_areas"),
-                    "impact_metrics": saved_config.get("impact_metrics"),
-                    "programs": saved_config.get("programs"),
-                    "target_demographics": saved_config.get("target_demographics"),
-                    "created_at": saved_config.get("created_at")
-                }
+                    # Link user to organization
+                    with httpx.Client() as client:
+                        user_update = client.patch(
+                            f"{SUPABASE_URL}/rest/v1/users?id=eq.{user_id}",
+                            headers=headers,
+                            json={"organization_id": org_id}
+                        )
+
+                    return {
+                        "status": "created",
+                        "id": saved_config.get("id"),
+                        "name": saved_config.get("name"),
+                        "mission": saved_config.get("mission"),
+                        "focus_areas": saved_config.get("focus_areas"),
+                        "impact_metrics": saved_config.get("impact_metrics"),
+                        "programs": saved_config.get("programs"),
+                        "target_demographics": saved_config.get("target_demographics"),
+                        "created_at": saved_config.get("created_at")
+                    }
 
         raise HTTPException(status_code=500, detail="Failed to save configuration")
     except HTTPException:
@@ -885,7 +959,24 @@ async def start_opportunity_search(
     user_id: str = Depends(get_current_user)
 ):
     """Start AI-powered opportunity discovery with organization-specific matching"""
+
+    # Check if monthly credits need to be reset
+    CreditsService.reset_monthly_credits_if_needed(user_id)
+
+    # Check if user has enough credits for a search (1 credit per search)
+    check_result = CreditsService.check_and_deduct_credits(user_id, amount=1, reference_id=None)
+    if not check_result["success"]:
+        raise HTTPException(
+            status_code=402,  # Payment Required
+            detail=f"Insufficient credits. {check_result.get('error', 'Please purchase more credits')}"
+        )
+
     job_id = str(uuid.uuid4())
+
+    # Update reference_id with job_id after deduction
+    supabase_admin.table("credit_transactions").update({
+        "reference_id": job_id
+    }).eq("id", job_id).execute()  # This will need adjustment based on actual transaction ID
 
     # Initialize job
     jobs_db[job_id] = {
@@ -895,14 +986,21 @@ async def start_opportunity_search(
         "current_task": "Initializing AI agent...",
         "result": None,
         "error": None,
-        "created_at": datetime.now().isoformat()
+        "created_at": datetime.now().isoformat(),
+        "credits_deducted": 1,
+        "new_balance": check_result["new_balance"]
     }
 
     # Start background task with user_id for organization-aware matching
     import asyncio
     asyncio.create_task(run_opportunity_search(job_id, criteria, user_id))
 
-    return {"job_id": job_id, "status": "started"}
+    return {
+        "job_id": job_id,
+        "status": "started",
+        "credits_used": 1,
+        "new_balance": check_result["new_balance"]
+    }
 
 @app.get("/api/jobs/{job_id}")
 async def get_job_status(job_id: str):

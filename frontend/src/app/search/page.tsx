@@ -4,6 +4,9 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { api } from '../../utils/api'
+import { SearchAllocation } from '../../components/SearchAllocation'
+import { UpgradeModal } from '../../components/UpgradeModal'
+import { useSearchParams } from 'next/navigation'
 
 interface Opportunity {
   id: string
@@ -26,6 +29,7 @@ interface LocationPair {
 }
 
 export default function SearchPage() {
+  const searchParams = useSearchParams()
   const [isSearching, setIsSearching] = useState(false)
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [searchPrompt, setSearchPrompt] = useState('')
@@ -41,6 +45,8 @@ export default function SearchPage() {
   ])
   const [newState, setNewState] = useState('')
   const [newCity, setNewCity] = useState('')
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+  const [upgradeReason, setUpgradeReason] = useState<'insufficient_credits' | 'upgrade'>('upgrade')
 
   useEffect(() => {
     const fetchSchedulerSettings = async () => {
@@ -65,6 +71,27 @@ export default function SearchPage() {
     }
     fetchSchedulerSettings()
   }, [])
+
+  useEffect(() => {
+    // Check for Stripe checkout success/cancel
+    const purchase = searchParams.get('purchase')
+    const subscription = searchParams.get('subscription')
+
+    if (purchase === 'success') {
+      alert('Thanks! Your credits have been added to your account.')
+      // Clear the query param
+      window.history.replaceState({}, '', '/search')
+    } else if (purchase === 'cancelled') {
+      alert('Purchase cancelled.')
+      window.history.replaceState({}, '', '/search')
+    } else if (subscription === 'success') {
+      alert('Thanks! Your subscription is now active.')
+      window.history.replaceState({}, '', '/search')
+    } else if (subscription === 'cancelled') {
+      alert('Subscription cancelled.')
+      window.history.replaceState({}, '', '/search')
+    }
+  }, [searchParams])
 
   const saveOpportunity = async (opportunityId: string) => {
     setSavingIds(prev => new Set(prev).add(opportunityId))
@@ -99,6 +126,21 @@ export default function SearchPage() {
     try {
       // Start search job
       const response = await api.searchOpportunities({ prompt: searchPrompt })
+
+      // Check for 402 Payment Required (insufficient credits)
+      if (response.status === 402) {
+        setIsSearching(false)
+        setUpgradeReason('insufficient_credits')
+        setUpgradeModalOpen(true)
+        return
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        alert('Search failed: ' + (errorData.detail || 'Unknown error'))
+        setIsSearching(false)
+        return
+      }
 
       const { job_id } = await response.json()
 
@@ -213,7 +255,20 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <UpgradeModal
+        isOpen={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        reason={upgradeReason}
+      />
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        {/* Search Allocation */}
+        <div className="mb-6 sm:mb-8">
+          <SearchAllocation onUpgrade={() => {
+            setUpgradeReason('upgrade')
+            setUpgradeModalOpen(true)
+          }} />
+        </div>
+
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
