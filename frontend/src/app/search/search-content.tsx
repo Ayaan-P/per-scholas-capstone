@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { api } from '@/utils/api'
-import UpgradeModal from '@/components/UpgradeModal'
-import SearchAllocation from '@/components/SearchAllocation'
+import { api } from '../../utils/api'
+import { UpgradeModal } from '../../components/UpgradeModal'
+import { SearchAllocation } from '../../components/SearchAllocation'
 
 interface Opportunity {
   id: string
