@@ -147,9 +147,9 @@ export const api = {
   getAnalytics: (timeRange: string) =>
     fetch(`${API_BASE_URL}/api/analytics?range=${timeRange}`),
 
-  // Scraped Grants
-  getScrapedGrants: (params?: { source?: string; limit?: number; offset?: number }) =>
-    fetch(`${API_BASE_URL}/api/scraped-grants?${new URLSearchParams(params as any).toString()}`),
+  // Scraped Grants (authenticated to get personalized match scores)
+  getScrapedGrants: async (params?: { source?: string; limit?: number; offset?: number }) =>
+    authenticatedFetch(`${API_BASE_URL}/api/scraped-grants?${new URLSearchParams(params as any).toString()}`),
 
   saveScrapedGrant: (grantId: string) =>
     authenticatedFetch(`${API_BASE_URL}/api/scraped-grants/${grantId}/save`, {

@@ -463,30 +463,30 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="bg-perscholas-primary p-2 sm:p-2.5 rounded-xl">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="card-elevated p-6 sm:p-10 animate-fade-in">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="bg-perscholas-primary p-3 rounded-xl shadow-md">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <h2 className="text-3xl sm:text-4xl font-bold text-perscholas-primary">
                   Discover Funding
                 </h2>
               </div>
               {/* View Toggle */}
-              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1.5">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                     viewMode === 'grid'
-                      ? 'bg-white text-perscholas-primary shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white text-perscholas-primary shadow-md scale-105'
+                      : 'text-gray-600 hover:text-perscholas-primary hover:bg-gray-50'
                   }`}
                   title="Grid View"
                 >
@@ -496,10 +496,10 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => setViewMode('table')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                     viewMode === 'table'
-                      ? 'bg-white text-perscholas-primary shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white text-perscholas-primary shadow-md scale-105'
+                      : 'text-gray-600 hover:text-perscholas-primary hover:bg-gray-50'
                   }`}
                   title="Table View"
                 >
@@ -517,26 +517,26 @@ export default function Dashboard() {
 
         {/* Stats Bar */}
         <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-fadeIn" style={{ animationDelay: '100ms' }}>
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Opportunities</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{filteredGrants.length}</p>
+          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">Opportunities</p>
+            <p className="text-3xl sm:text-4xl font-bold text-gray-900">{filteredGrants.length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-green-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-fadeIn" style={{ animationDelay: '150ms' }}>
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match $</p>
-            <p className="text-xl sm:text-3xl font-bold text-green-600 truncate">
+          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '150ms' }}>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">High Match $</p>
+            <p className="text-2xl sm:text-4xl font-bold text-green-600 truncate">
               {formatCurrency(filteredGrants.filter(g => g.match_score >= 80).reduce((sum, g) => sum + (g.amount || 0), 0))}
             </p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-yellow-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-fadeIn" style={{ animationDelay: '200ms' }}>
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">High Match</p>
-            <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 80).length}</p>
+          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '200ms' }}>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">High Match</p>
+            <p className="text-3xl sm:text-4xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 80).length}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-lg hover:border-purple-200 hover:-translate-y-1 transition-all duration-300 cursor-pointer animate-fadeIn" style={{ animationDelay: '250ms' }}>
-            <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">Avg Match Score</p>
-            <p className="text-2xl sm:text-3xl font-bold text-perscholas-secondary">
+          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '250ms' }}>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">Avg Match Score</p>
+            <p className="text-3xl sm:text-4xl font-bold text-perscholas-secondary">
               {filteredGrants.length > 0
                 ? Math.round(filteredGrants.reduce((sum, g) => sum + (g.match_score || 0), 0) / filteredGrants.length)
                 : 0}%
@@ -577,40 +577,75 @@ export default function Dashboard() {
           <aside className={`lg:w-80 flex-shrink-0 mb-6 lg:mb-0 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
             <div className="lg:sticky lg:top-6 space-y-4">
               {/* Filters Card */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="card-elevated p-6">
+                <h3 className="text-lg font-bold text-perscholas-primary mb-6 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  Quick Filters
+                  Filters
                 </h3>
 
-                <div className="space-y-4">
-                  {/* High Match Toggle */}
-                  <label className="flex items-center justify-between p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
-                    <span className="text-sm font-medium text-gray-700">High Match Only</span>
-                    <input
-                      type="checkbox"
-                      checked={highMatchOnly}
-                      onChange={(e) => setHighMatchOnly(e.target.checked)}
-                      className="w-4 h-4 text-perscholas-primary rounded focus:ring-2 focus:ring-perscholas-primary/20"
-                    />
-                  </label>
+                <div className="space-y-6">
+                  {/* Quick Filters Section */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-bold text-gray-900">Quick Filters</p>
 
-                  {/* Recent Posts Toggle */}
-                  <label className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                    recentPostsOnly
-                      ? 'border-blue-500 bg-blue-50 hover:bg-blue-100'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}>
-                    <span className={`text-sm font-medium ${recentPostsOnly ? 'text-blue-700' : 'text-gray-700'}`}>Recent Posts Only (1 week)</span>
-                    <input
-                      type="checkbox"
-                      checked={recentPostsOnly}
-                      onChange={(e) => setRecentPostsOnly(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </label>
+                    <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      highMatchOnly
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${
+                          highMatchOnly ? 'bg-green-500' : 'bg-gray-200'
+                        }`}>
+                          {highMatchOnly && (
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className={`text-sm font-semibold ${highMatchOnly ? 'text-green-700' : 'text-gray-700'}`}>
+                          High Match Only
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={highMatchOnly}
+                        onChange={(e) => setHighMatchOnly(e.target.checked)}
+                        className="sr-only"
+                      />
+                    </label>
+
+                    <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      recentPostsOnly
+                        ? 'border-perscholas-primary bg-perscholas-primary/5'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${
+                          recentPostsOnly ? 'bg-perscholas-primary' : 'bg-gray-200'
+                        }`}>
+                          {recentPostsOnly && (
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className={`text-sm font-semibold ${recentPostsOnly ? 'text-perscholas-primary' : 'text-gray-700'}`}>
+                          Recent Only (1 week)
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={recentPostsOnly}
+                        onChange={(e) => setRecentPostsOnly(e.target.checked)}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-6"></div>
 
                   {/* Categories Filter */}
                   {categories.length > 0 && (
@@ -647,62 +682,64 @@ export default function Dashboard() {
 
                   {/* Keyword Search */}
                   <div>
-                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Search</label>
+                    <label className="text-sm font-bold text-gray-900 mb-3 block">Search Keywords</label>
                     <div className="relative">
-                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                       <input
                         type="text"
                         value={keywordSearch}
                         onChange={(e) => setKeywordSearch(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
-                        placeholder="Keywords..."
+                        className="input-premium w-full pl-12"
+                        placeholder="Search opportunities..."
                       />
                     </div>
                   </div>
 
                   {/* Funding Range */}
                   <div>
-                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Funding Range</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <label className="text-sm font-bold text-gray-900 mb-3 block">Funding Range</label>
+                    <div className="grid grid-cols-2 gap-3">
                       <input
                         type="number"
                         value={fundingMin ?? ''}
                         onChange={(e) => setFundingMin(e.target.value ? Number(e.target.value) : undefined)}
-                        placeholder="Min"
-                        className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
+                        placeholder="Min $"
+                        className="input-premium"
                       />
                       <input
                         type="number"
                         value={fundingMax ?? ''}
                         onChange={(e) => setFundingMax(e.target.value ? Number(e.target.value) : undefined)}
-                        placeholder="Max"
-                        className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
+                        placeholder="Max $"
+                        className="input-premium"
                       />
                     </div>
                   </div>
 
                   {/* Due Date */}
                   <div>
-                    <label className="text-xs font-semibold text-gray-700 mb-2 block">Due Within (days)</label>
-                    <input
-                      type="number"
-                      value={dueInDays ?? ''}
-                      onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary"
-                      placeholder="e.g. 30"
-                    />
+                    <label className="text-sm font-bold text-gray-900 mb-3 block">Due Within</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={dueInDays ?? ''}
+                        onChange={(e) => setDueInDays(e.target.value ? Number(e.target.value) : undefined)}
+                        className="input-premium w-full"
+                        placeholder="Days (e.g., 30)"
+                      />
+                    </div>
                   </div>
 
                   {/* Sort - Only show in grid view */}
                   {viewMode === 'grid' && (
                     <div>
-                      <label className="text-xs font-semibold text-gray-700 mb-2 block">Sort By</label>
+                      <label className="text-sm font-bold text-gray-900 mb-3 block">Sort By</label>
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-perscholas-primary/20 focus:border-perscholas-primary bg-white"
+                        className="input-premium w-full"
                       >
                         <option value="match">Match Score</option>
                         <option value="amount">Funding Amount</option>
@@ -713,20 +750,25 @@ export default function Dashboard() {
 
                   {/* Clear Filters Button */}
                   {(highMatchOnly || recentPostsOnly || keywordSearch || fundingMin || fundingMax || dueInDays || selectedCategories.size > 0) && (
-                    <button
-                      onClick={() => {
-                        setKeywordSearch('')
-                        setHighMatchOnly(false)
-                        setRecentPostsOnly(false)
-                        setFundingMin(undefined)
-                        setFundingMax(undefined)
-                        setDueInDays(undefined)
-                        setSelectedCategories(new Set())
-                      }}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Clear All Filters
-                    </button>
+                    <div className="pt-6 border-t border-gray-100">
+                      <button
+                        onClick={() => {
+                          setKeywordSearch('')
+                          setHighMatchOnly(false)
+                          setRecentPostsOnly(false)
+                          setFundingMin(undefined)
+                          setFundingMax(undefined)
+                          setDueInDays(undefined)
+                          setSelectedCategories(new Set())
+                        }}
+                        className="w-full btn-secondary py-3 flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear All Filters
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -768,7 +810,7 @@ export default function Dashboard() {
                   {paged.map((grant, index) => (
                     <div
                       key={grant.id}
-                      className={`group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-xl hover:border-perscholas-primary/50 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col animate-fadeIn ${
+                      className={`group card-premium p-6 h-full flex flex-col animate-fadeIn ${
                         dismissingGrants.has(grant.id) ? 'opacity-50 scale-95' : ''
                       }`}
                       style={{ animationDelay: `${index * 50}ms` }}
@@ -828,7 +870,7 @@ export default function Dashboard() {
                             href={grant.application_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 text-center border-2 border-gray-300 text-gray-700 px-3 py-2.5 sm:py-2 rounded-lg text-xs font-semibold hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                            className="flex-1 text-center btn-secondary py-2.5"
                           >
                             View RFP
                           </a>
@@ -836,7 +878,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => handleSaveGrant(grant.id)}
                           disabled={savingGrants.has(grant.id)}
-                          className="flex-1 bg-perscholas-primary text-white px-3 py-2.5 sm:py-2 rounded-lg text-xs font-semibold hover:bg-perscholas-dark hover:scale-105 hover:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                          className="flex-1 btn-primary py-2.5"
                         >
                           {savingGrants.has(grant.id) ? (
                             <span className="flex items-center justify-center gap-2">

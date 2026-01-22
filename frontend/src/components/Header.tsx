@@ -31,56 +31,58 @@ export function Header() {
   }
 
   return (
-    <header className="bg-white shadow-sm border-b sticky top-0 z-50">
+    <header className="glass shadow-premium border-b border-gray-100/50 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4 sm:py-6">
+        <div className="flex justify-between items-center py-3 sm:py-4">
           {/* Logo */}
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <a href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-4">
-              <Image src="/logo.png" alt="FundFish Logo" width={40} height={40} className="h-8 sm:h-10 w-auto" />
-              <h1 className="text-xl sm:text-2xl font-bold" style={{color: '#c2e9ff'}}>fundfish</h1>
+            <a href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-4 group">
+              <div className="relative">
+                <Image src="/logo.png" alt="FundFish Logo" width={40} height={40} className="h-8 sm:h-10 w-auto transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-perscholas-primary">fundfish</h1>
             </a>
           </div>
 
           {/* Desktop Navigation */}
           {isAuthenticated && (
-            <nav className="hidden md:flex items-center space-x-6">
+            <nav className="hidden md:flex items-center space-x-2">
               <a
                 href="/dashboard"
-                className={`font-medium transition-colors ${
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/dashboard')
-                    ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1'
-                    : 'text-gray-600 hover:text-blue-600'
+                    ? 'bg-perscholas-primary text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
                 }`}
               >
                 Discover
               </a>
               <a
                 href="/opportunities"
-                className={`font-medium transition-colors ${
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/opportunities')
-                    ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1'
-                    : 'text-gray-600 hover:text-blue-600'
+                    ? 'bg-perscholas-primary text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
                 }`}
               >
                 Opportunities
               </a>
               <a
                 href="/search"
-                className={`font-medium transition-colors ${
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/search')
-                    ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1'
-                    : 'text-gray-600 hover:text-blue-600'
+                    ? 'bg-perscholas-primary text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
                 }`}
               >
                 AI Search
               </a>
               <a
                 href="/settings"
-                className={`font-medium transition-colors ${
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/settings')
-                    ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1'
-                    : 'text-gray-600 hover:text-blue-600'
+                    ? 'bg-perscholas-primary text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
                 }`}
               >
                 Settings
@@ -89,23 +91,23 @@ export function Header() {
           )}
 
           {/* Auth Actions */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-3">
             {isAuthenticated ? (
               <>
-                <span className="text-sm text-gray-600">{user?.email}</span>
+                <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-full">{user?.email}</span>
                 <button
                   onClick={handleSignOut}
-                  className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium"
+                  className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
                 >
                   Sign Out
                 </button>
               </>
             ) : (
               <>
-                <a href="/login" className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium">
+                <a href="/login" className="btn-ghost">
                   Sign In
                 </a>
-                <a href="/signup" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <a href="/signup" className="btn-primary">
                   Get Started
                 </a>
               </>
@@ -132,8 +134,8 @@ export function Header() {
 
         {/* Mobile Navigation Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-4">
-            <nav className="flex flex-col space-y-4">
+          <div className="md:hidden border-t border-gray-200 py-4 animate-slide-up">
+            <nav className="flex flex-col space-y-2">
               {isAuthenticated && (
                 <>
                   <a
@@ -184,12 +186,12 @@ export function Header() {
               )}
               {isAuthenticated ? (
                 <>
-                  <div className="px-4 py-2 text-sm text-gray-600 border-t border-gray-200">
+                  <div className="px-4 py-2 text-sm text-gray-600 border-t border-gray-200 mt-2">
                     {user?.email}
                   </div>
                   <button
                     onClick={handleSignOut}
-                    className="px-4 py-2 text-left text-red-600 hover:text-red-700 font-medium"
+                    className="mx-2 px-4 py-2 text-left text-red-600 hover:text-red-700 font-semibold rounded-xl hover:bg-red-50 transition-all duration-200"
                   >
                     Sign Out
                   </button>
@@ -199,14 +201,14 @@ export function Header() {
                   <a
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium"
+                    className="mx-2 btn-ghost"
                   >
                     Sign In
                   </a>
                   <a
                     href="/signup"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="mx-2 btn-primary"
                   >
                     Get Started
                   </a>

@@ -1024,15 +1024,18 @@ async def get_opportunities(user_id: str = Depends(get_current_user)):
 
 @app.get("/api/scraped-grants")
 async def get_scraped_grants(
-    source: Optional[str] = None
+    source: Optional[str] = None,
+    user_id: str = Depends(get_current_user)
 ):
     """
-    Get grants collected by scheduled scrapers
+    Get grants collected by scheduled scrapers with personalized match scores
 
     Args:
         source: Filter by data source (grants_gov, state, local, etc.)
+        user_id: Authenticated user ID (from JWT token)
     """
     try:
+        # Fetch grants from database
         query = supabase.table("scraped_grants").select("*", count="exact")
 
         if source:
@@ -1041,14 +1044,76 @@ async def get_scraped_grants(
         query = query.order("created_at", desc=True)
 
         result = query.execute()
+        grants = result.data
+
+        # Calculate personalized match scores for this organization
+        from organization_matching_service import OrganizationMatchingService
+        from match_scoring import calculate_match_score
+
+        matching_service = OrganizationMatchingService(supabase)
+        org_profile = await matching_service.get_organization_profile(user_id)
+
+        if org_profile:
+            # Recalculate match scores based on organization profile
+            for grant in grants:
+                # Calculate base keyword matching score using organization's keywords
+                primary_keywords, secondary_keywords = matching_service.build_search_keywords(org_profile)
+
+                # Get grant text
+                title_lower = (grant.get('title') or '').lower()
+                desc_lower = (grant.get('description') or '').lower()
+                full_text = title_lower + ' ' + desc_lower
+
+                # Count keyword matches
+                primary_matches = sum(1 for keyword in primary_keywords if keyword in full_text)
+                secondary_matches = sum(1 for keyword in secondary_keywords if keyword in full_text)
+
+                # Calculate keyword score (0-100)
+                if primary_matches >= 2:
+                    keyword_score = min(100, (primary_matches * 15) + (secondary_matches * 3))
+                elif primary_matches == 1:
+                    keyword_score = min(50, primary_matches * 15 + (secondary_matches * 2))
+                else:
+                    keyword_score = max(10, secondary_matches * 2)
+
+                # For now, use 0 for semantic similarity (would need RFP embeddings)
+                semantic_score = 0
+
+                # Calculate organization-specific match score
+                org_match = matching_service.calculate_organization_match_score(
+                    org_profile,
+                    {
+                        'title': grant.get('title'),
+                        'description': grant.get('description'),
+                        'synopsis': grant.get('description'),
+                        'estimated_funding_min': grant.get('award_floor'),
+                        'estimated_funding_max': grant.get('award_ceiling') or grant.get('amount'),
+                        'deadline': grant.get('deadline'),
+                        'geographic_focus': None,  # Could extract from grant if available
+                    },
+                    keyword_score,
+                    semantic_score
+                )
+
+                # Update the match_score field with personalized score
+                grant['match_score'] = int(org_match['overall_score'])
+                grant['match_breakdown'] = {
+                    'keyword_matching': org_match['keyword_matching'],
+                    'funding_alignment': org_match['funding_alignment'],
+                    'deadline_feasibility': org_match['deadline_feasibility'],
+                    'demographic_alignment': org_match['demographic_alignment'],
+                    'geographic_alignment': org_match['geographic_alignment'],
+                }
 
         return {
-            "grants": result.data,
-            "count": len(result.data),
-            "total": result.count if hasattr(result, 'count') else len(result.data),
-            "source": source
+            "grants": grants,
+            "count": len(grants),
+            "total": result.count if hasattr(result, 'count') else len(grants),
+            "source": source,
+            "personalized": org_profile is not None
         }
     except Exception as e:
+        print(f"[GET SCRAPED GRANTS] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch scraped grants: {str(e)}")
 
 @app.get("/api/scheduler/status")
