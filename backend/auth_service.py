@@ -9,6 +9,7 @@ from typing import Optional
 import requests
 
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 # Supabase public key URL
 SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -123,12 +124,13 @@ async def get_current_user(token_payload: dict = Depends(verify_token)) -> str:
     return user_id
 
 
-async def optional_token(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
-    """Optional token verification - doesn't require auth"""
+async def optional_token(credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)) -> Optional[str]:
+    """Optional token verification - doesn't require auth, returns user_id if authenticated"""
     if not credentials:
         return None
 
     try:
-        return await verify_token(credentials)
+        token_payload = await verify_token(credentials)
+        return token_payload.get('sub')
     except:
         return None

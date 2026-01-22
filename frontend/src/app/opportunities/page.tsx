@@ -568,22 +568,22 @@ export default function OpportunitiesPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
+        <div className="mb-6 sm:mb-8 animate-fade-in">
+          <div className="card-elevated p-6 sm:p-10">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="bg-perscholas-primary p-3 rounded-xl shadow-md">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                   </svg>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <h2 className="text-2xl sm:text-3xl font-bold text-perscholas-primary">
                   Saved Opportunities
                 </h2>
               </div>
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-perscholas-secondary text-white rounded-lg hover:bg-perscholas-dark transition-colors font-medium text-sm sm:text-base"
+                className="btn-primary flex items-center gap-2 px-4 py-2.5"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -600,29 +600,29 @@ export default function OpportunitiesPage() {
 
         {/* Stats Bar */}
         <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+          <div className="card-premium p-4 sm:p-5 animate-fade-in" style={{ animationDelay: '50ms' }}>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Pipeline</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{filteredOpportunities.length}</p>
-            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-perscholas-primary">{filteredOpportunities.length}</p>
+          </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+          <div className="card-premium p-4 sm:p-5 animate-fade-in" style={{ animationDelay: '100ms' }}>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Total Value</p>
             <p className="text-xl sm:text-3xl font-bold text-green-600 truncate">{formatCurrency(filteredOpportunities.reduce((sum, o) => sum + (o.amount || 0), 0))}</p>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+          <div className="card-premium p-4 sm:p-5 animate-fade-in" style={{ animationDelay: '150ms' }}>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">High Match</p>
             <p className="text-2xl sm:text-3xl font-bold text-perscholas-accent">{filteredOpportunities.filter(o => o.match_score >= 80).length}</p>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+          <div className="card-premium p-4 sm:p-5 animate-fade-in" style={{ animationDelay: '200ms' }}>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Avg Match</p>
             <p className="text-2xl sm:text-3xl font-bold text-perscholas-primary">
               {filteredOpportunities.length > 0
                 ? Math.round(filteredOpportunities.reduce((sum, o) => sum + (o.match_score || 0), 0) / filteredOpportunities.length)
                 : 0}%
-              </p>
-            </div>
+            </p>
+          </div>
         </div>
 
         {/* Mobile Filter Button */}
@@ -658,9 +658,9 @@ export default function OpportunitiesPage() {
           <aside className={`lg:w-80 flex-shrink-0 mb-6 lg:mb-0 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
             <div className="lg:sticky lg:top-6 space-y-4">
               {/* Filters */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-perscholas-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="card-premium p-5">
+                <h3 className="text-sm font-bold text-perscholas-primary mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
                   Refine Pipeline
@@ -814,25 +814,25 @@ export default function OpportunitiesPage() {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {filteredOpportunities.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-20 text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-2xl flex items-center justify-center">
-                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3">No saved opportunities yet</h3>
-                <p className="text-gray-600 text-lg mb-8">Save grants from the dashboard to analyze them here</p>
-            <a
-              href="/dashboard"
-                  className="inline-flex items-center gap-2 bg-perscholas-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-perscholas-dark transition-all"
-            >
+              <div className="card-elevated p-12 sm:p-20 text-center animate-fade-in">
+                <div className="w-20 h-20 mx-auto mb-6 bg-perscholas-primary/10 rounded-2xl flex items-center justify-center">
+                  <svg className="w-10 h-10 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-perscholas-primary mb-3">No saved opportunities yet</h3>
+                <p className="text-gray-600 text-base sm:text-lg mb-8 max-w-md mx-auto">Save grants from the dashboard to analyze them here with AI-powered insights</p>
+                <a
+                  href="/dashboard"
+                  className="btn-primary inline-flex items-center gap-2 px-8 py-3"
+                >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   Discover Grants
-            </a>
-          </div>
-        ) : (
+                </a>
+              </div>
+            ) : (
               <div>
                 <div className="space-y-6 mb-8">
                   {paged.map((opportunity, index) => {
@@ -846,12 +846,12 @@ export default function OpportunitiesPage() {
                     return (
                       <div
                         key={opportunity.id}
-                        className={`bg-white border rounded-xl transition-shadow duration-200 ${
+                        className={`bg-white border rounded-xl transition-all duration-300 ${
                           dismissingOpportunities.has(opportunity.id)
                             ? 'opacity-50 pointer-events-none'
                             : ''
                         } ${
-                          isExpanded ? 'border-perscholas-secondary shadow-md' : 'border-gray-200 shadow-sm hover:shadow-md'
+                          isExpanded ? 'border-perscholas-primary shadow-card-hover ring-2 ring-perscholas-primary/10' : 'border-gray-200 shadow-card hover:shadow-card-hover hover:-translate-y-0.5'
                         }`}
                       >
                         {/* Card Header */}

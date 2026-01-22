@@ -65,40 +65,40 @@ interface ListItem {
 
 const TextInput = ({ label, value, onChange, placeholder, type = 'text', helpText }: any) => (
   <div>
-    <label className="block text-sm font-semibold text-gray-900 mb-1">{label}</label>
+    <label className="block text-sm font-semibold text-gray-900 mb-1.5">{label}</label>
     {helpText && <p className="text-xs text-gray-500 mb-2">{helpText}</p>}
     <input
       type={type}
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      className="input-premium w-full"
     />
   </div>
 )
 
 const TextArea = ({ label, value, onChange, placeholder, rows = 3, helpText }: any) => (
   <div>
-    <label className="block text-sm font-semibold text-gray-900 mb-1">{label}</label>
+    <label className="block text-sm font-semibold text-gray-900 mb-1.5">{label}</label>
     {helpText && <p className="text-xs text-gray-500 mb-2">{helpText}</p>}
     <textarea
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      className="input-premium w-full resize-none"
     />
   </div>
 )
 
 const SelectInput = ({ label, value, onChange, options, helpText }: any) => (
   <div>
-    <label className="block text-sm font-semibold text-gray-900 mb-1">{label}</label>
+    <label className="block text-sm font-semibold text-gray-900 mb-1.5">{label}</label>
     {helpText && <p className="text-xs text-gray-500 mb-2">{helpText}</p>}
     <select
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+      className="input-premium w-full"
     >
       <option value="">Select {label}</option>
       {options.map((opt: string) => (
@@ -192,8 +192,15 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center text-gray-500">Loading organization profile...</div>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-12 h-12 border-2 border-perscholas-primary/20 border-t-perscholas-primary rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600 font-medium">Loading organization profile...</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -205,52 +212,74 @@ export default function SettingsPage() {
         onClose={() => setUpgradeModalOpen(false)}
         reason="upgrade"
       />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Credits Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Search Credits</h2>
-              <p className="text-gray-600 text-sm">Manage your search credits and upgrade your plan</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <CreditBalance />
-              <button
-                onClick={() => setUpgradeModalOpen(true)}
-                className="px-6 py-2 bg-perscholas-secondary text-white rounded-lg hover:bg-perscholas-dark font-medium transition-colors whitespace-nowrap"
-              >
-                Buy Credits
-              </button>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Page Header */}
+          <div className="mb-8 animate-fade-in">
+            <div className="card-elevated p-6 sm:p-8">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="bg-perscholas-primary p-3 rounded-xl shadow-md">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-perscholas-primary">Settings</h1>
+                  <p className="text-gray-600 text-sm sm:text-base">Manage your organization profile and preferences</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Organization Profile</h1>
-          <p className="text-gray-600 mb-8">Help us understand your organization so we can match you with the best funding opportunities</p>
-
-          {message && (
-            <div className="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800">
-              {message}
+          {/* Credits Section */}
+          <div className="card-premium p-6 mb-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Search Credits</h2>
+                <p className="text-gray-600 text-sm">Manage your search credits and upgrade your plan</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <CreditBalance />
+                <button
+                  onClick={() => setUpgradeModalOpen(true)}
+                  className="btn-primary px-6 py-2.5"
+                >
+                  Buy Credits
+                </button>
+              </div>
             </div>
-          )}
-
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-2 mb-8 border-b border-gray-200">
-            {['basic', 'mission', 'programs', 'funding', 'impact'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-3 font-medium transition-colors capitalize ${
-                  activeTab === tab
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
           </div>
+
+          <div className="card-elevated p-6 sm:p-8 animate-fade-in" style={{ animationDelay: '150ms' }}>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Organization Profile</h2>
+            <p className="text-gray-600 mb-8 text-sm">Help us understand your organization so we can match you with the best funding opportunities</p>
+
+            {message && (
+              <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 flex items-center gap-3 animate-fade-in">
+                <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm font-medium">{message}</span>
+              </div>
+            )}
+
+            {/* Tabs */}
+            <div className="flex flex-wrap gap-1 mb-8 p-1 bg-gray-100 rounded-xl">
+              {['basic', 'mission', 'programs', 'funding', 'impact'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2.5 font-medium transition-all duration-200 capitalize rounded-lg text-sm ${
+                    activeTab === tab
+                      ? 'bg-white text-perscholas-primary shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
           {/* BASIC INFO TAB */}
           {activeTab === 'basic' && (
@@ -452,7 +481,7 @@ export default function SettingsPage() {
                       setConfig({...config, key_programs: [...config.key_programs, {name, description: desc || ''}]})
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  className="btn-secondary px-4 py-2 text-sm"
                 >
                   Add Program
                 </button>
@@ -604,7 +633,7 @@ export default function SettingsPage() {
                       setConfig({...config, key_impact_metrics: [...config.key_impact_metrics, {metric_name: name, current_value: current, target_value: target, unit}]})
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  className="btn-secondary px-4 py-2 text-sm"
                 >
                   Add Metric
                 </button>
@@ -632,7 +661,7 @@ export default function SettingsPage() {
                       setConfig({...config, success_stories: [...config.success_stories, {title, description: desc || ''}]})
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  className="btn-secondary px-4 py-2 text-sm"
                 >
                   Add Story
                 </button>
@@ -663,7 +692,7 @@ export default function SettingsPage() {
                       }
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  className="btn-secondary px-4 py-2 text-sm"
                 >
                   Add Grant
                 </button>
@@ -676,10 +705,21 @@ export default function SettingsPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+              className="btn-primary px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Saving...' : 'Save Organization Profile'}
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                'Save Organization Profile'
+              )}
             </button>
+          </div>
           </div>
         </div>
       </div>

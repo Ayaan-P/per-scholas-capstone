@@ -1025,14 +1025,14 @@ async def get_opportunities(user_id: str = Depends(get_current_user)):
 @app.get("/api/scraped-grants")
 async def get_scraped_grants(
     source: Optional[str] = None,
-    user_id: str = Depends(get_current_user)
+    user_id: Optional[str] = Depends(optional_token)
 ):
     """
-    Get grants collected by scheduled scrapers with personalized match scores
+    Get grants collected by scheduled scrapers with personalized match scores (if authenticated)
 
     Args:
         source: Filter by data source (grants_gov, state, local, etc.)
-        user_id: Authenticated user ID (from JWT token)
+        user_id: Optional authenticated user ID (from JWT token) - if provided, returns personalized scores
     """
     try:
         # Fetch grants from database
@@ -1046,64 +1046,70 @@ async def get_scraped_grants(
         result = query.execute()
         grants = result.data
 
-        # Calculate personalized match scores for this organization
-        from organization_matching_service import OrganizationMatchingService
-        from match_scoring import calculate_match_score
+        # Calculate personalized match scores if user is authenticated
+        org_profile = None
+        if user_id:
+            try:
+                from organization_matching_service import OrganizationMatchingService
+                from match_scoring import calculate_match_score
 
-        matching_service = OrganizationMatchingService(supabase)
-        org_profile = await matching_service.get_organization_profile(user_id)
+                matching_service = OrganizationMatchingService(supabase)
+                org_profile = await matching_service.get_organization_profile(user_id)
 
-        if org_profile:
-            # Recalculate match scores based on organization profile
-            for grant in grants:
-                # Calculate base keyword matching score using organization's keywords
-                primary_keywords, secondary_keywords = matching_service.build_search_keywords(org_profile)
+                if org_profile:
+                    # Recalculate match scores based on organization profile
+                    for grant in grants:
+                        # Calculate base keyword matching score using organization's keywords
+                        primary_keywords, secondary_keywords = matching_service.build_search_keywords(org_profile)
 
-                # Get grant text
-                title_lower = (grant.get('title') or '').lower()
-                desc_lower = (grant.get('description') or '').lower()
-                full_text = title_lower + ' ' + desc_lower
+                        # Get grant text
+                        title_lower = (grant.get('title') or '').lower()
+                        desc_lower = (grant.get('description') or '').lower()
+                        full_text = title_lower + ' ' + desc_lower
 
-                # Count keyword matches
-                primary_matches = sum(1 for keyword in primary_keywords if keyword in full_text)
-                secondary_matches = sum(1 for keyword in secondary_keywords if keyword in full_text)
+                        # Count keyword matches
+                        primary_matches = sum(1 for keyword in primary_keywords if keyword in full_text)
+                        secondary_matches = sum(1 for keyword in secondary_keywords if keyword in full_text)
 
-                # Calculate keyword score (0-100)
-                if primary_matches >= 2:
-                    keyword_score = min(100, (primary_matches * 15) + (secondary_matches * 3))
-                elif primary_matches == 1:
-                    keyword_score = min(50, primary_matches * 15 + (secondary_matches * 2))
-                else:
-                    keyword_score = max(10, secondary_matches * 2)
+                        # Calculate keyword score (0-100)
+                        if primary_matches >= 2:
+                            keyword_score = min(100, (primary_matches * 15) + (secondary_matches * 3))
+                        elif primary_matches == 1:
+                            keyword_score = min(50, primary_matches * 15 + (secondary_matches * 2))
+                        else:
+                            keyword_score = max(10, secondary_matches * 2)
 
-                # For now, use 0 for semantic similarity (would need RFP embeddings)
-                semantic_score = 0
+                        # For now, use 0 for semantic similarity (would need RFP embeddings)
+                        semantic_score = 0
 
-                # Calculate organization-specific match score
-                org_match = matching_service.calculate_organization_match_score(
-                    org_profile,
-                    {
-                        'title': grant.get('title'),
-                        'description': grant.get('description'),
-                        'synopsis': grant.get('description'),
-                        'estimated_funding_min': grant.get('award_floor'),
-                        'estimated_funding_max': grant.get('award_ceiling') or grant.get('amount'),
-                        'deadline': grant.get('deadline'),
-                        'geographic_focus': None,  # Could extract from grant if available
-                    },
-                    keyword_score,
-                    semantic_score
-                )
+                        # Calculate organization-specific match score
+                        org_match = matching_service.calculate_organization_match_score(
+                            org_profile,
+                            {
+                                'title': grant.get('title'),
+                                'description': grant.get('description'),
+                                'synopsis': grant.get('description'),
+                                'estimated_funding_min': grant.get('award_floor'),
+                                'estimated_funding_max': grant.get('award_ceiling') or grant.get('amount'),
+                                'deadline': grant.get('deadline'),
+                                'geographic_focus': None,  # Could extract from grant if available
+                            },
+                            keyword_score,
+                            semantic_score
+                        )
 
-                # Update the match_score field with personalized score
-                grant['match_score'] = int(org_match['overall_score'])
-                grant['match_breakdown'] = {
-                    'keyword_matching': org_match['keyword_matching'],
-                    'funding_alignment': org_match['funding_alignment'],
-                    'deadline_feasibility': org_match['deadline_feasibility'],
-                    'demographic_alignment': org_match['demographic_alignment'],
-                    'geographic_alignment': org_match['geographic_alignment'],
-                }
+                        # Update the match_score field with personalized score
+                        grant['match_score'] = int(org_match['overall_score'])
+                        grant['match_breakdown'] = {
+                            'keyword_matching': org_match['keyword_matching'],
+                            'funding_alignment': org_match['funding_alignment'],
+                            'deadline_feasibility': org_match['deadline_feasibility'],
+                            'demographic_alignment': org_match['demographic_alignment'],
+                            'geographic_alignment': org_match['geographic_alignment'],
+                        }
+            except Exception as e:
+                print(f"[GET SCRAPED GRANTS] Error calculating personalized scores: {e}")
+                # Continue with generic scores from database
 
         return {
             "grants": grants,

@@ -14,9 +14,20 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-perscholas-primary mx-auto mb-4"></div>
-        <p className="text-gray-600">Redirecting to dashboard...</p>
+      <div className="text-center animate-fade-in">
+        {/* Logo-style loading spinner */}
+        <div className="relative mb-6">
+          <div className="w-16 h-16 rounded-2xl bg-perscholas-primary/10 flex items-center justify-center mx-auto">
+            <svg className="w-8 h-8 text-perscholas-primary animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          {/* Rotating ring */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-20 h-20 border-2 border-perscholas-primary/20 border-t-perscholas-primary rounded-full animate-spin"></div>
+          </div>
+        </div>
+        <p className="text-gray-600 font-medium">Loading FundFish...</p>
       </div>
     </div>
   )

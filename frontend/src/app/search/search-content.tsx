@@ -268,17 +268,17 @@ export default function SearchPageContent() {
         </div>
 
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-10">
+        <div className="mb-6 sm:mb-8 animate-fade-in">
+          <div className="card-elevated p-6 sm:p-10">
             <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="bg-perscholas-secondary p-2 sm:p-2.5 rounded-xl">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="bg-perscholas-secondary p-3 rounded-xl shadow-md">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  AI-Powered Opportunity Discovery
+                <h2 className="text-2xl sm:text-3xl font-bold text-perscholas-primary">
+                  AI-Powered Discovery
                 </h2>
               </div>
 
@@ -397,13 +397,13 @@ export default function SearchPageContent() {
                 <div className="flex gap-3 mt-4">
                   <button
                     onClick={saveSchedulerSettings}
-                    className="px-4 py-2 bg-perscholas-secondary hover:bg-perscholas-dark text-white rounded-lg text-sm font-medium transition-colors"
+                    className="btn-primary px-5 py-2.5 text-sm"
                   >
                     Save Settings
                   </button>
                   <button
                     onClick={() => setShowSettings(false)}
-                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg text-sm font-medium transition-colors"
+                    className="btn-secondary px-5 py-2.5 text-sm"
                   >
                     Cancel
                   </button>
@@ -414,7 +414,7 @@ export default function SearchPageContent() {
         </div>
 
         {/* Search Input Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8 mb-8">
+        <div className="card-premium p-6 sm:p-8 mb-8 animate-fade-in" style={{ animationDelay: '100ms' }}>
           <div className="space-y-6">
             <div>
               <label htmlFor="search-prompt" className="block text-sm font-semibold text-gray-900 mb-3">
@@ -425,7 +425,7 @@ export default function SearchPageContent() {
                 value={searchPrompt}
                 onChange={(e) => setSearchPrompt(e.target.value)}
                 placeholder="Example: Find federal grants for cybersecurity workforce development programs targeting underserved communities in urban areas, amount $100K-$500K, due within 90 days"
-                className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-perscholas-secondary focus:border-transparent resize-none h-24 text-sm"
+                className="input-premium w-full resize-none h-28 text-sm"
                 disabled={isSearching}
               />
               <p className="text-xs text-gray-500 mt-2">
@@ -436,7 +436,7 @@ export default function SearchPageContent() {
             <button
               onClick={searchOpportunities}
               disabled={isSearching || !searchPrompt.trim() || !aiSearchEnabled}
-              className="w-full bg-perscholas-secondary hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+              className="w-full btn-primary py-3.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSearching ? (
                 <>
@@ -493,10 +493,10 @@ export default function SearchPageContent() {
 
         {/* Results Section */}
         {opportunities.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+          <div className="card-elevated p-6 sm:p-8 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
               <div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <h2 className="text-2xl sm:text-3xl font-bold text-perscholas-primary">
                   Discovery Results
                 </h2>
                 <p className="text-gray-600 text-sm mt-1">
@@ -530,7 +530,7 @@ export default function SearchPageContent() {
                 return (
                   <div
                     key={opp.id}
-                    className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow duration-200"
+                    className="card-premium p-6"
                   >
                     {/* Header with Title and Match Score */}
                     <div className="flex items-start justify-between gap-4 mb-4">
@@ -599,7 +599,7 @@ export default function SearchPageContent() {
                           href={opp.application_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-center sm:justify-start gap-2 border border-perscholas-secondary text-perscholas-secondary px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
+                          className="btn-secondary flex items-center justify-center sm:justify-start gap-2 px-4 py-2.5 text-sm"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -610,7 +610,7 @@ export default function SearchPageContent() {
                       <button
                         onClick={() => saveOpportunity(opp.id)}
                         disabled={isSaving}
-                        className="flex items-center justify-center sm:justify-start gap-2 bg-perscholas-secondary hover:bg-perscholas-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto"
+                        className="btn-primary flex items-center justify-center sm:justify-start gap-2 px-4 py-2.5 text-sm w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isSaving ? (
                           <>
@@ -639,21 +639,21 @@ export default function SearchPageContent() {
 
         {/* Empty State */}
         {opportunities.length === 0 && !isSearching && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-16 text-center">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-2xl flex items-center justify-center">
-              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <div className="card-elevated p-12 sm:p-16 text-center animate-fade-in">
+            <div className="w-20 h-20 mx-auto mb-6 bg-perscholas-primary/10 rounded-2xl flex items-center justify-center">
+              <svg className="w-10 h-10 text-perscholas-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3">
+            <h3 className="text-2xl font-bold text-perscholas-primary mb-3">
               Ready to Discover Opportunities
             </h3>
-            <p className="text-gray-600 text-lg mb-8">
-              Enter your search criteria above to deploy the AI agent and discover funding opportunities tailored to Per Scholas.
+            <p className="text-gray-600 text-base sm:text-lg mb-8 max-w-lg mx-auto">
+              Enter your search criteria above to deploy the AI agent and discover funding opportunities tailored to your organization.
             </p>
             <a
               href="/opportunities"
-              className="inline-flex items-center gap-2 bg-perscholas-secondary text-white px-8 py-3 rounded-lg font-semibold hover:bg-perscholas-dark transition-colors"
+              className="btn-secondary inline-flex items-center gap-2 px-8 py-3"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
