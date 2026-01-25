@@ -7,6 +7,8 @@ import { api } from '../../utils/api'
 import { ProtectedRoute } from '../../components/ProtectedRoute'
 import { CreditBalance } from '../../components/CreditBalance'
 import { UpgradeModal } from '../../components/UpgradeModal'
+import { DocumentUploader } from '../../components/DocumentUploader'
+import { ExtractedInfoReview } from '../../components/ExtractedInfoReview'
 
 interface OrganizationConfig {
   id?: string
@@ -138,6 +140,14 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('basic')
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
+  // Document import state
+  const [existingDocuments, setExistingDocuments] = useState<any[]>([])
+  const [uploadedDocIds, setUploadedDocIds] = useState<string[]>([])
+  const [extractionResult, setExtractionResult] = useState<any>(null)
+  const [extracting, setExtracting] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [docError, setDocError] = useState('')
+
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -145,6 +155,28 @@ export default function SettingsPage() {
         if (response.ok) {
           const data = await response.json()
           setConfig({ ...config, ...data })
+        } else if (response.status === 404) {
+          // 404 is expected for new organizations - auto-create default config
+          console.log('Creating new organization config...')
+          try {
+            const saveResponse = await api.saveOrganizationConfig({
+              name: 'New Organization',
+              mission: '',
+              focus_areas: [],
+              impact_metrics: {},
+              programs: [],
+              target_demographics: []
+            })
+            if (saveResponse.ok) {
+              const data = await saveResponse.json()
+              setConfig({ ...config, ...data })
+              console.log('Organization created successfully')
+            }
+          } catch (error) {
+            console.error('Failed to auto-create organization:', error)
+          }
+        } else {
+          console.error('Failed to load organization config: HTTP', response.status)
         }
       } catch (error) {
         console.error('Failed to load organization config:', error)
@@ -153,8 +185,39 @@ export default function SettingsPage() {
       }
     }
 
+    const fetchDocuments = async () => {
+      try {
+        const response = await api.getOrganizationDocuments()
+        if (response.ok) {
+          const data = await response.json()
+          setExistingDocuments(data.documents || [])
+        } else if (response.status === 404) {
+          // No documents yet
+          console.log('No documents found yet')
+        }
+      } catch (error) {
+        console.error('Failed to load documents:', error)
+      }
+    }
+
     fetchConfig()
+    fetchDocuments()
   }, [])
+
+  // Auto-save config when it changes (debounced)
+  useEffect(() => {
+    if (loading) return
+
+    const timer = setTimeout(async () => {
+      try {
+        await api.saveOrganizationConfig(config)
+      } catch (error) {
+        console.error('Auto-save failed:', error)
+      }
+    }, 1000) // Debounce for 1 second
+
+    return () => clearTimeout(timer)
+  }, [config, loading])
 
   const handleSave = async () => {
     setSaving(true)
@@ -266,7 +329,7 @@ export default function SettingsPage() {
 
             {/* Tabs */}
             <div className="flex flex-wrap gap-1 mb-8 p-1 bg-gray-100 rounded-xl">
-              {['basic', 'mission', 'programs', 'funding', 'impact'].map((tab) => (
+              {['import', 'basic', 'mission', 'programs', 'funding', 'impact'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -280,6 +343,139 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+
+          {/* IMPORT TAB */}
+          {activeTab === 'import' && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                <h3 className="font-semibold text-blue-900 mb-2">Quick Profile Setup</h3>
+                <p className="text-sm text-blue-800">
+                  Upload your organization documents (annual reports, 990 forms, grant proposals, mission statements)
+                  and we'll automatically extract your profile information using AI.
+                </p>
+              </div>
+
+              {docError && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-center gap-3">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm">{docError}</span>
+                  <button onClick={() => setDocError('')} className="ml-auto text-red-600 hover:text-red-800">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {!extractionResult ? (
+                <>
+                  <DocumentUploader
+                    onUploadComplete={(docs) => {
+                      const newIds = docs.filter(d => d.id).map(d => d.id as string)
+                      setUploadedDocIds(prev => [...prev, ...newIds])
+                      // Refresh document list
+                      api.getOrganizationDocuments().then(res => {
+                        if (res.ok) res.json().then(data => setExistingDocuments(data.documents || []))
+                      })
+                    }}
+                    onError={(err) => setDocError(err)}
+                    existingDocuments={existingDocuments}
+                    onDeleteDocument={async (docId) => {
+                      try {
+                        const res = await api.deleteOrganizationDocument(docId)
+                        if (res.ok) {
+                          setExistingDocuments(prev => prev.filter(d => d.id !== docId))
+                          setUploadedDocIds(prev => prev.filter(id => id !== docId))
+                        }
+                      } catch (err) {
+                        setDocError('Failed to delete document')
+                      }
+                    }}
+                  />
+
+                  {(uploadedDocIds.length > 0 || existingDocuments.length > 0) && (
+                    <div className="flex justify-end pt-4">
+                      <button
+                        onClick={async () => {
+                          setExtracting(true)
+                          setDocError('')
+                          try {
+                            const docIds = uploadedDocIds.length > 0
+                              ? uploadedDocIds
+                              : existingDocuments.map(d => d.id)
+                            const res = await api.extractOrganizationInfo(docIds)
+                            if (res.ok) {
+                              const data = await res.json()
+                              setExtractionResult(data)
+                            } else {
+                              const err = await res.json()
+                              setDocError(err.detail || 'Extraction failed')
+                            }
+                          } catch (err) {
+                            setDocError('Failed to extract organization info')
+                          } finally {
+                            setExtracting(false)
+                          }
+                        }}
+                        disabled={extracting}
+                        className="btn-primary px-6 py-3 flex items-center gap-2"
+                      >
+                        {extracting && (
+                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        )}
+                        {extracting ? 'Extracting...' : 'Extract Organization Info'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <ExtractedInfoReview
+                  extracted={extractionResult.extracted}
+                  confidence={extractionResult.confidence}
+                  mergePreview={extractionResult.merge_preview}
+                  sourceDocuments={extractionResult.source_documents}
+                  loading={applying}
+                  onCancel={() => {
+                    setExtractionResult(null)
+                    setUploadedDocIds([])
+                  }}
+                  onApply={async (resolvedConflicts) => {
+                    setApplying(true)
+                    try {
+                      const res = await api.applyExtractedData(
+                        extractionResult.extracted,
+                        resolvedConflicts,
+                        uploadedDocIds.length > 0 ? uploadedDocIds : existingDocuments.map(d => d.id)
+                      )
+                      if (res.ok) {
+                        const data = await res.json()
+                        if (data.profile) {
+                          setConfig(prev => ({ ...prev, ...data.profile }))
+                        }
+                        setMessage('Organization profile updated from documents!')
+                        setTimeout(() => setMessage(''), 3000)
+                        setExtractionResult(null)
+                        setUploadedDocIds([])
+                        setActiveTab('basic')
+                      } else {
+                        const err = await res.json()
+                        setDocError(err.detail || 'Failed to apply changes')
+                      }
+                    } catch (err) {
+                      setDocError('Failed to apply extracted data')
+                    } finally {
+                      setApplying(false)
+                    }
+                  }}
+                />
+              )}
+            </div>
+          )}
 
           {/* BASIC INFO TAB */}
           {activeTab === 'basic' && (

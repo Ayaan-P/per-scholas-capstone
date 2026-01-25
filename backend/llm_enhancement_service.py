@@ -33,7 +33,7 @@ class LLMEnhancementService:
             raise ValueError("GEMINI_API_KEY not set")
 
         genai.configure(api_key=self.gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-01-21')
+        self.model = genai.GenerativeModel('gemini-3-flash-preview')
 
         # Initialize Supabase
         supabase_url = os.getenv('SUPABASE_URL')

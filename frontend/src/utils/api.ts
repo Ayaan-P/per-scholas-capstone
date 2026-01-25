@@ -5,9 +5,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 // Helper to get auth headers
 async function getAuthHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  }
+  const headers: Record<string, string> = {}
 
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`
@@ -25,12 +23,14 @@ async function getAuthToken() {
 // Wrapper for authenticated fetch calls
 async function authenticatedFetch(url: string, options: RequestInit = {}) {
   const headers = await getAuthHeaders()
+  const mergedHeaders = {
+    'Content-Type': 'application/json',
+    ...headers,
+    ...(options.headers || {})
+  }
   return fetch(url, {
     ...options,
-    headers: {
-      ...headers,
-      ...(options.headers || {})
-    }
+    headers: mergedHeaders
   })
 }
 
@@ -188,6 +188,49 @@ export const api = {
     authenticatedFetch(`${API_BASE_URL}/api/organization/config`, {
       method: 'POST',
       body: JSON.stringify(config)
+    }),
+
+  // Organization Documents
+  uploadOrganizationDocuments: async (files: File[]) => {
+    const token = await getAuthToken()
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    // Don't set Content-Type for FormData - browser will set multipart/form-data automatically
+
+    return fetch(`${API_BASE_URL}/api/organization/documents/upload`, {
+      method: 'POST',
+      headers,
+      body: formData
+    })
+  },
+
+  extractOrganizationInfo: (documentIds: string[]) =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/documents/extract`, {
+      method: 'POST',
+      body: JSON.stringify({ document_ids: documentIds })
+    }),
+
+  applyExtractedData: (extractedData: any, resolvedConflicts: any, sourceDocumentIds: string[]) =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/documents/apply`, {
+      method: 'POST',
+      body: JSON.stringify({
+        extracted_data: extractedData,
+        resolved_conflicts: resolvedConflicts,
+        source_document_ids: sourceDocumentIds
+      })
+    }),
+
+  getOrganizationDocuments: () =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/documents`),
+
+  deleteOrganizationDocument: (documentId: string) =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/documents/${documentId}`, {
+      method: 'DELETE'
     }),
 
   // Categories

@@ -436,44 +436,20 @@ class SchedulerService:
 
 
     async def _scrape_ai_state_local_opportunities(self):
-        """Use same search endpoint logic to find state and local funding opportunities based on scheduler settings"""
+        """Search for grant opportunities across all categories - builds general grants database"""
         job_id = self._create_job_record('ai_state_local', 'running')
 
         try:
-            logger.info("Starting AI-powered state and local opportunities scrape...")
-
-            # Load organization context from database (configurable per organization)
-            from main import get_organization_config
-            org_config = get_organization_config()
-            org_name = org_config.get('name', 'the organization')
-            org_context = f"""{org_name}
-
-Mission: {org_config.get('mission', 'To advance economic equity')}
-
-Programs:
-{chr(10).join(['- ' + p for p in org_config.get('programs', ['Technology training'])])}
-
-Focus Areas:
-{chr(10).join(['- ' + f for f in org_config.get('focus_areas', ['Technology careers'])])}
-
-Target Demographics:
-{chr(10).join(['- ' + d for d in org_config.get('target_demographics', ['Underrepresented communities'])])}
-
-Impact Metrics:
-{org_config.get('impact_metrics', 'Advancing economic equity')}"""
+            logger.info("Starting AI-powered category-based grants scrape...")
 
             # Get target locations from scheduler settings (user-configured or defaults)
             locations = self.scheduler_settings.get('locations', self._get_default_locations())
             logger.info(f"Using {len(locations)} target locations from scheduler settings")
 
-            # Get categories to search for (default to Workforce Development if not configured)
-            category_ids = self.scheduler_settings.get('search_categories', [1])  # 1 = Workforce Development
-            if not category_ids:
-                category_ids = [1]
-
+            # Get ALL categories - we search for everything to build comprehensive grants DB
             category_service = get_category_service()
-            categories_to_search = [category_service.get_category_by_id(cid) for cid in category_ids if cid]
-            logger.info(f"Searching for {len(categories_to_search)} categories: {[c['name'] for c in categories_to_search if c]}")
+            categories_to_search = category_service.get_all_categories()
+            logger.info(f"Searching ALL {len(categories_to_search)} categories: {[c['name'] for c in categories_to_search]}")
 
             all_grants = []
             total_found = 0
@@ -487,11 +463,11 @@ Impact Metrics:
                     try:
                         logger.info(f"Searching for {category['name']} opportunities in {state} ({city})...")
 
-                        # Build search request using category service
+                        # Build search request using category service (no org context - general search)
                         orchestration_prompt = category_service.build_orchestration_prompt(
                             category_id=category['id'],
                             location=(state, city),
-                            organization_context=org_context,
+                            organization_context=None,  # General search, not org-specific
                         )
 
                         if not orchestration_prompt:

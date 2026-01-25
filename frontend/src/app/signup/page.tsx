@@ -58,7 +58,7 @@ export default function SignupPage() {
       // After signup, the user is automatically signed in
       // Initialize user profile in the backend
       const session = await supabase.auth.getSession()
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
       console.log('[Signup] Session after signup:', {
         hasSession: !!session.data.session,

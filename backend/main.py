@@ -317,7 +317,8 @@ def _make_org_config_auth_headers():
     return {
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
     }
 
 # Gemini API configuration
@@ -411,6 +412,16 @@ class OrganizationConfigRequest(BaseModel):
     impact_metrics: Optional[Dict[str, Any]] = None
     programs: Optional[List[str]] = None
     target_demographics: Optional[List[str]] = None
+
+
+class DocumentExtractRequest(BaseModel):
+    document_ids: List[str]
+
+
+class ApplyExtractionRequest(BaseModel):
+    extracted_data: Dict[str, Any]
+    resolved_conflicts: Optional[Dict[str, Any]] = None
+    source_document_ids: List[str]
 
 class OrganizationConfig(BaseModel):
     id: Optional[str] = None
@@ -662,14 +673,45 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
             raise HTTPException(status_code=404, detail="Organization config not found")
 
         config = config_data[0]
+        # Return all fields
         return {
             "id": config.get("id"),
             "name": config.get("name"),
             "mission": config.get("mission"),
+            "ein": config.get("ein"),
+            "organization_type": config.get("organization_type", "nonprofit"),
+            "tax_exempt_status": config.get("tax_exempt_status", "pending"),
+            "years_established": config.get("years_established"),
+            "annual_budget": config.get("annual_budget"),
+            "staff_size": config.get("staff_size"),
+            "board_size": config.get("board_size"),
+            "website_url": config.get("website_url"),
+            "contact_email": config.get("contact_email"),
+            "contact_phone": config.get("contact_phone"),
+            "primary_focus_area": config.get("primary_focus_area", ""),
+            "secondary_focus_areas": config.get("secondary_focus_areas", []),
             "focus_areas": config.get("focus_areas", []),
-            "impact_metrics": config.get("impact_metrics", {}),
+            "service_regions": config.get("service_regions", []),
+            "languages_served": config.get("languages_served", ["English"]),
+            "key_programs": config.get("key_programs", []),
             "programs": config.get("programs", []),
+            "target_populations": config.get("target_populations", []),
             "target_demographics": config.get("target_demographics", []),
+            "key_partnerships": config.get("key_partnerships", []),
+            "accreditations": config.get("accreditations", []),
+            "preferred_grant_size_min": config.get("preferred_grant_size_min"),
+            "preferred_grant_size_max": config.get("preferred_grant_size_max"),
+            "grant_writing_capacity": config.get("grant_writing_capacity", "moderate"),
+            "key_impact_metrics": config.get("key_impact_metrics", []),
+            "impact_metrics": config.get("impact_metrics", {}),
+            "success_stories": config.get("success_stories", []),
+            "previous_grants": config.get("previous_grants", []),
+            "funding_priorities": config.get("funding_priorities", []),
+            "custom_search_keywords": config.get("custom_search_keywords", []),
+            "excluded_keywords": config.get("excluded_keywords", []),
+            "expansion_plans": config.get("expansion_plans"),
+            "donor_restrictions": config.get("donor_restrictions"),
+            "matching_fund_capacity": config.get("matching_fund_capacity", 0),
             "created_at": config.get("created_at"),
             "updated_at": config.get("updated_at")
         }
@@ -682,6 +724,7 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
 @app.post("/api/organization/config")
 async def save_organization_configuration(config_request: OrganizationConfigRequest, user_id: str = Depends(get_current_user)):
     """Save or update organization configuration for authenticated user"""
+    print(f"[ORG CONFIG POST] Handler called with user: {user_id}, config: {config_request}")
     try:
         headers = _make_org_config_auth_headers()
 
@@ -782,6 +825,396 @@ async def save_organization_configuration(config_request: OrganizationConfigRequ
     except Exception as e:
         print(f"[ORG CONFIG] Error saving: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save organization configuration: {str(e)}")
+
+
+# ============================================
+# Organization Document Upload & Extraction
+# ============================================
+
+@app.post("/api/organization/documents/upload")
+async def upload_organization_documents(
+    files: List[UploadFile] = File(...),
+    user_id: str = Depends(get_current_user)
+):
+    """Upload organization documents for LLM extraction."""
+    from document_extraction_service import DocumentExtractionService
+
+    try:
+        headers = _make_org_config_auth_headers()
+
+        # Get user's organization
+        with httpx.Client() as client:
+            user_url = f"{SUPABASE_URL}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_response = client.get(user_url, headers=headers)
+
+        if user_response.status_code != 200:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_data = user_response.json()
+        if not user_data or len(user_data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        organization_id = user_data[0].get("organization_id")
+        if not organization_id:
+            raise HTTPException(status_code=400, detail="User has no organization. Please create organization profile first.")
+
+        # Initialize supabase client for document service
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        doc_service = DocumentExtractionService(supabase)
+
+        uploaded_docs = []
+        allowed_types = {'pdf', 'docx', 'txt'}
+
+        for file in files:
+            # Validate file type
+            file_ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+            if file_ext not in allowed_types:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported file type: {file_ext}. Allowed: PDF, DOCX, TXT"
+                )
+
+            # Read file content
+            file_bytes = await file.read()
+            file_size = len(file_bytes)
+
+            # Check file size (max 50MB)
+            if file_size > 50 * 1024 * 1024:
+                raise HTTPException(status_code=400, detail=f"File {file.filename} exceeds 50MB limit")
+
+            # Extract text
+            try:
+                extracted_text = doc_service.extract_text(file_bytes, file_ext)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Failed to extract text from {file.filename}: {str(e)}")
+
+            # Upload to Supabase storage
+            storage_path = f"{organization_id}/{uuid.uuid4()}.{file_ext}"
+            try:
+                supabase.storage.from_('org-documents').upload(storage_path, file_bytes)
+            except Exception as e:
+                print(f"[DOC UPLOAD] Storage error: {e}")
+                # Continue without storage - we have the text
+                storage_path = f"extraction-only/{uuid.uuid4()}"
+
+            # Save document record
+            doc_record = await doc_service.save_document(
+                organization_id=organization_id,
+                filename=file.filename,
+                file_type=file_ext,
+                file_size=file_size,
+                storage_path=storage_path,
+                extracted_text=extracted_text
+            )
+
+            uploaded_docs.append({
+                'id': doc_record['id'] if doc_record else None,
+                'filename': file.filename,
+                'file_type': file_ext,
+                'file_size': file_size,
+                'text_length': len(extracted_text)
+            })
+
+        return {
+            'status': 'success',
+            'uploaded': uploaded_docs,
+            'count': len(uploaded_docs)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DOC UPLOAD] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload documents: {str(e)}")
+
+
+@app.post("/api/organization/documents/extract")
+async def extract_organization_info(
+    request: DocumentExtractRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """Extract organization info from uploaded documents using LLM."""
+    from document_extraction_service import DocumentExtractionService
+
+    try:
+        headers = _make_org_config_auth_headers()
+
+        # Get user's organization
+        with httpx.Client() as client:
+            user_url = f"{SUPABASE_URL}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_response = client.get(user_url, headers=headers)
+
+        if user_response.status_code != 200:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_data = user_response.json()
+        organization_id = user_data[0].get("organization_id") if user_data else None
+
+        if not organization_id:
+            raise HTTPException(status_code=400, detail="User has no organization")
+
+        # Initialize services
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        doc_service = DocumentExtractionService(supabase)
+
+        # Get documents
+        documents = []
+        for doc_id in request.document_ids:
+            result = supabase.table('organization_documents')\
+                .select('filename, extracted_text')\
+                .eq('id', doc_id)\
+                .eq('organization_id', organization_id)\
+                .execute()
+
+            if result.data:
+                doc = result.data[0]
+                if doc.get('extracted_text'):
+                    documents.append({
+                        'filename': doc['filename'],
+                        'text': doc['extracted_text']
+                    })
+
+        if not documents:
+            raise HTTPException(status_code=400, detail="No valid documents found for extraction")
+
+        # Extract organization info using LLM
+        extraction_result = await doc_service.extract_organization_info(documents)
+
+        if extraction_result.get('error'):
+            raise HTTPException(status_code=500, detail=extraction_result['error'])
+
+        # Get existing profile for smart merge
+        with httpx.Client() as client:
+            config_url = f"{SUPABASE_URL}/rest/v1/organization_config?select=*&id=eq.{organization_id}"
+            config_response = client.get(config_url, headers=headers)
+
+        existing_profile = {}
+        if config_response.status_code == 200:
+            config_data = config_response.json()
+            if config_data:
+                existing_profile = config_data[0]
+
+        # Smart merge
+        merge_result = doc_service.smart_merge(
+            existing_profile=existing_profile,
+            extracted=extraction_result.get('extracted', {}),
+            confidence=extraction_result.get('confidence', {})
+        )
+
+        return {
+            'status': 'success',
+            'extracted': extraction_result.get('extracted', {}),
+            'confidence': extraction_result.get('confidence', {}),
+            'merge_preview': {
+                'new_fields': merge_result['new_fields'],
+                'conflicts': merge_result['conflicts'],
+                'unchanged': merge_result['unchanged']
+            },
+            'source_documents': extraction_result.get('source_documents', [])
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DOC EXTRACT] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract organization info: {str(e)}")
+
+
+@app.post("/api/organization/documents/apply")
+async def apply_extracted_data(
+    request: ApplyExtractionRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """Apply extracted data to organization profile with conflict resolution."""
+    from document_extraction_service import DocumentExtractionService
+
+    try:
+        headers = _make_org_config_auth_headers()
+
+        # Get user's organization
+        with httpx.Client() as client:
+            user_url = f"{SUPABASE_URL}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_response = client.get(user_url, headers=headers)
+
+        if user_response.status_code != 200:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_data = user_response.json()
+        organization_id = user_data[0].get("organization_id") if user_data else None
+
+        if not organization_id:
+            raise HTTPException(status_code=400, detail="User has no organization")
+
+        # Build update data from extracted + resolved conflicts
+        update_data = {**request.extracted_data}
+        if request.resolved_conflicts:
+            update_data.update(request.resolved_conflicts)
+
+        # Map extracted field names to database column names
+        field_mapping = {
+            'organization_name': 'name',
+            'mission_statement': 'mission',
+            'description': 'mission',
+            'areas_of_focus': 'focus_areas',
+            'key_programs': 'programs',
+            'target_population': 'target_demographics',
+            'target_populations': 'target_demographics',
+            'demographics': 'target_demographics',
+            'metrics': 'impact_metrics',
+        }
+
+        # Apply field mapping
+        mapped_data = {}
+        for k, v in update_data.items():
+            if v is not None:
+                mapped_key = field_mapping.get(k, k)
+                mapped_data[mapped_key] = v
+
+        # Valid columns in organization_config table (all fields)
+        valid_columns = {
+            'name', 'mission', 'focus_areas', 'impact_metrics', 'programs', 'target_demographics',
+            'ein', 'organization_type', 'tax_exempt_status', 'years_established', 'annual_budget',
+            'staff_size', 'board_size', 'website_url', 'contact_email', 'contact_phone',
+            'primary_focus_area', 'secondary_focus_areas', 'service_regions', 'languages_served',
+            'key_programs', 'target_populations', 'key_partnerships', 'accreditations',
+            'preferred_grant_size_min', 'preferred_grant_size_max', 'grant_writing_capacity',
+            'key_impact_metrics', 'success_stories', 'previous_grants', 'funding_priorities',
+            'custom_search_keywords', 'excluded_keywords', 'expansion_plans', 'donor_restrictions',
+            'matching_fund_capacity'
+        }
+
+        # Filter to valid columns only
+        update_data = {k: v for k, v in mapped_data.items() if k in valid_columns}
+
+        print(f"[APPLY] Updating org {organization_id} with: {update_data}")
+
+        # Update organization config
+        with httpx.Client() as client:
+            update_response = client.patch(
+                f"{SUPABASE_URL}/rest/v1/organization_config?id=eq.{organization_id}",
+                headers=headers,
+                json=update_data
+            )
+
+        if update_response.status_code not in [200, 204]:
+            raise HTTPException(status_code=500, detail="Failed to update organization profile")
+
+        # Save extraction history
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        doc_service = DocumentExtractionService(supabase)
+        await doc_service.save_extraction_history(
+            organization_id=organization_id,
+            extracted_data=request.extracted_data,
+            source_document_ids=request.source_document_ids,
+            confidence_scores={},
+            applied=True
+        )
+
+        # Fetch and return updated profile
+        with httpx.Client() as client:
+            fetch_response = client.get(
+                f"{SUPABASE_URL}/rest/v1/organization_config?select=*&id=eq.{organization_id}",
+                headers=headers
+            )
+
+        if fetch_response.status_code == 200:
+            config_data = fetch_response.json()
+            if config_data:
+                return {
+                    'status': 'success',
+                    'message': 'Organization profile updated from documents',
+                    'profile': config_data[0]
+                }
+
+        return {'status': 'success', 'message': 'Organization profile updated'}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DOC APPLY] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to apply extracted data: {str(e)}")
+
+
+@app.get("/api/organization/documents")
+async def list_organization_documents(user_id: str = Depends(get_current_user)):
+    """List all uploaded documents for user's organization."""
+    from document_extraction_service import DocumentExtractionService
+
+    try:
+        headers = _make_org_config_auth_headers()
+
+        # Get user's organization
+        with httpx.Client() as client:
+            user_url = f"{SUPABASE_URL}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_response = client.get(user_url, headers=headers)
+
+        if user_response.status_code != 200:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_data = user_response.json()
+        organization_id = user_data[0].get("organization_id") if user_data else None
+
+        if not organization_id:
+            return {'documents': [], 'count': 0}
+
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        doc_service = DocumentExtractionService(supabase)
+
+        documents = await doc_service.get_organization_documents(organization_id)
+
+        return {
+            'documents': documents,
+            'count': len(documents)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DOC LIST] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list documents: {str(e)}")
+
+
+@app.delete("/api/organization/documents/{document_id}")
+async def delete_organization_document(
+    document_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Delete a document from user's organization."""
+    from document_extraction_service import DocumentExtractionService
+
+    try:
+        headers = _make_org_config_auth_headers()
+
+        # Get user's organization
+        with httpx.Client() as client:
+            user_url = f"{SUPABASE_URL}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_response = client.get(user_url, headers=headers)
+
+        if user_response.status_code != 200:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_data = user_response.json()
+        organization_id = user_data[0].get("organization_id") if user_data else None
+
+        if not organization_id:
+            raise HTTPException(status_code=400, detail="User has no organization")
+
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        doc_service = DocumentExtractionService(supabase)
+
+        deleted = await doc_service.delete_document(document_id, organization_id)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return {'status': 'success', 'message': 'Document deleted'}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DOC DELETE] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
+
 
 # Category Management Endpoints
 @app.get("/api/categories")

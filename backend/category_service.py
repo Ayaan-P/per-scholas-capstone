@@ -147,7 +147,8 @@ Organization Context:
 """
 
         # Build the orchestration prompt
-        orchestration_prompt = f"""You are a fundraising specialist helping find opportunities for this organization. Find REAL, CURRENT funding opportunities using web research.
+        intro = "You are a fundraising specialist helping find opportunities for this organization." if organization_context else "You are a grants research specialist building a comprehensive funding database."
+        orchestration_prompt = f"""{intro} Find REAL, CURRENT funding opportunities using web research.
 {org_context_section}
 Search Request: {search_request}
 
