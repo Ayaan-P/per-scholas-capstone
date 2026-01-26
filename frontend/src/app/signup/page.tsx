@@ -49,7 +49,7 @@ export default function SignupPage() {
 
     try {
       console.log('[Signup] Starting signup process...')
-      await signUp(email, password)
+      await signUp(email, password, organizationName)
       console.log('[Signup] Signup successful, waiting for auth state...')
 
       // Wait a bit for auth state to be updated
@@ -93,9 +93,9 @@ export default function SignupPage() {
         console.error('[Signup] Failed to initialize user:', initResponse.status, await initResponse.text())
       }
 
-      // Redirect to dashboard
-      console.log('[Signup] Signup flow complete, redirecting to dashboard')
-      router.push('/dashboard')
+      // Redirect to onboarding for new users
+      console.log('[Signup] Signup flow complete, redirecting to onboarding')
+      router.push('/onboarding')
     } catch (err: any) {
       setError(err.message || 'Failed to create account. Please try again.')
       console.error('Sign up error:', err)

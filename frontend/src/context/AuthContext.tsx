@@ -7,7 +7,7 @@ import { supabase } from '../utils/supabaseClient'
 interface AuthContextType {
   user: User | null
   loading: boolean
-  signUp: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string, organizationName?: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   isAuthenticated: boolean
@@ -62,10 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, organizationName?: string) => {
     const { error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: {
+          organization_name: organizationName || ''
+        }
+      }
     })
     if (error) throw error
   }, [])

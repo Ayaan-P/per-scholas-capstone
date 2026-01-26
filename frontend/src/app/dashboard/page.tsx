@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
+import { useAuth } from '../../context/AuthContext'
 
 interface ScrapedGrant {
   id: string
@@ -34,6 +35,7 @@ interface Category {
 }
 
 export default function Dashboard() {
+  const { isAuthenticated } = useAuth()
   const [rawGrants, setRawGrants] = useState<ScrapedGrant[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
@@ -43,8 +45,8 @@ export default function Dashboard() {
   const [fundingMin, setFundingMin] = useState<number | undefined>(undefined)
   const [fundingMax, setFundingMax] = useState<number | undefined>(undefined)
   const [dueInDays, setDueInDays] = useState<number | undefined>(undefined)
-  const [sortBy, setSortBy] = useState<'match' | 'amount' | 'deadline'>('match')
-  const [tableSortBy, setTableSortBy] = useState<'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source' | 'created_at'>('match')
+  const [sortBy, setSortBy] = useState<'match' | 'amount' | 'deadline'>('deadline')
+  const [tableSortBy, setTableSortBy] = useState<'match' | 'title' | 'funder' | 'amount' | 'deadline' | 'source' | 'created_at'>('deadline')
   const [tableSortOrder, setTableSortOrder] = useState<'asc' | 'desc'>('desc')
   const [savingGrants, setSavingGrants] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState<number>(1)
@@ -63,6 +65,19 @@ export default function Dashboard() {
     fetchGrants()
     fetchCategories()
   }, [])
+
+  // Update sort defaults based on auth status
+  useEffect(() => {
+    if (isAuthenticated) {
+      // When authenticated, default to match score sorting
+      setSortBy('match')
+      setTableSortBy('match')
+    } else {
+      // When not authenticated, use deadline sorting (match scores are hidden)
+      if (sortBy === 'match') setSortBy('deadline')
+      if (tableSortBy === 'match') setTableSortBy('deadline')
+    }
+  }, [isAuthenticated])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -516,32 +531,74 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Bar */}
-        <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
-            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">Opportunities</p>
-            <p className="text-3xl sm:text-4xl font-bold text-gray-900">{filteredGrants.length}</p>
-          </div>
+        <div className={`mb-6 sm:mb-8 grid ${isAuthenticated ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 lg:grid-cols-2'} gap-3 sm:gap-4`}>
+          {isAuthenticated ? (
+            <>
+              <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
+                <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">Opportunities</p>
+                <p className="text-3xl sm:text-4xl font-bold text-gray-900">{filteredGrants.length}</p>
+              </div>
 
-          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '150ms' }}>
-            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">High Match $</p>
-            <p className="text-2xl sm:text-4xl font-bold text-green-600 truncate">
-              {formatCurrency(filteredGrants.filter(g => g.match_score >= 80).reduce((sum, g) => sum + (g.amount || 0), 0))}
-            </p>
-          </div>
+              <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '150ms' }}>
+                <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">High Match $</p>
+                <p className="text-2xl sm:text-4xl font-bold text-green-600 truncate">
+                  {formatCurrency(filteredGrants.filter(g => g.match_score >= 80).reduce((sum, g) => sum + (g.amount || 0), 0))}
+                </p>
+              </div>
 
-          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '200ms' }}>
-            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">High Match</p>
-            <p className="text-3xl sm:text-4xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 80).length}</p>
-          </div>
+              <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '200ms' }}>
+                <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">High Match</p>
+                <p className="text-3xl sm:text-4xl font-bold text-perscholas-accent">{filteredGrants.filter(g => g.match_score >= 80).length}</p>
+              </div>
 
-          <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '250ms' }}>
-            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">Avg Match Score</p>
-            <p className="text-3xl sm:text-4xl font-bold text-perscholas-secondary">
-              {filteredGrants.length > 0
-                ? Math.round(filteredGrants.reduce((sum, g) => sum + (g.match_score || 0), 0) / filteredGrants.length)
-                : 0}%
-            </p>
-          </div>
+              <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '250ms' }}>
+                <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">Avg Match Score</p>
+                <p className="text-3xl sm:text-4xl font-bold text-perscholas-secondary">
+                  {filteredGrants.length > 0
+                    ? Math.round(filteredGrants.reduce((sum, g) => sum + (g.match_score || 0), 0) / filteredGrants.length)
+                    : 0}%
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-2">{filteredGrants.length} Opportunities</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-green-600">
+                      {formatCurrency(filteredGrants.reduce((sum, g) => sum + (g.amount || 0), 0))}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">in available funding</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '150ms' }}>
+                <p className="text-sm font-semibold text-gray-900 mb-2">Sign in to unlock</p>
+                <ul className="text-xs sm:text-sm text-gray-600 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <span className="text-perscholas-primary">+</span>
+                    Personalized match scores
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-perscholas-primary">+</span>
+                    AI-powered insights on saved grants
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-perscholas-primary">+</span>
+                    Custom agentic searches
+                  </li>
+                </ul>
+                <button
+                  onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="mt-3 text-xs font-medium text-perscholas-primary hover:underline"
+                >
+                  See how it works →
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Mobile Filter Button */}
@@ -590,32 +647,34 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     <p className="text-sm font-bold text-gray-900">Quick Filters</p>
 
-                    <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      highMatchOnly
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${
-                          highMatchOnly ? 'bg-green-500' : 'bg-gray-200'
-                        }`}>
-                          {highMatchOnly && (
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
+                    {isAuthenticated && (
+                      <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        highMatchOnly
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${
+                            highMatchOnly ? 'bg-green-500' : 'bg-gray-200'
+                          }`}>
+                            {highMatchOnly && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <span className={`text-sm font-semibold ${highMatchOnly ? 'text-green-700' : 'text-gray-700'}`}>
+                            High Match Only
+                          </span>
                         </div>
-                        <span className={`text-sm font-semibold ${highMatchOnly ? 'text-green-700' : 'text-gray-700'}`}>
-                          High Match Only
-                        </span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={highMatchOnly}
-                        onChange={(e) => setHighMatchOnly(e.target.checked)}
-                        className="sr-only"
-                      />
-                    </label>
+                        <input
+                          type="checkbox"
+                          checked={highMatchOnly}
+                          onChange={(e) => setHighMatchOnly(e.target.checked)}
+                          className="sr-only"
+                        />
+                      </label>
+                    )}
 
                     <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
                       recentPostsOnly
@@ -741,7 +800,7 @@ export default function Dashboard() {
                         onChange={(e) => setSortBy(e.target.value as any)}
                         className="input-premium w-full"
                       >
-                        <option value="match">Match Score</option>
+                        {isAuthenticated && <option value="match">Match Score</option>}
                         <option value="amount">Funding Amount</option>
                         <option value="deadline">Due Date</option>
                       </select>
@@ -773,19 +832,28 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Tips */}
-              <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="bg-perscholas-secondary p-1.5 rounded-lg flex-shrink-0">
+              {/* How it works */}
+              <div id="how-it-works" className="bg-gradient-to-br from-perscholas-primary/5 to-perscholas-secondary/5 rounded-xl border border-perscholas-primary/20 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="bg-perscholas-primary p-1.5 rounded-lg">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-perscholas-dark mb-1">Discovery Tips</p>
-                    <p className="text-xs text-gray-700 leading-relaxed">
-                      Save grants to unlock AI insights, match reasoning, and semantic analysis of past RFPs.
-                    </p>
+                  <p className="text-sm font-bold text-gray-900">How it works</p>
+                </div>
+                <div className="space-y-3 text-xs text-gray-700">
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-perscholas-primary text-white text-xs font-bold flex items-center justify-center">1</span>
+                    <p><span className="font-semibold">AI agents scan</span> thousands of grants daily from federal databases, foundations, and more.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-perscholas-primary text-white text-xs font-bold flex items-center justify-center">2</span>
+                    <p><span className="font-semibold">Smart matching</span> scores each grant based on your organization's mission and focus areas.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-perscholas-primary text-white text-xs font-bold flex items-center justify-center">3</span>
+                    <p><span className="font-semibold">Save &amp; unlock insights</span> — get AI summaries, winning strategies, and similar past RFPs.</p>
                   </div>
                 </div>
               </div>
@@ -815,52 +883,43 @@ export default function Dashboard() {
                       }`}
                       style={{ animationDelay: `${index * 50}ms` }}
                     >
-                      {/* Title Row with Match Score */}
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2 leading-tight group-hover:text-perscholas-primary transition-colors">
-                            {grant.title}
-                          </h3>
-                          <p className="text-xs text-gray-600 truncate">{grant.funder}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                          <div className={`${getMatchColor(grant.match_score)} text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-sm`}>
+                      {/* Header: Title + Match Score */}
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h3 className="text-base font-bold text-gray-900 line-clamp-2 leading-tight group-hover:text-perscholas-primary transition-colors flex-1">
+                          {grant.title}
+                        </h3>
+                        {isAuthenticated && (
+                          <div className={`${getMatchColor(grant.match_score)} text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-sm flex-shrink-0`}>
                             {grant.match_score}%
                           </div>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getSourceBadge(grant.source)}`}>
-                            {getSourceLabel(grant.source)}
-                          </span>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Key Metrics Grid */}
-                      <div className="grid grid-cols-2 gap-4 mb-4 p-4 sm:p-5 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="text-xs text-gray-500 font-medium mb-1">Funding</p>
-                          <p className="text-base font-bold text-green-600">{formatCurrency(grant.amount)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500 font-medium mb-1">Deadline</p>
-                          <p className="text-base font-bold text-gray-900">{formatDate(grant.deadline)}</p>
-                        </div>
-                      </div>
+                      {/* Provider */}
+                      <p className="text-sm font-medium text-perscholas-primary mb-3">{grant.funder}</p>
 
                       {/* Description */}
-                      <div className="mb-3 flex-grow">
-                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
+                      <div className="mb-4 flex-grow">
+                        <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">
                           {grant.description}
                         </p>
-                        {grant.description && grant.description.length > 200 && (
+                        {grant.description && grant.description.length > 250 && (
                           <button
                             onClick={() => setSelectedDescription({ title: grant.title, description: grant.description })}
-                            className="text-xs text-perscholas-primary font-medium hover:text-perscholas-dark mt-1.5 inline-flex items-center gap-1 group"
+                            className="text-xs text-perscholas-primary font-medium hover:text-perscholas-dark mt-2 inline-flex items-center gap-1"
                           >
-                            Read full description
+                            Read more
                             <svg className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                           </button>
                         )}
+                      </div>
+
+                      {/* Metrics */}
+                      <div className="flex items-center justify-between text-sm mb-4 py-2 px-3 bg-gray-50 rounded-lg">
+                        <span className="font-semibold text-green-600">{formatCurrency(grant.amount)}</span>
+                        <span className="text-gray-500">Due {formatDate(grant.deadline)}</span>
                       </div>
 
                       {/* Actions */}
@@ -877,8 +936,9 @@ export default function Dashboard() {
                         )}
                         <button
                           onClick={() => handleSaveGrant(grant.id)}
-                          disabled={savingGrants.has(grant.id)}
-                          className="flex-1 btn-primary py-2.5"
+                          disabled={savingGrants.has(grant.id) || !isAuthenticated}
+                          title={!isAuthenticated ? 'Sign in to save grants' : undefined}
+                          className="flex-1 btn-primary py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {savingGrants.has(grant.id) ? (
                             <span className="flex items-center justify-center gap-2">
@@ -899,56 +959,58 @@ export default function Dashboard() {
                         </button>
                       </div>
 
-                      {/* Feedback Section */}
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-medium text-gray-700">Is this a good match?</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {feedbackSubmitted.has(grant.id) ? (
-                            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              Thanks for your feedback!
-                            </span>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => submitFeedback(grant.id, true)}
-                                className="flex items-center space-x-1 px-2 py-1 rounded-full border border-green-200 text-green-700 hover:bg-green-50 transition-colors text-xs"
-                              >
+                      {/* Feedback Section - Only show when authenticated */}
+                      {isAuthenticated && (
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-medium text-gray-700">Is this a good match?</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {feedbackSubmitted.has(grant.id) ? (
+                              <span className="text-xs text-green-600 font-medium flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
-                                <span>Good</span>
-                              </button>
-                              <button
-                                onClick={() => submitFeedback(grant.id, false)}
-                                disabled={dismissingGrants.has(grant.id)}
-                                className="flex items-center space-x-1 px-2 py-1 rounded-full border border-red-200 text-red-700 hover:bg-red-50 transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {dismissingGrants.has(grant.id) ? (
-                                  <>
-                                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Removing...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                      <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.106-1.79l-.05-.025A4 4 0 0011.057 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
-                                    </svg>
-                                    <span>Poor Match</span>
-                                  </>
-                                )}
-                              </button>
-                            </>
-                          )}
+                                Thanks for your feedback!
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => submitFeedback(grant.id, true)}
+                                  className="flex items-center space-x-1 px-2 py-1 rounded-full border border-green-200 text-green-700 hover:bg-green-50 transition-colors text-xs"
+                                >
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                                  </svg>
+                                  <span>Good</span>
+                                </button>
+                                <button
+                                  onClick={() => submitFeedback(grant.id, false)}
+                                  disabled={dismissingGrants.has(grant.id)}
+                                  className="flex items-center space-x-1 px-2 py-1 rounded-full border border-red-200 text-red-700 hover:bg-red-50 transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {dismissingGrants.has(grant.id) ? (
+                                    <>
+                                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                      </svg>
+                                      <span>Removing...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.106-1.79l-.05-.025A4 4 0 0011.057 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
+                                      </svg>
+                                      <span>Poor Match</span>
+                                    </>
+                                  )}
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1005,16 +1067,18 @@ export default function Dashboard() {
                   <table className="w-full" style={{ tableLayout: 'auto' }}>
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
-                        <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('match')}>
-                          <div className="flex items-center gap-1.5">
-                            <span>Match</span>
-                            {tableSortBy === 'match' && (
-                              <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                              </svg>
-                            )}
-                          </div>
-                        </th>
+                        {isAuthenticated && (
+                          <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap" onClick={() => handleTableSort('match')}>
+                            <div className="flex items-center gap-1.5">
+                              <span>Match</span>
+                              {tableSortBy === 'match' && (
+                                <svg className={`w-3 h-3 ${tableSortOrder === 'asc' ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                        )}
                         <th className="px-1.5 sm:px-2 py-2 sm:py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleTableSort('title')}>
                           <div className="flex items-center gap-1.5">
                             <span className="hidden sm:inline">Title</span>
@@ -1090,11 +1154,13 @@ export default function Dashboard() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paged.map((grant) => (
                         <tr key={grant.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-1.5 sm:px-2 py-2 sm:py-3">
-                            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-bold text-white ${getMatchColor(grant.match_score)}`}>
-                              {grant.match_score}%
-                            </span>
-                          </td>
+                          {isAuthenticated && (
+                            <td className="px-1.5 sm:px-2 py-2 sm:py-3">
+                              <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-bold text-white ${getMatchColor(grant.match_score)}`}>
+                                {grant.match_score}%
+                              </span>
+                            </td>
+                          )}
                           <td className="px-1.5 sm:px-2 py-2 sm:py-3">
                             <div className="text-xs sm:text-sm font-semibold text-gray-900 truncate max-w-[100px] sm:max-w-[200px]" title={grant.title}>
                               {grant.title}
@@ -1156,9 +1222,9 @@ export default function Dashboard() {
                               )}
                               <button
                                 onClick={() => handleSaveGrant(grant.id)}
-                                disabled={savingGrants.has(grant.id)}
+                                disabled={savingGrants.has(grant.id) || !isAuthenticated}
                                 className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-perscholas-primary text-white rounded text-xs font-medium hover:bg-perscholas-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Save Grant"
+                                title={!isAuthenticated ? 'Sign in to save grants' : 'Save Grant'}
                               >
                                 {savingGrants.has(grant.id) ? (
                                   <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">

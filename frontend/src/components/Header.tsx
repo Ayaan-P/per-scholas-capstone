@@ -92,6 +92,16 @@ export function Header() {
 
           {/* Auth Actions */}
           <div className="hidden md:flex items-center space-x-3">
+            <a
+              href="/about"
+              className={`px-3 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
+                isActive('/about')
+                  ? 'text-perscholas-primary'
+                  : 'text-gray-500 hover:text-perscholas-primary'
+              }`}
+            >
+              About
+            </a>
             {isAuthenticated ? (
               <>
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-full">{user?.email}</span>
@@ -184,7 +194,18 @@ export function Header() {
                   </a>
                 </>
               )}
-              {isAuthenticated ? (
+                <a
+                href="/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                  isActive('/about')
+                    ? 'text-blue-600 font-bold bg-blue-50'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                About
+              </a>
+            {isAuthenticated ? (
                 <>
                   <div className="px-4 py-2 text-sm text-gray-600 border-t border-gray-200 mt-2">
                     {user?.email}
