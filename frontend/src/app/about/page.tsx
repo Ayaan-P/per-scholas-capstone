@@ -240,7 +240,7 @@ export default function AboutPage() {
       {/* Footer */}
       <footer className="border-t border-gray-200 bg-white mt-16">
         <div className="max-w-4xl mx-auto px-6 py-8 text-center text-gray-500 text-sm">
-          <p>FundFish is a product of dytto.</p>
+          <p>FundFish is a product of <a href="https://dytto.app" target="_blank" rel="noopener noreferrer" className="text-perscholas-primary hover:text-perscholas-dark transition-colors font-medium">dytto</a>.</p>
         </div>
       </footer>
     </div>
