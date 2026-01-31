@@ -1295,7 +1295,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-c              </div>
+              </div>
             )}
           </div>
         </div>
