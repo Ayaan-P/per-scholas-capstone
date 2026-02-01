@@ -9,9 +9,9 @@
 - **Agentic pivot** — 3 issues created (grant discovery, proposal writer, donor outreach). Ayaan is thinking on this. Do NOT start pivot work yet.
 
 ## Approved — Do These
-- [ ] **Verify site status** — Check fundfish.pro (the real domain), not the Netlify subdomain. Report actual status.
-- [ ] **API security** — Harden all endpoints that skip auth. Plan this out: audit every endpoint, create GitHub issues for each fix, then implement.
-- [ ] **Landing page** — Build a real landing page with conversion funnel. Plan this out: break into subtask issues (hero, features, CTA, etc.), then implement.
+- [x] **Verify site status** — fundfish.pro returns HTTP 200, served by Netlify. ✅ 2026-01-31
+- [x] **API security** — Audited all endpoints, found 13 without auth, fixed all. Issue #27, commit c07d455. ✅ 2026-01-31
+- [x] **Landing page** — Built full landing page (hero, features, CTA, footer). Issue #28, commit 532a9d8. ✅ 2026-01-31
 
 ## How to Work
 - For each approved item: **plan first** — break into subtask issues on GitHub, THEN implement.
@@ -19,3 +19,5 @@
 
 ## Completed
 - [x] Fixed stray `c` character in dashboard table (PR #14)
+- [x] API security hardening — 13 endpoints secured (Issue #27, 2026-01-31)
+- [x] Landing page for fundfish.pro (Issue #28, 2026-01-31)
