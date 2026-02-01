@@ -21,3 +21,8 @@
 - [x] Fixed stray `c` character in dashboard table (PR #14)
 - [x] API security hardening — 13 endpoints secured (Issue #27, 2026-01-31)
 - [x] Landing page for fundfish.pro (Issue #28, 2026-01-31)
+- [x] Credits routes use real Supabase JWT emails instead of placeholders (Issue #25, 2026-02-01)
+- [x] Removed dead settings/page-old.tsx (Issue #24, 2026-02-01)
+- [x] Removed all 58 console.log/error statements from frontend (Issue #16, 2026-02-01)
+- [x] Added SEO: OpenGraph, Twitter Card, robots.txt, sitemap.xml (Issue #19, 2026-02-01)
+- [x] Added error boundaries, loading skeletons, 404 page (Issue #17, 2026-02-01)
