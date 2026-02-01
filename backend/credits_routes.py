@@ -257,11 +257,19 @@ async def deduct_credits_internal(
     user_id: str,
     amount: int = 1,
     reference_id: str = None,
+    request: Request = None,
 ):
     """
     Internal endpoint to deduct credits from user account.
     Called by search agent before execution.
+    Protected: only accepts requests from localhost/internal callers.
     """
+    # Security: restrict to internal/localhost callers only
+    if request:
+        client_host = request.client.host if request.client else None
+        if client_host not in ("127.0.0.1", "::1", "localhost", None):
+            raise HTTPException(status_code=403, detail="Internal endpoint - access denied")
+
     try:
         # Check if user has enough credits (with monthly reset if needed)
         CreditsService.reset_monthly_credits_if_needed(user_id)
@@ -280,13 +288,23 @@ async def deduct_credits_internal(
             "new_balance": result["new_balance"],
             "amount_deducted": result["amount_deducted"],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         return {"success": False, "error": f"Error deducting credits: {str(e)}"}
 
 
 @router.get("/internal/balance/{user_id}")
-async def get_balance_internal(user_id: str):
-    """Internal endpoint to get user's credit balance."""
+async def get_balance_internal(user_id: str, request: Request = None):
+    """Internal endpoint to get user's credit balance.
+    Protected: only accepts requests from localhost/internal callers.
+    """
+    # Security: restrict to internal/localhost callers only
+    if request:
+        client_host = request.client.host if request.client else None
+        if client_host not in ("127.0.0.1", "::1", "localhost", None):
+            raise HTTPException(status_code=403, detail="Internal endpoint - access denied")
+
     try:
         # Check if monthly reset is needed
         CreditsService.reset_monthly_credits_if_needed(user_id)
@@ -300,5 +318,7 @@ async def get_balance_internal(user_id: str):
             "total_credits": result["data"]["total_credits"],
             "monthly_credits_used": result["data"]["monthly_credits_used"],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         return {"success": False, "error": str(e)}

@@ -1281,8 +1281,8 @@ async def health_check():
     }
 
 @app.get("/api/scheduler/settings")
-async def get_scheduler_settings():
-    """Get current scheduler settings"""
+async def get_scheduler_settings(user_id: str = Depends(get_current_user)):
+    """Get current scheduler settings (requires authentication)"""
     try:
         # Try to fetch existing settings
         result = supabase.table("scheduler_settings").select("*").limit(1).execute()
@@ -1320,8 +1320,8 @@ async def get_scheduler_settings():
         }
 
 @app.post("/api/scheduler/settings")
-async def save_scheduler_settings(settings: SchedulerSettingsRequest):
-    """Save or update scheduler settings and reload scheduler"""
+async def save_scheduler_settings(settings: SchedulerSettingsRequest, user_id: str = Depends(get_current_user)):
+    """Save or update scheduler settings and reload scheduler (requires authentication)"""
     try:
         # Check if settings already exist
         result = supabase.table("scheduler_settings").select("id").limit(1).execute()
@@ -1436,8 +1436,8 @@ async def start_opportunity_search(
     }
 
 @app.get("/api/jobs/{job_id}")
-async def get_job_status(job_id: str):
-    """Get job status and results"""
+async def get_job_status(job_id: str, user_id: str = Depends(get_current_user)):
+    """Get job status and results (requires authentication)"""
     if job_id not in jobs_db:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -1556,8 +1556,8 @@ async def get_scraped_grants(
         raise HTTPException(status_code=500, detail=f"Failed to fetch scraped grants: {str(e)}")
 
 @app.get("/api/scheduler/status")
-async def get_scheduler_status():
-    """Get status of scheduled scraping jobs"""
+async def get_scheduler_status(user_id: str = Depends(get_current_user)):
+    """Get status of scheduled scraping jobs (requires authentication)"""
     if not scheduler_service:
         raise HTTPException(status_code=503, detail="Scheduler not initialized")
 
@@ -1582,8 +1582,8 @@ async def get_scheduler_status():
         raise HTTPException(status_code=500, detail=f"Failed to get scheduler status: {str(e)}")
 
 @app.post("/api/scheduler/run/{job_name}")
-async def run_scheduler_job(job_name: str):
-    """Manually trigger a scheduled scraping job"""
+async def run_scheduler_job(job_name: str, user_id: str = Depends(get_current_user)):
+    """Manually trigger a scheduled scraping job (requires authentication)"""
     if not scheduler_service:
         raise HTTPException(status_code=503, detail="Scheduler not initialized")
 
@@ -2143,8 +2143,8 @@ def get_opportunity_feedback_counts(opportunity_id: str) -> Dict[str, int]:
     return get_opportunity_feedback_counts.feedback_store.get(opportunity_id, {"positive": 0, "negative": 0})
 
 @app.post("/api/opportunities/{opportunity_id}/dismiss")
-async def dismiss_opportunity(opportunity_id: str):
-    """Dismiss an opportunity from the dashboard (mark as not relevant)"""
+async def dismiss_opportunity(opportunity_id: str, user_id: str = Depends(get_current_user)):
+    """Dismiss an opportunity from the dashboard (mark as not relevant, requires authentication)"""
     try:
         print(f"[DISMISS] Attempting to dismiss opportunity: {opportunity_id}")
         
@@ -2179,29 +2179,12 @@ async def dismiss_opportunity(opportunity_id: str):
         print(f"[DISMISS] Error dismissing opportunity: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to dismiss opportunity: {str(e)}")
 
-@app.get("/api/scraped-grants")
-async def get_scraped_grants_filtered():
-    """Get scraped grants (filtering done on frontend)"""
-    try:
-        # Get all scraped grants - frontend will handle filtering dismissed ones
-        result = supabase.table("scraped_grants").select("*").execute()
-        
-        if hasattr(result, 'error') and result.error:
-            raise HTTPException(status_code=500, detail=f"Database error: {result.error}")
-
-        grants = result.data or []
-        
-        print(f"[SCRAPED_GRANTS] Returning {len(grants)} grants (including dismissed - filtered on frontend)")
-        return {"grants": grants}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch grants: {str(e)}")
+# NOTE: Duplicate /api/scraped-grants route removed — the authenticated version above handles this.
+# The previous unauthenticated version was a security risk (exposed all grants without auth).
 
 @app.post("/api/rfps/load")
-async def load_rfps():
-    """Load RFPs from directory into database (admin endpoint)"""
+async def load_rfps(user_id: str = Depends(get_current_user)):
+    """Load RFPs from directory into database (admin endpoint, requires authentication)"""
     try:
         # Load RFPs from directory
         # rfps = semantic_service.load_rfps_from_directory()  # Disabled for Render free tier
@@ -2362,8 +2345,8 @@ async def get_similar_rfps(opportunity_id: str, user_id: str = Depends(get_curre
         raise HTTPException(status_code=500, detail=f"Error finding similar RFPs: {str(e)}")
 
 @app.get("/api/proposals")
-async def get_proposals():
-    """Get all proposals from database"""
+async def get_proposals(user_id: str = Depends(get_current_user)):
+    """Get all proposals from database (requires authentication)"""
     try:
         result = supabase.table("proposals").select("*").order("created_at", desc=True).execute()
         return {"proposals": result.data}
@@ -2373,9 +2356,10 @@ async def get_proposals():
 @app.post("/api/proposals/generate")
 async def generate_proposal(
     request: ProposalRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user)
 ):
-    """Generate a proposal using Claude Code"""
+    """Generate a proposal using Claude Code (requires authentication)"""
     job_id = str(uuid.uuid4())
 
     # Initialize job
@@ -2395,8 +2379,8 @@ async def generate_proposal(
     return {"job_id": job_id, "status": "started"}
 
 @app.put("/api/proposals/{proposal_id}/status")
-async def update_proposal_status(proposal_id: str, status_update: dict):
-    """Update proposal status"""
+async def update_proposal_status(proposal_id: str, status_update: dict, user_id: str = Depends(get_current_user)):
+    """Update proposal status (requires authentication)"""
     try:
         supabase.table("proposals").update({
             "status": status_update["status"],
@@ -3060,9 +3044,9 @@ This partnership with {request.funder} will create lasting economic mobility for
         job["current_task"] = f"Error: {str(e)}"
 
 @app.get("/api/proposals/{proposal_id}/download")
-async def download_proposal(proposal_id: int):
+async def download_proposal(proposal_id: int, user_id: str = Depends(get_current_user)):
     """
-    Serve a proposal PDF file from the server filesystem.
+    Serve a proposal PDF file from the server filesystem (requires authentication).
 
     Args:
         proposal_id: The ID of the proposal in the database
