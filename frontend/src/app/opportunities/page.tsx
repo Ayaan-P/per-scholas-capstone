@@ -176,7 +176,6 @@ export default function OpportunitiesPage() {
       const response = await api.getOpportunities()
 
       if (!response.ok) {
-        console.error('Failed to fetch opportunities')
         setRawOpportunities([])
         return
       }
@@ -184,7 +183,6 @@ export default function OpportunitiesPage() {
       const data = await response.json()
       setRawOpportunities(data.opportunities || [])
     } catch (error) {
-      console.error('Failed to fetch opportunities:', error)
       setRawOpportunities([])
     } finally {
       setLoading(false)
@@ -272,7 +270,6 @@ export default function OpportunitiesPage() {
         })
       }
     } catch (error) {
-      console.error('Failed to dismiss opportunity:', error)
       alert('Failed to dismiss opportunity')
       setDismissingOpportunities(prev => {
         const newSet = new Set(prev)
@@ -290,18 +287,15 @@ export default function OpportunitiesPage() {
       const response = await api.addOpportunityToRfpDb(opportunityId)
       const data = await response.json()
 
-      console.log('RFP DB Response:', { status: response.status, data })
 
       if (response.ok) {
         if (data.status === 'already_exists') {
-          console.log('Setting already exists message for', opportunityId)
           // Show message that it already exists
           setRfpDbSuccessMessage(prev => ({
             ...prev,
             [opportunityId]: '✓ Already in training database'
           }))
         } else {
-          console.log('Setting success message for', opportunityId)
           // Show success message
           setRfpDbSuccessMessage(prev => ({
             ...prev,
@@ -318,11 +312,9 @@ export default function OpportunitiesPage() {
           })
         }, 3000)
       } else {
-        console.error('Response not OK:', response.status, data)
         alert(`Failed to add to training database: ${data.detail || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Failed to add to RFP database:', error)
       alert('Failed to add to training database')
     } finally {
       setAddingToRfpDb(prev => {
@@ -412,7 +404,6 @@ export default function OpportunitiesPage() {
         alert(`Upload failed: ${data.detail || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Upload error:', error)
       alert('Failed to upload RFP. Please try again.')
     } finally {
       setUploadingRfp(false)
@@ -436,10 +427,8 @@ export default function OpportunitiesPage() {
           const data = await response.json()
           setSummaries({ ...summaries, [opportunityId]: data.summary })
         } else {
-          console.error('Failed to fetch summary')
         }
       } catch (error) {
-        console.error('Error fetching summary:', error)
       } finally {
         setLoadingSummary({ ...loadingSummary, [opportunityId]: false })
       }

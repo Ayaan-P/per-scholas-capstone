@@ -111,7 +111,6 @@ export function UpgradeModal({ isOpen, onClose, reason = 'upgrade' }: UpgradeMod
         }
       }
     } catch (error) {
-      console.error('Checkout error:', error)
       alert('Failed to start checkout. Please try again.')
     } finally {
       setLoading(false)

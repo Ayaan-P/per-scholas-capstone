@@ -34,7 +34,6 @@ export default function ProposalsPage() {
       const data = await response.json()
       setProposals(data.proposals)
     } catch (error) {
-      console.error('Failed to fetch proposals:', error)
     } finally {
       setLoading(false)
     }
@@ -104,7 +103,6 @@ export default function ProposalsPage() {
       await api.updateProposalStatus(proposalId, newStatus)
       fetchProposals()
     } catch (error) {
-      console.error('Failed to update proposal status:', error)
     }
   }
 

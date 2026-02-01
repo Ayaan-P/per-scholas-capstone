@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import json
 
-from auth_service import get_current_user
+from auth_service import get_current_user, get_current_user_email
 from credits_service import CreditsService
 from stripe_service import StripeService
 
@@ -133,13 +133,10 @@ async def get_credit_packages() -> Dict[str, Any]:
 async def create_purchase_checkout(
     request: CreditPurchaseRequest,
     user_id: str = Depends(get_current_user),
+    email: str = Depends(get_current_user_email),
 ):
     """Create Stripe checkout session for credit package purchase."""
     try:
-        # Get user's email from auth (you'll need to store this)
-        # For now, use a placeholder - in production, fetch from Supabase auth
-        email = f"user-{user_id}@example.com"  # TODO: Get actual email
-
         result = StripeService.create_credit_purchase_session(
             user_id=user_id,
             email=email,
@@ -165,12 +162,10 @@ async def create_purchase_checkout(
 async def create_subscription_upgrade(
     request: SubscriptionUpgradeRequest,
     user_id: str = Depends(get_current_user),
+    email: str = Depends(get_current_user_email),
 ):
     """Create Stripe checkout session for subscription upgrade."""
     try:
-        # Get user's email
-        email = f"user-{user_id}@example.com"  # TODO: Get actual email
-
         result = StripeService.create_subscription_session(
             user_id=user_id,
             email=email,

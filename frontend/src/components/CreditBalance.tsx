@@ -52,7 +52,6 @@ export function CreditBalance() {
           setSubscription(subData)
         }
       } catch (error) {
-        console.error('Failed to fetch credits:', error)
       } finally {
         setLoading(false)
       }

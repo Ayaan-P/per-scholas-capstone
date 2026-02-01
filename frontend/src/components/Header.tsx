@@ -13,7 +13,6 @@ export function Header() {
 
   // Debug: Log when auth state changes
   useEffect(() => {
-    console.log('[Header] Auth state changed:', { isAuthenticated, email: user?.email, loading })
   }, [isAuthenticated, user?.email, loading])
 
   const isActive = (path: string) => {
@@ -26,7 +25,6 @@ export function Header() {
       setMobileMenuOpen(false)
       router.push('/login')
     } catch (error) {
-      console.error('Error signing out:', error)
     }
   }
 

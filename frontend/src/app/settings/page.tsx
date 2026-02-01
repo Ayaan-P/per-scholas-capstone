@@ -157,7 +157,6 @@ export default function SettingsPage() {
           setConfig({ ...config, ...data })
         } else if (response.status === 404) {
           // 404 is expected for new organizations - auto-create default config
-          console.log('Creating new organization config...')
           try {
             const saveResponse = await api.saveOrganizationConfig({
               name: 'New Organization',
@@ -170,16 +169,12 @@ export default function SettingsPage() {
             if (saveResponse.ok) {
               const data = await saveResponse.json()
               setConfig({ ...config, ...data })
-              console.log('Organization created successfully')
             }
           } catch (error) {
-            console.error('Failed to auto-create organization:', error)
           }
         } else {
-          console.error('Failed to load organization config: HTTP', response.status)
         }
       } catch (error) {
-        console.error('Failed to load organization config:', error)
       } finally {
         setLoading(false)
       }
@@ -193,10 +188,8 @@ export default function SettingsPage() {
           setExistingDocuments(data.documents || [])
         } else if (response.status === 404) {
           // No documents yet
-          console.log('No documents found yet')
         }
       } catch (error) {
-        console.error('Failed to load documents:', error)
       }
     }
 
@@ -212,7 +205,6 @@ export default function SettingsPage() {
       try {
         await api.saveOrganizationConfig(config)
       } catch (error) {
-        console.error('Auto-save failed:', error)
       }
     }, 1000) // Debounce for 1 second
 
@@ -231,7 +223,6 @@ export default function SettingsPage() {
       }
     } catch (error) {
       setMessage('Error saving configuration')
-      console.error(error)
     } finally {
       setSaving(false)
     }

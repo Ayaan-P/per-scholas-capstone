@@ -93,11 +93,9 @@ export default function OnboardingPage() {
       if (response.ok) {
         router.push('/dashboard')
       } else {
-        console.error('Failed to save config')
         router.push('/dashboard')
       }
     } catch (error) {
-      console.error('Error saving config:', error)
       router.push('/dashboard')
     } finally {
       setLoading(false)

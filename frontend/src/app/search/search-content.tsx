@@ -64,7 +64,6 @@ export default function SearchPageContent() {
           }
         }
       } catch (error) {
-        console.error('Failed to load scheduler settings:', error)
       }
     }
     fetchSchedulerSettings()
@@ -225,16 +224,13 @@ export default function SearchPageContent() {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('Save settings error:', response.status, errorText)
         throw new Error(`Failed to save settings: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
-      console.log('Scheduler settings saved:', data)
       alert('Scheduler settings saved successfully!')
       setShowSettings(false)
     } catch (error) {
-      console.error('Error saving settings:', error)
       alert(`Failed to save settings: ${error instanceof Error ? error.message : String(error)}`)
     }
   }

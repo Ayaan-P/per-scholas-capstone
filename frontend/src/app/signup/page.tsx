@@ -48,9 +48,7 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      console.log('[Signup] Starting signup process...')
       await signUp(email, password, organizationName)
-      console.log('[Signup] Signup successful, waiting for auth state...')
 
       // Wait a bit for auth state to be updated
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -59,17 +57,6 @@ export default function SignupPage() {
       // Initialize user profile in the backend
       const session = await supabase.auth.getSession()
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
-      console.log('[Signup] Session after signup:', {
-        hasSession: !!session.data.session,
-        email: session.data.session?.user?.email,
-        accessToken: !!session.data.session?.access_token,
-        expiresAt: session.data.session?.expires_at
-      })
-
-      if (!session.data.session?.access_token) {
-        console.warn('[Signup] No access token found in session, continuing anyway...')
-      }
 
       const initResponse = await fetch(`${apiUrl}/api/auth/initialize`, {
         method: 'POST',
@@ -84,21 +71,14 @@ export default function SignupPage() {
         })
       })
 
-      console.log('[Signup] Initialize response:', {
-        status: initResponse.status,
-        ok: initResponse.ok
-      })
-
       if (!initResponse.ok) {
-        console.error('[Signup] Failed to initialize user:', initResponse.status, await initResponse.text())
+        throw new Error(`Failed to initialize user: ${initResponse.status}`)
       }
 
       // Redirect to onboarding for new users
-      console.log('[Signup] Signup flow complete, redirecting to onboarding')
       router.push('/onboarding')
     } catch (err: any) {
       setError(err.message || 'Failed to create account. Please try again.')
-      console.error('Sign up error:', err)
     } finally {
       setLoading(false)
     }

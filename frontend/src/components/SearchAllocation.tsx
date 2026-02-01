@@ -45,7 +45,6 @@ export function SearchAllocation({ onUpgrade }: { onUpgrade?: () => void }) {
           monthly_credits: subData.monthly_credits,
         })
       } catch (error) {
-        console.error('Failed to fetch allocation:', error)
       } finally {
         setLoading(false)
       }

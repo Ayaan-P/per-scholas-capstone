@@ -29,13 +29,10 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      console.log('[Login] Starting sign in with email:', email)
       await signIn(email, password)
-      console.log('[Login] Sign in successful, redirecting to dashboard')
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.')
-      console.error('[Login] Sign in error:', err)
     } finally {
       setLoading(false)
     }

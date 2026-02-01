@@ -20,22 +20,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    console.log('[Auth] Provider mounted, initializing...')
 
     // Check if user is logged in on mount
     const checkUser = async () => {
       try {
-        console.log('[Auth] Checking session...')
         const { data: { session } } = await supabase.auth.getSession()
-        console.log('[Auth] Session check result:', {
-          hasSession: !!session,
-          email: session?.user?.email,
-          expiresAt: session?.expires_at
-        })
         setUser(session?.user ?? null)
         setLoading(false)
       } catch (error) {
-        console.error('[Auth] Error checking auth state:', error)
         setLoading(false)
       }
     }
@@ -44,20 +36,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('[Auth] Auth state event fired:', {
-          event,
-          hasSession: !!session,
-          email: session?.user?.email,
-          expiresAt: session?.expires_at
-        })
+      (_event, session) => {
         setUser(session?.user ?? null)
         setLoading(false)
       }
     )
 
     return () => {
-      console.log('[Auth] Provider unmounting, cleaning up listener')
       subscription?.unsubscribe()
     }
   }, [])

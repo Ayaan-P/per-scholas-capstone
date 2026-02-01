@@ -96,7 +96,6 @@ export default function Dashboard() {
         setCategories(data.categories || [])
       }
     } catch (error) {
-      console.error('Failed to fetch categories:', error)
     }
   }
 
@@ -129,7 +128,6 @@ export default function Dashboard() {
         setRawGrants(fetched)
       }
     } catch (error) {
-      console.error('Failed to fetch grants:', error)
     } finally {
       setLoading(false)
     }
@@ -254,7 +252,6 @@ export default function Dashboard() {
         alert('Failed to save grant')
       }
     } catch (error) {
-      console.error('Failed to save grant:', error)
       alert('Failed to save grant')
     } finally {
       setSavingGrants(prev => {
@@ -288,7 +285,6 @@ export default function Dashboard() {
         alert('Failed to submit feedback')
       }
     } catch (error) {
-      console.error('Error submitting feedback:', error)
       alert('Failed to submit feedback')
     }
   }
@@ -322,7 +318,6 @@ export default function Dashboard() {
         })
       }
     } catch (error) {
-      console.error('Error dismissing grant:', error)
       alert('Failed to dismiss opportunity')
       setDismissingGrants(prev => {
         const newSet = new Set(prev)
@@ -340,7 +335,6 @@ export default function Dashboard() {
         setFeedbackCounts(prev => ({...prev, [grantId]: counts}))
       }
     } catch (error) {
-      console.error('Error fetching feedback counts:', error)
     }
   }
 

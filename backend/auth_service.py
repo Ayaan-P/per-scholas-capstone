@@ -124,6 +124,17 @@ async def get_current_user(token_payload: dict = Depends(verify_token)) -> str:
     return user_id
 
 
+async def get_current_user_email(token_payload: dict = Depends(verify_token)) -> str:
+    """Extract user email from verified Supabase JWT token"""
+    email = token_payload.get('email')
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token - no email"
+        )
+    return email
+
+
 async def optional_token(credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)) -> Optional[str]:
     """Optional token verification - doesn't require auth, returns user_id if authenticated"""
     if not credentials:

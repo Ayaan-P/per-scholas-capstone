@@ -52,7 +52,6 @@ export default function AnalyticsPage() {
       const data = await response.json()
       setAnalytics(data)
     } catch (error) {
-      console.error('Failed to fetch analytics:', error)
     } finally {
       setLoading(false)
     }
