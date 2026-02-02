@@ -6,12 +6,14 @@
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
 
 ## Pending Decisions (awaiting Ayaan's input)
-- **Agentic pivot** — 3 issues created (grant discovery, proposal writer, donor outreach). Ayaan is thinking on this. Do NOT start pivot work yet.
+- **Agentic pivot (partial)** — Proposal writer approved but scope is HARD — real grant proposals are 60+ pages with extensive user documentation. Don't underestimate this. Grant discovery and donor outreach: hold for now.
 
 ## Approved — Do These
 - [x] **Verify site status** — fundfish.pro returns HTTP 200, served by Netlify. ✅ 2026-01-31
 - [x] **API security** — Audited all endpoints, found 13 without auth, fixed all. Issue #27, commit c07d455. ✅ 2026-01-31
 - [x] **Landing page** — Built full landing page (hero, features, CTA, footer). Issue #28, commit 532a9d8. ✅ 2026-01-31
+- [ ] **Polish existing features** — FOCUS. Make sure everything that's there works perfectly before adding new features.
+- [ ] **GA4 Analytics** — Add Google Analytics 4 to the site.
 
 ## How to Work
 - For each approved item: **plan first** — break into subtask issues on GitHub, THEN implement.

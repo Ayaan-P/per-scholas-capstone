@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../utils/supabaseClient'
@@ -19,11 +19,12 @@ export default function SignupPage() {
   const router = useRouter()
   const { signUp, isAuthenticated } = useAuth()
 
-  // Redirect if already logged in
-  if (isAuthenticated) {
-    router.push('/dashboard')
-    return null
-  }
+  // Redirect if already logged in - use effect to avoid render warnings
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard')
+    }
+  }, [isAuthenticated, router])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()

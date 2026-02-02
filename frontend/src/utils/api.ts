@@ -102,16 +102,14 @@ export const api = {
   },
 
   loadRfps: () =>
-    fetch(`${API_BASE_URL}/api/rfps/load`, {
+    authenticatedFetch(`${API_BASE_URL}/api/rfps/load`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
     }),
 
   addOpportunityToRfpDb: (opportunityId: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/add-to-rfp-db`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/add-to-rfp-db`, {
+      method: 'POST'
     }),
 
   // Jobs
@@ -120,32 +118,30 @@ export const api = {
 
   // Proposals
   getProposals: () =>
-    fetch(`${API_BASE_URL}/api/proposals`),
+    authenticatedFetch(`${API_BASE_URL}/api/proposals`),
 
   generateProposal: (data: any) =>
-    fetch(`${API_BASE_URL}/api/proposals/generate`, {
+    authenticatedFetch(`${API_BASE_URL}/api/proposals/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     }),
 
   updateProposalStatus: (proposalId: string, status: string) =>
-    fetch(`${API_BASE_URL}/api/proposals/${proposalId}/status`, {
+    authenticatedFetch(`${API_BASE_URL}/api/proposals/${proposalId}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     }),
 
   // Dashboard
   getDashboardStats: () =>
-    fetch(`${API_BASE_URL}/api/dashboard/stats`),
+    authenticatedFetch(`${API_BASE_URL}/api/dashboard/stats`),
 
   getDashboardActivity: () =>
-    fetch(`${API_BASE_URL}/api/dashboard/activity`),
+    authenticatedFetch(`${API_BASE_URL}/api/dashboard/activity`),
 
   // Analytics
   getAnalytics: (timeRange: string) =>
-    fetch(`${API_BASE_URL}/api/analytics?range=${timeRange}`),
+    authenticatedFetch(`${API_BASE_URL}/api/analytics?range=${timeRange}`),
 
   // Scraped Grants (authenticated to get personalized match scores)
   getScrapedGrants: async (params?: { source?: string; limit?: number; offset?: number }) =>
@@ -162,22 +158,19 @@ export const api = {
 
   // Feedback
   submitOpportunityFeedback: (opportunityId: string, feedbackType: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/feedback`, {
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        feedback_type: feedbackType,
-        user_id: 'current_user'
+        feedback_type: feedbackType
       })
     }),
 
   getOpportunityFeedback: (opportunityId: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/feedback`),
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/feedback`),
 
   dismissOpportunity: (opportunityId: string) =>
-    fetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/dismiss`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+    authenticatedFetch(`${API_BASE_URL}/api/opportunities/${opportunityId}/dismiss`, {
+      method: 'POST'
     }),
 
   // Organization Config
