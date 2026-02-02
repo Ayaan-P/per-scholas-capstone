@@ -2,18 +2,21 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useAuth } from '../../context/AuthContext'
 
 export default function AboutPage() {
+  const { isAuthenticated } = useAuth()
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-perscholas-primary to-perscholas-dark text-white">
         <div className="max-w-4xl mx-auto px-6 py-16 sm:py-24">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors">
+          <Link href={isAuthenticated ? "/dashboard" : "/"} className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-8 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to Dashboard
+            {isAuthenticated ? 'Back to Dashboard' : 'Back to Home'}
           </Link>
 
           <h1 className="text-4xl sm:text-5xl font-bold mb-6">About FundFish</h1>

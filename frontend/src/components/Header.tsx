@@ -66,6 +66,16 @@ export function Header() {
                 Opportunities
               </a>
               <a
+                href="/proposals"
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                  isActive('/proposals')
+                    ? 'bg-perscholas-primary text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
+                }`}
+              >
+                Proposals
+              </a>
+              <a
                 href="/search"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/search')
@@ -167,6 +177,17 @@ export function Header() {
                     }`}
                   >
                     Opportunities
+                  </a>
+                  <a
+                    href="/proposals"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                      isActive('/proposals')
+                        ? 'text-blue-600 font-bold bg-blue-50'
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Proposals
                   </a>
                   <a
                     href="/search"
