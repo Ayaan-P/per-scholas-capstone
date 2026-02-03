@@ -35,4 +35,4 @@
 - [x] Added Proposals page to navigation (Issue #32, 2026-02-02)
 - [x] Fixed About page back link for unauthenticated users (Issue #33, 2026-02-02)
 - [x] GA4 real measurement ID wired (Issue #31 closed, 2026-02-03)
-- [x] TypeScript cleanup: 20 'any' types replaced with proper interfaces (Issue #29 progress, 2026-02-03)
+- [x] TypeScript cleanup: ALL 29 'any' types replaced with proper interfaces (Issue #29 CLOSED, 2026-02-03)
