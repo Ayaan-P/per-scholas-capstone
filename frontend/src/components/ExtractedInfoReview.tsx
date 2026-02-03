@@ -2,14 +2,16 @@
 
 import { useState, useMemo } from 'react'
 
+type FieldValue = string | number | boolean | null | undefined | string[] | Record<string, unknown>[]
+
 interface FieldInfo {
-  value: any
+  value: FieldValue
   confidence?: number
 }
 
 interface ConflictInfo {
-  existing: any
-  extracted: any
+  existing: FieldValue
+  extracted: FieldValue
   confidence: number
 }
 
@@ -20,11 +22,11 @@ interface MergePreview {
 }
 
 interface ExtractedInfoReviewProps {
-  extracted: Record<string, any>
+  extracted: Record<string, FieldValue>
   confidence: Record<string, number>
   mergePreview: MergePreview
   sourceDocuments: string[]
-  onApply: (resolvedConflicts: Record<string, any>) => void
+  onApply: (resolvedConflicts: Record<string, FieldValue>) => void
   onCancel: () => void
   loading?: boolean
 }
@@ -87,7 +89,7 @@ export function ExtractedInfoReview({
     unchanged: Object.keys(mergePreview.unchanged).length,
   }), [mergePreview])
 
-  const formatValue = (value: any): string => {
+  const formatValue = (value: FieldValue): string => {
     if (value === null || value === undefined) return 'Not provided'
     if (Array.isArray(value)) {
       if (value.length === 0) return 'None'
@@ -117,7 +119,7 @@ export function ExtractedInfoReview({
 
   const handleApply = () => {
     // Build resolved conflicts object
-    const resolved: Record<string, any> = {}
+    const resolved: Record<string, FieldValue> = {}
     for (const [field, useExtracted] of Object.entries(conflictResolutions)) {
       if (useExtracted) {
         resolved[field] = mergePreview.conflicts[field].extracted
@@ -127,7 +129,7 @@ export function ExtractedInfoReview({
     onApply(resolved)
   }
 
-  const renderFieldValue = (field: string, value: any, conf?: number) => {
+  const renderFieldValue = (field: string, value: FieldValue, conf?: number) => {
     const formattedValue = formatValue(value)
     const isLong = formattedValue.length > 100
 

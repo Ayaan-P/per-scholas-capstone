@@ -2,6 +2,30 @@ import { supabase } from './supabaseClient'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+// API Request Types
+interface SearchOpportunitiesRequest {
+  query?: string
+  focus_areas?: string[]
+  max_results?: number
+  [key: string]: unknown
+}
+
+interface GenerateProposalRequest {
+  opportunity_id: string
+  title?: string
+  [key: string]: unknown
+}
+
+// Generic config object - accepts any valid org config fields
+type OrganizationConfigRequest = Record<string, unknown>
+
+interface ExtractedDataPayload {
+  [key: string]: unknown
+}
+
+// Resolved conflicts contain the actual values to apply (not choice indicators)
+type ResolvedConflicts = Record<string, unknown>
+
 // Helper to get auth headers
 async function getAuthHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
@@ -38,7 +62,7 @@ export const api = {
   baseURL: API_BASE_URL,
 
   // Opportunities
-  searchOpportunities: async (data: any) => {
+  searchOpportunities: async (data: SearchOpportunitiesRequest) => {
     const headers = await getAuthHeaders()
     return fetch(`${API_BASE_URL}/api/search-opportunities`, {
       method: 'POST',
@@ -120,7 +144,7 @@ export const api = {
   getProposals: () =>
     authenticatedFetch(`${API_BASE_URL}/api/proposals`),
 
-  generateProposal: (data: any) =>
+  generateProposal: (data: GenerateProposalRequest) =>
     authenticatedFetch(`${API_BASE_URL}/api/proposals/generate`, {
       method: 'POST',
       body: JSON.stringify(data)
@@ -177,7 +201,7 @@ export const api = {
   getOrganizationConfig: () =>
     authenticatedFetch(`${API_BASE_URL}/api/organization/config`),
 
-  saveOrganizationConfig: (config: any) =>
+  saveOrganizationConfig: (config: OrganizationConfigRequest) =>
     authenticatedFetch(`${API_BASE_URL}/api/organization/config`, {
       method: 'POST',
       body: JSON.stringify(config)
@@ -208,7 +232,7 @@ export const api = {
       body: JSON.stringify({ document_ids: documentIds })
     }),
 
-  applyExtractedData: (extractedData: any, resolvedConflicts: any, sourceDocumentIds: string[]) =>
+  applyExtractedData: (extractedData: ExtractedDataPayload, resolvedConflicts: ResolvedConflicts, sourceDocumentIds: string[]) =>
     authenticatedFetch(`${API_BASE_URL}/api/organization/documents/apply`, {
       method: 'POST',
       body: JSON.stringify({

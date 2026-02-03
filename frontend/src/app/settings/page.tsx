@@ -82,6 +82,8 @@ interface OrganizationConfig {
   grant_writing_capacity: string
   matching_fund_capacity: number
   success_stories: SuccessStory[]
+  // Index signature for API compatibility
+  [key: string]: unknown
 }
 
 const ORGANIZATION_TYPES = ['nonprofit', 'social-enterprise', 'government', 'educational-institution', 'faith-based', 'community-based', 'other']
