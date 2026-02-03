@@ -5,6 +5,15 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
 
+interface SimilarPastProposal {
+  title?: string
+  file_path?: string
+  url?: string
+  category?: string
+  outcome?: string
+  similarity_score?: number
+}
+
 interface Opportunity {
   id: string
   opportunity_id?: string
@@ -14,7 +23,7 @@ interface Opportunity {
   deadline: string
   match_score: number
   description: string
-  requirements: string[] | any
+  requirements: string[]
   contact: string
   application_url: string
   source?: string
@@ -32,7 +41,7 @@ interface Opportunity {
   geographic_focus?: string
   award_type?: string
   anticipated_awards?: string
-  similar_past_proposals?: any[]
+  similar_past_proposals?: SimilarPastProposal[]
   llm_enhanced_at?: string
   notes?: string
 
@@ -354,8 +363,9 @@ export default function OpportunitiesPage() {
         delete next[opportunityId]
         return next
       })
-    } catch (error: any) {
-      setNotesError(prev => ({ ...prev, [opportunityId]: error.message || 'Failed to save notes.' }))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save notes.'
+      setNotesError(prev => ({ ...prev, [opportunityId]: message }))
     } finally {
       setSavingNotes(prev => {
         const next = new Set(prev)
@@ -1339,7 +1349,7 @@ export default function OpportunitiesPage() {
                                       Historical proposals similar to this opportunity based on semantic analysis:
                                     </p>
                                     <ul className="space-y-1">
-                                      {opportunity.similar_past_proposals.map((rfp: any, idx: number) => (
+                                      {opportunity.similar_past_proposals.map((rfp: SimilarPastProposal, idx: number) => (
                                         <li key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
                                           <div className="flex-1">
                                             {rfp.file_path || rfp.url ? (

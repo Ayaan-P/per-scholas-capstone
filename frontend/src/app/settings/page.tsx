@@ -10,6 +10,39 @@ import { UpgradeModal } from '../../components/UpgradeModal'
 import { DocumentUploader } from '../../components/DocumentUploader'
 import { ExtractedInfoReview } from '../../components/ExtractedInfoReview'
 
+interface KeyProgram {
+  name: string
+  description?: string
+}
+
+interface KeyPartnership {
+  name: string
+}
+
+interface FundingPriority {
+  name: string
+  priority?: number
+}
+
+interface ImpactMetric {
+  metric_name: string
+  current_value?: string
+  target_value?: string
+  unit?: string
+}
+
+interface PreviousGrant {
+  funder: string
+  amount: number
+  year: number
+  outcome?: string
+}
+
+interface SuccessStory {
+  title: string
+  description?: string
+}
+
 interface OrganizationConfig {
   id?: string
   name: string
@@ -27,28 +60,28 @@ interface OrganizationConfig {
 
   primary_focus_area: string
   secondary_focus_areas: string[]
-  key_programs: any[]
+  key_programs: KeyProgram[]
   service_regions: string[]
   expansion_plans?: string
   target_populations: string[]
   languages_served: string[]
 
-  key_partnerships: any[]
+  key_partnerships: KeyPartnership[]
   accreditations: string[]
 
   preferred_grant_size_min?: number
   preferred_grant_size_max?: number
   preferred_grant_types: string[]
-  funding_priorities: any[]
+  funding_priorities: FundingPriority[]
   custom_search_keywords: string[]
   excluded_keywords: string[]
 
-  key_impact_metrics: any[]
-  previous_grants: any[]
+  key_impact_metrics: ImpactMetric[]
+  previous_grants: PreviousGrant[]
   donor_restrictions?: string
   grant_writing_capacity: string
   matching_fund_capacity: number
-  success_stories: any[]
+  success_stories: SuccessStory[]
 }
 
 const ORGANIZATION_TYPES = ['nonprofit', 'social-enterprise', 'government', 'educational-institution', 'faith-based', 'community-based', 'other']
@@ -62,10 +95,36 @@ const LANGUAGE_OPTIONS = ['English', 'Spanish', 'French', 'Mandarin', 'Vietnames
 interface ListItem {
   name?: string
   description?: string
-  [key: string]: any
+  [key: string]: string | number | boolean | undefined
 }
 
-const TextInput = ({ label, value, onChange, placeholder, type = 'text', helpText }: any) => (
+interface TextInputProps {
+  label: string
+  value: string | number | undefined
+  onChange: (value: string) => void
+  placeholder?: string
+  type?: 'text' | 'number' | 'email' | 'url' | 'tel'
+  helpText?: string
+}
+
+interface TextAreaProps {
+  label: string
+  value: string | undefined
+  onChange: (value: string) => void
+  placeholder?: string
+  rows?: number
+  helpText?: string
+}
+
+interface SelectInputProps {
+  label: string
+  value: string | undefined
+  onChange: (value: string) => void
+  options: string[]
+  helpText?: string
+}
+
+const TextInput = ({ label, value, onChange, placeholder, type = 'text', helpText }: TextInputProps) => (
   <div>
     <label className="block text-sm font-semibold text-gray-900 mb-1.5">{label}</label>
     {helpText && <p className="text-xs text-gray-500 mb-2">{helpText}</p>}
@@ -79,7 +138,7 @@ const TextInput = ({ label, value, onChange, placeholder, type = 'text', helpTex
   </div>
 )
 
-const TextArea = ({ label, value, onChange, placeholder, rows = 3, helpText }: any) => (
+const TextArea = ({ label, value, onChange, placeholder, rows = 3, helpText }: TextAreaProps) => (
   <div>
     <label className="block text-sm font-semibold text-gray-900 mb-1.5">{label}</label>
     {helpText && <p className="text-xs text-gray-500 mb-2">{helpText}</p>}
@@ -93,7 +152,7 @@ const TextArea = ({ label, value, onChange, placeholder, rows = 3, helpText }: a
   </div>
 )
 
-const SelectInput = ({ label, value, onChange, options, helpText }: any) => (
+const SelectInput = ({ label, value, onChange, options, helpText }: SelectInputProps) => (
   <div>
     <label className="block text-sm font-semibold text-gray-900 mb-1.5">{label}</label>
     {helpText && <p className="text-xs text-gray-500 mb-2">{helpText}</p>}
@@ -650,7 +709,7 @@ export default function SettingsPage() {
                 <label className="block text-sm font-semibold text-gray-900 mb-3">Key Programs</label>
                 <p className="text-xs text-gray-500 mb-4">Describe the main programs your organization offers</p>
                 <div className="space-y-3 mb-4">
-                  {config.key_programs.map((prog: any, index: number) => (
+                  {config.key_programs.map((prog: KeyProgram, index: number) => (
                     <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex justify-between items-start mb-3">
                         <h4 className="font-medium text-gray-900">{prog.name || 'Unnamed Program'}</h4>
@@ -800,7 +859,7 @@ export default function SettingsPage() {
                 <label className="block text-sm font-semibold text-gray-900 mb-3">Key Impact Metrics</label>
                 <p className="text-xs text-gray-500 mb-4">Track the metrics that matter most to your organization</p>
                 <div className="space-y-2 mb-4">
-                  {config.key_impact_metrics.map((metric: any, index: number) => (
+                  {config.key_impact_metrics.map((metric: ImpactMetric, index: number) => (
                     <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex-1">
                         <div className="font-medium text-gray-900">{metric.metric_name}</div>
@@ -830,7 +889,7 @@ export default function SettingsPage() {
                 <label className="block text-sm font-semibold text-gray-900 mb-3">Success Stories</label>
                 <p className="text-xs text-gray-500 mb-4">Share impact stories that demonstrate your organization's work</p>
                 <div className="space-y-3 mb-4">
-                  {config.success_stories.map((story: any, index: number) => (
+                  {config.success_stories.map((story: SuccessStory, index: number) => (
                     <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex justify-between items-start mb-2">
                         <h4 className="font-medium text-gray-900">{story.title || 'Untitled Story'}</h4>
@@ -858,7 +917,7 @@ export default function SettingsPage() {
                 <label className="block text-sm font-semibold text-gray-900 mb-3">Previous Grants</label>
                 <p className="text-xs text-gray-500 mb-4">Document successful grants your organization has received</p>
                 <div className="space-y-2 mb-4">
-                  {config.previous_grants.map((grant: any, index: number) => (
+                  {config.previous_grants.map((grant: PreviousGrant, index: number) => (
                     <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex-1">
                         <div className="font-medium text-gray-900">${grant.amount?.toLocaleString()} from {grant.funder}</div>

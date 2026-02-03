@@ -15,7 +15,7 @@ interface ScrapedGrant {
   deadline: string
   match_score: number
   description: string
-  requirements: any[]
+  requirements: string[]
   contact: string
   application_url: string
   source: string

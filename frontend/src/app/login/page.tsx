@@ -31,8 +31,9 @@ export default function LoginPage() {
     try {
       await signIn(email, password)
       router.push('/dashboard')
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please check your credentials.')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.'
+      setError(message)
     } finally {
       setLoading(false)
     }

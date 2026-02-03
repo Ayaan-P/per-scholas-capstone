@@ -78,8 +78,9 @@ export default function SignupPage() {
 
       // Redirect to onboarding for new users
       router.push('/onboarding')
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account. Please try again.')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create account. Please try again.'
+      setError(message)
     } finally {
       setLoading(false)
     }
