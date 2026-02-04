@@ -12,7 +12,7 @@
 
 ### Backend Scheduler Not Producing New Grants
 - **Priority:** High
-- **Status:** Not started
+- **Status:** ✅ FIXED (2026-02-04)
 - **Details:** Ayaan reports no new grants showing up. The backend runs on paid Render (standard plan, no spin-down) with APScheduler. The scheduler should be running daily scrapes (Grants.gov, SAM.gov, DOL, USASpending) plus weekly AI state/local.
 - **Investigate:**
   1. Check Render logs for the backend — are the scraper jobs actually firing?
@@ -23,6 +23,12 @@
   6. Check `scheduler_settings` table — is the frequency configured correctly?
 - **Fix it or report what's broken.**
 - **Approved by:** Ayaan (2026-02-03)
+- **Resolution (2026-02-04):**
+  - **Bug 1 (Issue #34):** `category_service.py` initialized its own Supabase client at module level, falling back to `None`. The AI state/local scraper found 0 categories → scraped 0 grants. Fixed by passing working client from scheduler + initializing in startup_event.
+  - **Bug 2 (Issue #35):** `match_score` was stored as float (e.g., `32.0`) but DB column is integer. 24+ grants per run failed silently. Fixed with `int()` casting.
+  - **Bug 3:** Empty-string deadlines caused `invalid input syntax for type timestamp` errors. Fixed with sanitization.
+  - **Grants.gov scraper IS working:** 159 grants saved this run, 251 total in DB.
+  - **AI state/local scraper will resume** once the fix deploys — the `opportunity_categories` table has 5 categories ready.
 
 ## Approved — Do These
 - [x] **Verify site status** — fundfish.pro returns HTTP 200, served by Netlify. ✅ 2026-01-31
@@ -52,3 +58,8 @@
 - [x] Fixed About page back link for unauthenticated users (Issue #33, 2026-02-02)
 - [x] GA4 real measurement ID wired (Issue #31 closed, 2026-02-03)
 - [x] TypeScript cleanup: ALL 29 'any' types replaced with proper interfaces (Issue #29 CLOSED, 2026-02-03)
+- [x] Fixed category service NoneType client breaking AI scraper (Issue #34, 2026-02-04)
+- [x] Fixed match_score float→int insertion failures (Issue #35, 2026-02-04)
+- [x] Fixed empty-string deadline insertion failures (2026-02-04)
+- [x] Converted all Header/landing <a> tags to Next.js <Link> for client-side routing (Issue #36, 2026-02-04)
+- [x] Updated sitemap.xml with /about page (2026-02-04)
