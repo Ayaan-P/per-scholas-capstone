@@ -13,8 +13,13 @@ logger = logging.getLogger(__name__)
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://zjqwpvdcpzeguhdwrskr.supabase.co")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-# Initialize Supabase admin client
-supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) if SUPABASE_SERVICE_ROLE_KEY else None
+# Initialize Supabase admin client (may be None if env var not set at import time)
+supabase_admin: Client = None
+if SUPABASE_SERVICE_ROLE_KEY:
+    try:
+        supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    except Exception as e:
+        logger.warning(f"[CATEGORY] Could not create admin Supabase client: {e}")
 
 
 class CategoryService:
@@ -260,9 +265,17 @@ CRITICAL: Return ONLY the JSON object (no markdown, no extra text)."""
 _category_service = None
 
 
-def get_category_service() -> CategoryService:
-    """Get or create the global category service instance."""
+def get_category_service(supabase_client: Client = None) -> CategoryService:
+    """Get or create the global category service instance.
+    
+    Args:
+        supabase_client: Optional Supabase client to use. If provided on first call,
+                        it will be used instead of the module-level admin client.
+    """
     global _category_service
     if _category_service is None:
-        _category_service = CategoryService(supabase_admin)
+        client = supabase_client or supabase_admin
+        if client is None:
+            logger.error("[CATEGORY] No Supabase client available! SUPABASE_SERVICE_ROLE_KEY may not be set.")
+        _category_service = CategoryService(client)
     return _category_service

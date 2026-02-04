@@ -1263,6 +1263,11 @@ async def get_category_detail(category_id: int):
 async def startup_event():
     """Initialize scheduler on startup"""
     global scheduler_service
+    # Initialize category service early with a working client
+    # (the module-level client in category_service.py may be None if SUPABASE_SERVICE_ROLE_KEY wasn't set at import time)
+    from category_service import get_category_service
+    get_category_service(supabase_admin)
+    
     scheduler_service = SchedulerService(supabase)
     scheduler_service.start()
 

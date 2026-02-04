@@ -93,9 +93,9 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
     # Calculate keyword score (max 30 points)
     # Require at least 2 core keywords for decent score
     if core_matches >= 2:
-        keyword_score = min(30, (core_matches * 6) + (context_matches * 1.5))
+        keyword_score = int(min(30, (core_matches * 6) + (context_matches * 1.5)))
     elif core_matches == 1:
-        keyword_score = min(12, core_matches * 6)
+        keyword_score = int(min(12, core_matches * 6))
     else:
         keyword_score = 0  # No core keywords = very low relevance
 
@@ -168,7 +168,7 @@ def calculate_match_score(grant: Dict[str, Any], rfp_similarities: List[Dict[str
     
     # Add 10 point boost to all scores
     final_score = final_score + 10
-    return min(100, max(0, final_score))
+    return int(min(100, max(0, final_score)))
 
 
 def get_score_breakdown(grant: Dict[str, Any], rfp_similarities: List[Dict[str, Any]] = []) -> Dict[str, Any]:

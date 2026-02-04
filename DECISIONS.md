@@ -8,6 +8,22 @@
 ## Pending Decisions (awaiting Ayaan's input)
 - **Agentic pivot (partial)** — Proposal writer approved but scope is HARD — real grant proposals are 60+ pages with extensive user documentation. Don't underestimate this. Grant discovery and donor outreach: hold for now.
 
+## Approved — Investigate ASAP
+
+### Backend Scheduler Not Producing New Grants
+- **Priority:** High
+- **Status:** Not started
+- **Details:** Ayaan reports no new grants showing up. The backend runs on paid Render (standard plan, no spin-down) with APScheduler. The scheduler should be running daily scrapes (Grants.gov, SAM.gov, DOL, USASpending) plus weekly AI state/local.
+- **Investigate:**
+  1. Check Render logs for the backend — are the scraper jobs actually firing?
+  2. Are any scrapers erroring out? (API keys expired, rate limits, format changes)
+  3. Is the Gemini CLI session working inside the Docker container? (AI state/local scraper depends on it)
+  4. Is dedup logic too aggressive? (grants found but matching existing IDs)
+  5. Check the `scraped_grants` table in Supabase — when was the last insert?
+  6. Check `scheduler_settings` table — is the frequency configured correctly?
+- **Fix it or report what's broken.**
+- **Approved by:** Ayaan (2026-02-03)
+
 ## Approved — Do These
 - [x] **Verify site status** — fundfish.pro returns HTTP 200, served by Netlify. ✅ 2026-01-31
 - [x] **API security** — Audited all endpoints, found 13 without auth, fixed all. Issue #27, commit c07d455. ✅ 2026-01-31

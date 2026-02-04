@@ -426,7 +426,8 @@ class SchedulerService:
             logger.info(f"Using {len(locations)} target locations from scheduler settings")
 
             # Get ALL categories - we search for everything to build comprehensive grants DB
-            category_service = get_category_service()
+            # Pass our supabase client in case the module-level one wasn't initialized
+            category_service = get_category_service(self.supabase)
             categories_to_search = category_service.get_all_categories()
             logger.info(f"Searching ALL {len(categories_to_search)} categories: {[c['name'] for c in categories_to_search]}")
 
@@ -594,8 +595,8 @@ REQUIREMENTS:
 
         for grant in grants:
             try:
-                # Get match score for logging
-                match_score = grant.get("match_score", 0)
+                # Get match score for logging (ensure integer for DB column)
+                match_score = int(grant.get("match_score", 0))
 
                 # Check if grant already exists
                 existing = self.supabase.table("scraped_grants")\
