@@ -189,7 +189,7 @@ class SchedulerService:
         """Start the scheduler with all configured jobs"""
         logger.info("Starting scheduler service...")
 
-        # Federal grants - run daily at 1 AM
+        # Federal grants (Grants.gov) - run daily at 1 AM
         self.scheduler.add_job(
             self._scrape_grants_gov,
             trigger=CronTrigger(hour=1, minute=0),
@@ -198,34 +198,7 @@ class SchedulerService:
             replace_existing=True
         )
 
-        # SAM.gov opportunities - run daily at 1:30 AM
-        self.scheduler.add_job(
-            self._scrape_sam_gov,
-            trigger=CronTrigger(hour=1, minute=30),
-            id='sam_gov_job',
-            name='Scrape SAM.gov',
-            replace_existing=True
-        )
-
-        # DOL workforce development - run daily at 2:30 AM
-        self.scheduler.add_job(
-            self._scrape_dol_workforce,
-            trigger=CronTrigger(hour=2, minute=30),
-            id='dol_workforce_job',
-            name='Scrape DOL Workforce Development',
-            max_instances=1
-        )
-
-        # USASpending.gov - run daily at 2:45 AM
-        self.scheduler.add_job(
-            self._scrape_usa_spending,
-            trigger=CronTrigger(hour=2, minute=45),
-            id='usa_spending_job',
-            name='Scrape USASpending.gov',
-            max_instances=1
-        )
-
-        # State and local grants - run based on scheduler_frequency setting
+        # State and local grants (AI-powered) - run based on scheduler_frequency setting
         ai_trigger = self._get_ai_scrape_trigger()
         self.scheduler.add_job(
             self._scrape_ai_state_local_opportunities,
@@ -235,17 +208,6 @@ class SchedulerService:
             replace_existing=True
         )
         logger.info(f"AI state/local opportunities job scheduled with frequency: {self.scheduler_settings['scheduler_frequency']}")
-
-        # Gmail inbox - run every 15 minutes (if available)
-        if 'gmail_inbox' in self.scrapers:
-            self.scheduler.add_job(
-                self._scrape_gmail_inbox,
-                trigger=IntervalTrigger(minutes=15),
-                id='gmail_inbox_job',
-                name='Scrape Gmail Inbox',
-                replace_existing=True
-            )
-            logger.info("Gmail inbox scraping job scheduled (every 15 minutes)")
 
         # Cleanup old grants - run weekly on Sunday at 4 AM
         self.scheduler.add_job(
@@ -264,10 +226,27 @@ class SchedulerService:
 
 
     async def _run_initial_scrape(self):
-        """Run initial scrape on startup - just scheduled jobs"""
-        logger.info("Running initial scrape...")
-        await asyncio.sleep(5)  # Wait for system to fully initialize
-        logger.info("Initial scrape completed - biweekly scrapes scheduled")
+        """Run Grants.gov and AI state/local scrapes on startup"""
+        logger.info("Running initial scrape on startup...")
+        await asyncio.sleep(10)  # Wait for system to fully initialize
+
+        # Run Grants.gov scrape
+        try:
+            logger.info("[STARTUP] Running Grants.gov scrape...")
+            await self._scrape_grants_gov()
+            logger.info("[STARTUP] Grants.gov scrape completed")
+        except Exception as e:
+            logger.error(f"[STARTUP] Grants.gov scrape failed: {e}")
+
+        # Run AI state/local scrape
+        try:
+            logger.info("[STARTUP] Running AI state/local scrape...")
+            await self._scrape_ai_state_local_opportunities()
+            logger.info("[STARTUP] AI state/local scrape completed")
+        except Exception as e:
+            logger.error(f"[STARTUP] AI state/local scrape failed: {e}")
+
+        logger.info("[STARTUP] Initial scrape completed")
 
     async def _scrape_grants_gov(self):
         """Scrape federal grants from Grants.gov using centralized keywords"""
