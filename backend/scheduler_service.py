@@ -586,6 +586,18 @@ REQUIREMENTS:
         except Exception as e:
             logger.error(f"Cleanup failed: {e}")
 
+    @staticmethod
+    def _sanitize_grant(grant: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitize grant data before DB insertion.
+        - Empty-string deadlines → None (Postgres rejects '' for timestamptz)
+        - Match scores → int (Postgres rejects floats like '32.0' for int columns)
+        """
+        sanitized = dict(grant)
+        # Fix empty-string deadlines
+        if not sanitized.get("deadline"):
+            sanitized["deadline"] = None
+        return sanitized
+
     async def _store_grants(self, grants: List[Dict[str, Any]], source: str) -> int:
         """Store scraped grants in database"""
         if not grants:
@@ -595,6 +607,7 @@ REQUIREMENTS:
 
         for grant in grants:
             try:
+                grant = self._sanitize_grant(grant)
                 # Get match score for logging (ensure integer for DB column)
                 match_score = int(grant.get("match_score", 0))
 

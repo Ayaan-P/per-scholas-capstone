@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import Image from 'next/image'
 
@@ -251,8 +252,8 @@ export default function Home() {
               <span className="text-gray-400 text-sm ml-2">· AI fundraising for nonprofits</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-gray-400">
-              <a href="/about" className="hover:text-gray-600 transition-colors">About</a>
-              <a href="/login" className="hover:text-gray-600 transition-colors">Sign In</a>
+              <Link href="/about" className="hover:text-gray-600 transition-colors">About</Link>
+              <Link href="/login" className="hover:text-gray-600 transition-colors">Sign In</Link>
               <span>© {new Date().getFullYear()} FundFish</span>
             </div>
           </div>

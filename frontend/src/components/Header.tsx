@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
@@ -34,18 +35,18 @@ export function Header() {
         <div className="flex justify-between items-center py-3 sm:py-4">
           {/* Logo */}
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <a href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-4 group">
+            <Link href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-4 group">
               <div className="relative">
                 <Image src="/logo.png" alt="FundFish Logo" width={40} height={40} className="h-8 sm:h-10 w-auto transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-perscholas-primary">fundfish</h1>
-            </a>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
           {isAuthenticated && (
             <nav className="hidden md:flex items-center space-x-2">
-              <a
+              <Link
                 href="/dashboard"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/dashboard')
@@ -54,8 +55,8 @@ export function Header() {
                 }`}
               >
                 Discover
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/opportunities"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/opportunities')
@@ -64,8 +65,8 @@ export function Header() {
                 }`}
               >
                 Opportunities
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/proposals"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/proposals')
@@ -74,8 +75,8 @@ export function Header() {
                 }`}
               >
                 Proposals
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/search"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/search')
@@ -84,8 +85,8 @@ export function Header() {
                 }`}
               >
                 AI Search
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/settings"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/settings')
@@ -94,13 +95,13 @@ export function Header() {
                 }`}
               >
                 Settings
-              </a>
+              </Link>
             </nav>
           )}
 
           {/* Auth Actions */}
           <div className="hidden md:flex items-center space-x-3">
-            <a
+            <Link
               href="/about"
               className={`px-3 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
                 isActive('/about')
@@ -109,7 +110,7 @@ export function Header() {
               }`}
             >
               About
-            </a>
+            </Link>
             {isAuthenticated ? (
               <>
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-full">{user?.email}</span>
@@ -122,12 +123,12 @@ export function Header() {
               </>
             ) : (
               <>
-                <a href="/login" className="btn-ghost">
+                <Link href="/login" className="btn-ghost">
                   Sign In
-                </a>
-                <a href="/signup" className="btn-primary">
+                </Link>
+                <Link href="/signup" className="btn-primary">
                   Get Started
-                </a>
+                </Link>
               </>
             )}
           </div>
@@ -156,7 +157,7 @@ export function Header() {
             <nav className="flex flex-col space-y-2">
               {isAuthenticated && (
                 <>
-                  <a
+                  <Link
                     href="/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`font-medium transition-colors px-4 py-2 rounded-lg ${
@@ -166,8 +167,8 @@ export function Header() {
                     }`}
                   >
                     Discover
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/opportunities"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`font-medium transition-colors px-4 py-2 rounded-lg ${
@@ -177,8 +178,8 @@ export function Header() {
                     }`}
                   >
                     Opportunities
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/proposals"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`font-medium transition-colors px-4 py-2 rounded-lg ${
@@ -188,8 +189,8 @@ export function Header() {
                     }`}
                   >
                     Proposals
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/search"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`font-medium transition-colors px-4 py-2 rounded-lg ${
@@ -199,8 +200,8 @@ export function Header() {
                     }`}
                   >
                     AI Search
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/settings"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`font-medium transition-colors px-4 py-2 rounded-lg ${
@@ -210,10 +211,10 @@ export function Header() {
                     }`}
                   >
                     Settings
-                  </a>
+                  </Link>
                 </>
               )}
-                <a
+                <Link
                 href="/about"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`font-medium transition-colors px-4 py-2 rounded-lg ${
@@ -223,7 +224,7 @@ export function Header() {
                 }`}
               >
                 About
-              </a>
+              </Link>
             {isAuthenticated ? (
                 <>
                   <div className="px-4 py-2 text-sm text-gray-600 border-t border-gray-200 mt-2">
@@ -238,20 +239,20 @@ export function Header() {
                 </>
               ) : (
                 <>
-                  <a
+                  <Link
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
                     className="mx-2 btn-ghost"
                   >
                     Sign In
-                  </a>
-                  <a
+                  </Link>
+                  <Link
                     href="/signup"
                     onClick={() => setMobileMenuOpen(false)}
                     className="mx-2 btn-primary"
                   >
                     Get Started
-                  </a>
+                  </Link>
                 </>
               )}
             </nav>
