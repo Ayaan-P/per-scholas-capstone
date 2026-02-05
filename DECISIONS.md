@@ -61,5 +61,7 @@
 - [x] Fixed category service NoneType client breaking AI scraper (Issue #34, 2026-02-04)
 - [x] Fixed match_score float→int insertion failures (Issue #35, 2026-02-04)
 - [x] Fixed empty-string deadline insertion failures (2026-02-04)
+- [x] Fixed ALL timestamp field sanitization (archive_date, forecast_date, etc) — was only handling deadline (2026-02-05)
+- [x] Fixed 25 bare except clauses across 8 backend files (Issue #38 CLOSED, 2026-02-05)
 - [x] Converted all Header/landing <a> tags to Next.js <Link> for client-side routing (Issue #36, 2026-02-04)
 - [x] Updated sitemap.xml with /about page (2026-02-04)
