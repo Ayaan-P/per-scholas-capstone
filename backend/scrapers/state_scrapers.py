@@ -212,7 +212,7 @@ class CaliforniaGrantsScraper:
             clean = re.sub(r'[^\d.]', '', str(amount_str))
             if clean:
                 return int(float(clean))
-        except:
+        except (ValueError, TypeError):
             pass
         return 250000  # Default
 
@@ -225,9 +225,9 @@ class CaliforniaGrantsScraper:
                 try:
                     dt = datetime.strptime(str(date_str)[:10], fmt)
                     return dt.strftime('%Y-%m-%d')
-                except:
+                except (ValueError, TypeError):
                     continue
-        except:
+        except (ValueError, TypeError):
             pass
         return (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
 

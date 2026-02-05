@@ -95,7 +95,7 @@ def create_claude_code_session(prompt: str, session_type: str = "fundraising-cro
         # Clean up temp file
         try:
             os.unlink(temp_prompt_file)
-        except:
+        except OSError:
             pass
 
         if result.returncode == 0:
@@ -176,7 +176,7 @@ def create_gemini_cli_session(prompt: str, session_type: str = "fundraising", ti
         # Clean up temp file
         try:
             os.unlink(temp_prompt_file)
-        except:
+        except OSError:
             pass
 
         if result.returncode == 0:
@@ -295,7 +295,7 @@ def parse_proposal_orchestration_response(orchestration_result):
         elif hasattr(orchestration_result, 'get'):
             return orchestration_result.get('proposal_content', str(orchestration_result))
         return str(orchestration_result)
-    except:
+    except (TypeError, AttributeError):
         return ""
 
 app = FastAPI(title="PerScholas Fundraising API")
@@ -1737,7 +1737,7 @@ Return ONLY valid JSON, no other text."""
         summary_text = response.text
         try:
             summary = json.loads(summary_text)
-        except:
+        except (json.JSONDecodeError, TypeError):
             # If JSON parsing fails, create a structured response from the text
             summary = {
                 "overview": summary_text[:500],
@@ -2599,7 +2599,7 @@ Priority should be given to opportunities with deadlines in the next 3-6 months 
                 existing_result = supabase.table("saved_opportunities").select("title, funder").eq("user_id", user_id).execute()
                 existing_opps = [f"{opp['title']} - {opp['funder']}" for opp in existing_result.data]
                 existing_list = "; ".join(existing_opps) if existing_opps else "None"
-            except:
+            except Exception:
                 existing_list = "None"
 
             # Create comprehensive prompt for fundraising-cro agent

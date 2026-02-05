@@ -400,7 +400,7 @@ class GrantsGovService:
             # If all else fails, return future date
             return (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
 
-        except:
+        except (ValueError, TypeError, AttributeError):
             return (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
 
     def _parse_amount(self, amount_text: str) -> int:
@@ -418,7 +418,7 @@ class GrantsGovService:
             else:
                 return int(clean) if clean else 250000
 
-        except:
+        except (ValueError, TypeError, AttributeError):
             return 250000  # Default amount
 
     def _calculate_match_score(self, title: str) -> int:

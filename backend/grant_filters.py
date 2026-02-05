@@ -177,7 +177,7 @@ class GrantFilter:
             deadline = self._parse_deadline(deadline_str)
             if deadline:
                 return deadline < datetime.now()
-        except:
+        except (ValueError, TypeError):
             pass
         
         return False
@@ -202,7 +202,7 @@ class GrantFilter:
         for fmt in formats:
             try:
                 return datetime.strptime(deadline_str[:19], fmt)
-            except:
+            except (ValueError, TypeError):
                 continue
         
         return None
@@ -237,7 +237,7 @@ class GrantFilter:
         if not isinstance(amount, (int, float)):
             try:
                 amount = int(amount)
-            except:
+            except (ValueError, TypeError):
                 # If amount is unclear, don't filter out (could be significant)
                 return True
         

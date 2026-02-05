@@ -21,8 +21,8 @@ print("Applying migration to remove FK constraint...")
 try:
     result = supabase_admin.postgrest.rpc("execute_sql", {"sql": migration_sql}).execute()
     print(f"✓ Migration applied via RPC (may not work)")
-except:
-    print("RPC method not available, trying alternative approach...")
+except Exception as e:
+    print(f"RPC method not available ({e}), trying alternative approach...")
 
 # Alternative: Use SQL directly via Supabase
 print("\nAttempt 2: Using direct table operations...")

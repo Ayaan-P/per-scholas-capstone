@@ -358,7 +358,7 @@ class SAMGovScraper:
             clean = re.sub(r'[^\d.]', '', str(amount_str))
             if clean:
                 return int(float(clean))
-        except:
+        except (ValueError, TypeError):
             pass
         return 250000
 
@@ -370,9 +370,9 @@ class SAMGovScraper:
                 try:
                     dt = datetime.strptime(str(date_str)[:19], fmt)
                     return dt.strftime('%Y-%m-%d')
-                except:
+                except (ValueError, TypeError):
                     continue
-        except:
+        except (ValueError, TypeError):
             pass
         return (datetime.now() + timedelta(days=60)).strftime('%Y-%m-%d')
 
@@ -423,7 +423,7 @@ class SAMGovScraper:
             if contacts and isinstance(contacts, list):
                 primary_contact = next((c for c in contacts if c.get('type') == 'primary'), contacts[0] if contacts else {})
                 return primary_contact.get('email', '')
-        except:
+        except (StopIteration, TypeError, AttributeError):
             pass
         return ''
 
@@ -643,7 +643,7 @@ class USASpendingScraper:
                 import re
                 clean = re.sub(r'[^\d.]', '', amount)
                 return int(float(clean)) if clean else 250000
-        except:
+        except (ValueError, TypeError):
             pass
         return 250000
 
@@ -852,7 +852,7 @@ class DOLWorkforceScraper:
             if end_date:
                 end_dt = datetime.strptime(end_date[:10], '%Y-%m-%d')
                 return end_dt > datetime.now()
-        except:
+        except (ValueError, TypeError):
             pass
         return False
 
@@ -862,7 +862,7 @@ class DOLWorkforceScraper:
             try:
                 end_dt = datetime.strptime(end_date[:10], '%Y-%m-%d')
                 return end_dt.strftime('%Y-%m-%d')
-            except:
+            except (ValueError, TypeError):
                 pass
         
         if is_current:
@@ -900,7 +900,7 @@ class DOLWorkforceScraper:
                 # Assume this is announcement date, add typical application period
                 deadline = parsed + timedelta(days=60)
                 return deadline.strftime('%Y-%m-%d')
-        except:
+        except (ValueError, TypeError):
             pass
         return (datetime.now() + timedelta(days=75)).strftime('%Y-%m-%d')
 
@@ -987,6 +987,6 @@ class DOLWorkforceScraper:
                 import re
                 clean = re.sub(r'[^\d.]', '', amount)
                 return int(float(clean)) if clean else 500000
-        except:
+        except (ValueError, TypeError):
             pass
         return 500000

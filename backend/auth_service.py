@@ -143,5 +143,5 @@ async def optional_token(credentials: Optional[HTTPAuthorizationCredentials] = D
     try:
         token_payload = await verify_token(credentials)
         return token_payload.get('sub')
-    except:
+    except Exception:
         return None

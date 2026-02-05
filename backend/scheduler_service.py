@@ -459,7 +459,7 @@ class SchedulerService:
                             existing_result = self.supabase.table("saved_opportunities").select("title, funder").execute()
                             existing_opps = [f"{opp['title']} - {opp['funder']}" for opp in existing_result.data]
                             existing_list = "; ".join(existing_opps) if existing_opps else "None"
-                        except:
+                        except Exception:
                             existing_list = "None"
 
                         # Add JSON format requirements to the orchestration prompt
