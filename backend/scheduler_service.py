@@ -589,13 +589,21 @@ REQUIREMENTS:
     @staticmethod
     def _sanitize_grant(grant: Dict[str, Any]) -> Dict[str, Any]:
         """Sanitize grant data before DB insertion.
-        - Empty-string deadlines → None (Postgres rejects '' for timestamptz)
+        - Empty-string timestamp fields → None (Postgres rejects '' for timestamptz)
         - Match scores → int (Postgres rejects floats like '32.0' for int columns)
         """
         sanitized = dict(grant)
-        # Fix empty-string deadlines
-        if not sanitized.get("deadline"):
-            sanitized["deadline"] = None
+        
+        # All timestamp fields that need sanitization
+        timestamp_fields = [
+            "deadline", "archive_date", "forecast_date", 
+            "last_updated_date", "close_date", "created_at", "updated_at"
+        ]
+        
+        for field in timestamp_fields:
+            if field in sanitized and not sanitized.get(field):
+                sanitized[field] = None
+                
         return sanitized
 
     async def _store_grants(self, grants: List[Dict[str, Any]], source: str) -> int:
@@ -725,7 +733,7 @@ REQUIREMENTS:
                     "title": grant.get("title"),
                     "funder": grant.get("organization", "Unknown"),
                     "amount": parsed_amount,
-                    "deadline": grant.get("deadline"),
+                    "deadline": grant.get("deadline") or None,  # Sanitize empty strings
                     "description": grant.get("description"),
                     "requirements": grant.get("eligibility", []),
                     "contact": grant.get("email_sender"),
