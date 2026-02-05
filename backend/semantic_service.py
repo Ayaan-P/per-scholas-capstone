@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 from typing import List, Dict, Any, Optional, Tuple
-from sentence_transformers import SentenceTransformer
+import google.generativeai as genai
 import numpy as np
 from supabase import create_client, Client
 from datetime import datetime
@@ -25,13 +25,14 @@ class SemanticService:
         self._init_supabase()
 
     def _init_model(self):
-        """Initialize the sentence transformer model"""
+        """Initialize Gemini for embeddings (free tier: 1500 req/min)"""
         try:
-            # Use a lightweight, fast model good for semantic search
-            self.model = SentenceTransformer('all-MiniLM-L6-v2')
-            print("[SEMANTIC] Loaded sentence transformer model")
+            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+            self.model = "models/text-embedding-004"
+            self.embedding_dimension = 384  # Match existing pgvector dimension
+            print("[SEMANTIC] Initialized Gemini embeddings")
         except Exception as e:
-            print(f"[SEMANTIC] Error loading model: {e}")
+            print(f"[SEMANTIC] Error initializing Gemini: {e}")
 
     def _init_supabase(self):
         """Initialize Supabase client"""
@@ -71,14 +72,17 @@ class SemanticService:
             return ""
 
     def get_embedding(self, text: str) -> Optional[List[float]]:
-        """Generate embedding for given text"""
+        """Generate embedding for given text using Gemini"""
         if not self.model or not text.strip():
             return None
 
         try:
-            # Generate embedding
-            embedding = self.model.encode(text, convert_to_tensor=False)
-            return embedding.tolist()
+            result = genai.embed_content(
+                model=self.model,
+                content=text,
+                output_dimensionality=self.embedding_dimension
+            )
+            return result['embedding']
         except Exception as e:
             print(f"[SEMANTIC] Error generating embedding: {e}")
             return None
@@ -89,11 +93,17 @@ class SemanticService:
             return 0.0
 
         try:
-            embeddings = self.model.encode([text1, text2])
+            emb1 = self.get_embedding(text1)
+            emb2 = self.get_embedding(text2)
+            
+            if not emb1 or not emb2:
+                return 0.0
 
             # Calculate cosine similarity
-            similarity = np.dot(embeddings[0], embeddings[1]) / (
-                np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1])
+            emb1_arr = np.array(emb1)
+            emb2_arr = np.array(emb2)
+            similarity = np.dot(emb1_arr, emb2_arr) / (
+                np.linalg.norm(emb1_arr) * np.linalg.norm(emb2_arr)
             )
 
             return float(similarity)
