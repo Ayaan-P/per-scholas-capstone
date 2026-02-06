@@ -20,6 +20,11 @@ from grants_service import GrantsGovService
 from typing import List, Dict, Any, Optional
 from credits_service import CreditsService
 from credits_routes import router as credits_router
+# Route modules (Issue #37 - splitting main.py)
+from routes.health import router as health_router, set_scheduler_service as set_health_scheduler
+from routes.categories import router as categories_router
+from routes.scheduler import router as scheduler_router, set_dependencies as set_scheduler_deps
+from routes.dashboard import router as dashboard_router, set_dependencies as set_dashboard_deps
 from datetime import datetime, timedelta
 import json
 from supabase import create_client, Client
@@ -350,6 +355,12 @@ app.add_middleware(
 # Include credits router
 app.include_router(credits_router)
 
+# Include route modules (Issue #37 - splitting main.py)
+app.include_router(health_router)
+app.include_router(categories_router)
+app.include_router(scheduler_router)
+app.include_router(dashboard_router)
+
 # In-memory job tracking (database for persistence)
 jobs_db: Dict[str, Dict[str, Any]] = {}
 opportunities_db: List[Dict[str, Any]] = []
@@ -392,18 +403,7 @@ class UpdateOpportunityDescriptionRequest(BaseModel):
 class UpdateOpportunityNotesRequest(BaseModel):
     notes: str
 
-class SchedulerSettingsRequest(BaseModel):
-    scheduler_frequency: str  # 'daily', 'weekly', 'biweekly', 'monthly'
-    selected_states: Optional[List[str]] = None
-    selected_cities: Optional[List[str]] = None
-
-class SchedulerSettingsResponse(BaseModel):
-    id: str
-    scheduler_frequency: str
-    selected_states: List[str]
-    selected_cities: List[str]
-    created_at: str
-    updated_at: str
+# SchedulerSettingsRequest/Response moved to routes/scheduler.py (Issue #37)
 
 class OrganizationConfigRequest(BaseModel):
     name: str
@@ -1216,48 +1216,7 @@ async def delete_organization_document(
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
 
-# Category Management Endpoints
-@app.get("/api/categories")
-async def get_all_categories():
-    """Get all available opportunity categories for filtering"""
-    try:
-        from category_service import get_category_service
-        category_service = get_category_service()
-        categories = category_service.get_categories_for_display()
-        return {
-            "status": "success",
-            "categories": categories,
-            "count": len(categories)
-        }
-    except Exception as e:
-        print(f"[CATEGORIES] Error loading categories: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to load categories: {str(e)}")
-
-@app.get("/api/categories/{category_id}")
-async def get_category_detail(category_id: int):
-    """Get detailed information about a specific category including keywords and prompts"""
-    try:
-        from category_service import get_category_service
-        category_service = get_category_service()
-
-        category = category_service.get_category_by_id(category_id)
-        if not category:
-            raise HTTPException(status_code=404, detail="Category not found")
-
-        keywords = category_service.get_category_keywords(category_id)
-        prompt = category_service.get_category_search_prompt(category_id)
-
-        return {
-            "status": "success",
-            "category": category,
-            "keywords": keywords,
-            "search_prompt": prompt
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"[CATEGORIES] Error loading category {category_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to load category: {str(e)}")
+# Category routes moved to routes/categories.py (Issue #37)
 
 @app.on_event("startup")
 async def startup_event():
@@ -1270,6 +1229,11 @@ async def startup_event():
     
     scheduler_service = SchedulerService(supabase)
     scheduler_service.start()
+    
+    # Inject dependencies into route modules (Issue #37)
+    set_health_scheduler(scheduler_service)
+    set_scheduler_deps(scheduler_service, supabase)
+    set_dashboard_deps(supabase, jobs_db)
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -1277,118 +1241,7 @@ async def shutdown_event():
     if scheduler_service:
         scheduler_service.stop()
 
-@app.get("/api/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "PerScholas Fundraising API",
-        "scheduler_running": scheduler_service is not None
-    }
-
-@app.get("/api/scheduler/settings")
-async def get_scheduler_settings(user_id: str = Depends(get_current_user)):
-    """Get current scheduler settings (requires authentication)"""
-    try:
-        # Try to fetch existing settings
-        result = supabase.table("scheduler_settings").select("*").limit(1).execute()
-
-        if result.data and len(result.data) > 0:
-            settings = result.data[0]
-            return {
-                "id": settings.get("id"),
-                "scheduler_frequency": settings.get("scheduler_frequency", "weekly"),
-                "selected_states": settings.get("selected_states", []),
-                "selected_cities": settings.get("selected_cities", []),
-                "created_at": settings.get("created_at"),
-                "updated_at": settings.get("updated_at")
-            }
-        else:
-            # Return default settings if none exist
-            return {
-                "id": None,
-                "scheduler_frequency": "weekly",
-                "selected_states": ["CA", "NY", "TX", "GA", "MD", "MA", "IL", "CO", "MI", "IN", "MO", "PA", "NC", "FL", "AZ", "WA", "VA", "OH", "TN"],
-                "selected_cities": ["Los Angeles/San Francisco", "New York/Newark", "Dallas/Houston", "Atlanta", "Baltimore", "Boston", "Chicago", "Denver", "Detroit", "Indianapolis", "Kansas City/St. Louis", "Philadelphia/Pittsburgh", "Charlotte/Raleigh", "Orlando/Tampa/Miami", "Phoenix", "Seattle", "Washington DC/Virginia", "Cincinnati/Columbus/Cleveland", "Nashville"],
-                "created_at": None,
-                "updated_at": None
-            }
-    except Exception as e:
-        print(f"[SCHEDULER SETTINGS] Error fetching settings: {e}")
-        # Return default settings on error
-        return {
-            "id": None,
-            "scheduler_frequency": "weekly",
-            "selected_states": ["CA", "NY", "TX", "GA", "MD", "MA", "IL", "CO", "MI", "IN", "MO", "PA", "NC", "FL", "AZ", "WA", "VA", "OH", "TN"],
-            "selected_cities": ["Los Angeles/San Francisco", "New York/Newark", "Dallas/Houston", "Atlanta", "Baltimore", "Boston", "Chicago", "Denver", "Detroit", "Indianapolis", "Kansas City/St. Louis", "Philadelphia/Pittsburgh", "Charlotte/Raleigh", "Orlando/Tampa/Miami", "Phoenix", "Seattle", "Washington DC/Virginia", "Cincinnati/Columbus/Cleveland", "Nashville"],
-            "created_at": None,
-            "updated_at": None
-        }
-
-@app.post("/api/scheduler/settings")
-async def save_scheduler_settings(settings: SchedulerSettingsRequest, user_id: str = Depends(get_current_user)):
-    """Save or update scheduler settings and reload scheduler (requires authentication)"""
-    try:
-        # Check if settings already exist
-        result = supabase.table("scheduler_settings").select("id").limit(1).execute()
-
-        settings_data = {
-            "scheduler_frequency": settings.scheduler_frequency,
-        }
-
-        # Only update states/cities if they were provided
-        if settings.selected_states:
-            settings_data["selected_states"] = settings.selected_states
-        if settings.selected_cities:
-            settings_data["selected_cities"] = settings.selected_cities
-
-        if result.data and len(result.data) > 0:
-            # Update existing settings
-            existing_id = result.data[0]["id"]
-            update_result = supabase.table("scheduler_settings").update(settings_data).eq("id", existing_id).execute()
-
-            if update_result.data:
-                saved_settings = update_result.data[0]
-
-                # Reload scheduler settings immediately (no need to restart)
-                if scheduler_service:
-                    reload_success = await scheduler_service.reload_scheduler_settings()
-                    print(f"[SCHEDULER SETTINGS] Scheduler reload: {'success' if reload_success else 'failed'}")
-
-                return {
-                    "status": "updated",
-                    "id": saved_settings.get("id"),
-                    "scheduler_frequency": saved_settings.get("scheduler_frequency"),
-                    "selected_states": saved_settings.get("selected_states", []),
-                    "selected_cities": saved_settings.get("selected_cities", []),
-                    "updated_at": saved_settings.get("updated_at"),
-                    "scheduler_reloaded": True
-                }
-        else:
-            # Create new settings
-            insert_result = supabase.table("scheduler_settings").insert(settings_data).execute()
-
-            if insert_result.data:
-                saved_settings = insert_result.data[0]
-
-                # Reload scheduler settings immediately (no need to restart)
-                if scheduler_service:
-                    reload_success = await scheduler_service.reload_scheduler_settings()
-                    print(f"[SCHEDULER SETTINGS] Scheduler reload: {'success' if reload_success else 'failed'}")
-
-                return {
-                    "status": "created",
-                    "id": saved_settings.get("id"),
-                    "scheduler_frequency": saved_settings.get("scheduler_frequency"),
-                    "selected_states": saved_settings.get("selected_states", []),
-                    "selected_cities": saved_settings.get("selected_cities", []),
-                    "created_at": saved_settings.get("created_at"),
-                    "scheduler_reloaded": True
-                }
-
-        raise Exception("Failed to save settings")
-    except Exception as e:
-        print(f"[SCHEDULER SETTINGS] Error saving settings: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to save scheduler settings: {str(e)}")
+# Health and scheduler routes moved to routes/health.py and routes/scheduler.py (Issue #37)
 
 @app.post("/api/search-opportunities")
 async def start_opportunity_search(
@@ -1560,49 +1413,7 @@ async def get_scraped_grants(
         print(f"[GET SCRAPED GRANTS] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch scraped grants: {str(e)}")
 
-@app.get("/api/scheduler/status")
-async def get_scheduler_status(user_id: str = Depends(get_current_user)):
-    """Get status of scheduled scraping jobs (requires authentication)"""
-    if not scheduler_service:
-        raise HTTPException(status_code=503, detail="Scheduler not initialized")
-
-    try:
-        jobs = scheduler_service.get_job_status()
-        scheduled_jobs = []
-
-        # Get info about scheduled jobs
-        for job in scheduler_service.scheduler.get_jobs():
-            scheduled_jobs.append({
-                "id": job.id,
-                "name": job.name,
-                "next_run": job.next_run_time.isoformat() if job.next_run_time else None
-            })
-
-        return {
-            "scheduler_running": True,
-            "recent_jobs": jobs,
-            "scheduled_jobs": scheduled_jobs
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get scheduler status: {str(e)}")
-
-@app.post("/api/scheduler/run/{job_name}")
-async def run_scheduler_job(job_name: str, user_id: str = Depends(get_current_user)):
-    """Manually trigger a scheduled scraping job (requires authentication)"""
-    if not scheduler_service:
-        raise HTTPException(status_code=503, detail="Scheduler not initialized")
-
-    try:
-        await scheduler_service.run_job_now(job_name)
-        return {
-            "status": "started",
-            "job_name": job_name,
-            "message": f"Job '{job_name}' triggered successfully"
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to run job: {str(e)}")
+# Scheduler status and run routes moved to routes/scheduler.py (Issue #37)
 
 @app.post("/api/scraped-grants/{grant_id}/save")
 async def save_scraped_grant(grant_id: str, user_id: str = Depends(get_current_user)):
@@ -2396,99 +2207,7 @@ async def update_proposal_status(proposal_id: str, status_update: dict, user_id:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update proposal: {str(e)}")
 
-@app.get("/api/dashboard/stats")
-async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
-    """Get dashboard statistics"""
-    try:
-        # Get opportunities count and funding from unified table
-        opportunities_result = supabase.table("saved_opportunities").select("amount").eq("user_id", user_id).execute()
-        opportunities = opportunities_result.data
-
-        # Get proposals count
-        proposals_result = supabase.table("proposals").select("id, status").execute()
-        proposals = proposals_result.data
-
-        # Calculate stats
-        total_opportunities = len(opportunities)
-        total_proposals = len(proposals)
-        total_funding = sum(opp.get("amount", 0) for opp in opportunities)
-
-        approved_proposals = len([p for p in proposals if p.get("status") == "approved"])
-        submitted_proposals = len([p for p in proposals if p.get("status") in ["submitted", "approved"]])
-
-        return {
-            "totalOpportunities": total_opportunities,
-            "totalProposals": total_proposals,
-            "totalFunding": total_funding,
-            "recentSearches": len(jobs_db),
-            "avgMatchScore": 85
-        }
-    except Exception as e:
-        return {
-            "totalOpportunities": 0,
-            "totalProposals": 0,
-            "totalFunding": 0,
-            "recentSearches": 0,
-            "avgMatchScore": 0
-        }
-
-@app.get("/api/dashboard/activity")
-async def get_dashboard_activity():
-    """Get recent activity"""
-    activities = []
-
-    # Add recent job activities
-    for job in list(jobs_db.values())[-5:]:
-        if job.get("status") == "completed":
-            activities.append({
-                "id": job["job_id"],
-                "type": "search",
-                "description": f"Completed search: {job.get('result', {}).get('total_found', 0)} opportunities found",
-                "timestamp": job.get("created_at", datetime.now().isoformat())
-            })
-
-    return {"activities": activities}
-
-@app.get("/api/analytics")
-async def get_analytics(range: str = "30d"):
-    """Get analytics data"""
-    # Mock analytics data
-    return {
-        "searchMetrics": {
-            "totalSearches": len(jobs_db),
-            "successfulSearches": len([j for j in jobs_db.values() if j.get("status") == "completed"]),
-            "avgOpportunitiesPerSearch": 4.2,
-            "avgMatchScore": 85
-        },
-        "opportunityMetrics": {
-            "totalOpportunities": 15,
-            "savedOpportunities": 8,
-            "totalFundingValue": 1250000,
-            "avgFundingAmount": 156250
-        },
-        "proposalMetrics": {
-            "totalProposals": 3,
-            "submittedProposals": 2,
-            "approvedProposals": 1,
-            "successRate": 33
-        },
-        "timeSeriesData": [
-            {"date": (datetime.now() - timedelta(days=6)).strftime("%Y-%m-%d"), "searches": 2, "opportunities": 8, "proposals": 1},
-            {"date": (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d"), "searches": 1, "opportunities": 4, "proposals": 0},
-            {"date": (datetime.now() - timedelta(days=4)).strftime("%Y-%m-%d"), "searches": 3, "opportunities": 12, "proposals": 2},
-            {"date": (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d"), "searches": 1, "opportunities": 3, "proposals": 0},
-            {"date": (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d"), "searches": 2, "opportunities": 7, "proposals": 1},
-            {"date": (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"), "searches": 1, "opportunities": 5, "proposals": 0},
-            {"date": datetime.now().strftime("%Y-%m-%d"), "searches": 0, "opportunities": 0, "proposals": 0}
-        ],
-        "topFunders": [
-            {"name": "U.S. Department of Labor", "opportunityCount": 3, "totalFunding": 450000},
-            {"name": "Gates Foundation", "opportunityCount": 2, "totalFunding": 300000},
-            {"name": "Ford Foundation", "opportunityCount": 2, "totalFunding": 250000},
-            {"name": "JPMorgan Chase Foundation", "opportunityCount": 1, "totalFunding": 200000},
-            {"name": "Google.org", "opportunityCount": 1, "totalFunding": 75000}
-        ]
-    }
+# Dashboard and analytics routes moved to routes/dashboard.py (Issue #37)
 
 async def run_llm_enhancement(job_id: str, grant_id: str, user_id: str = None):
     """Background task for LLM enhancement with progress updates"""
