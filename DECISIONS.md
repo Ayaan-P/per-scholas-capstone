@@ -6,7 +6,29 @@
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
 
 ## Pending Decisions (awaiting Ayaan's input)
-- **Agentic pivot (partial)** — Proposal writer approved but scope is HARD — real grant proposals are 60+ pages with extensive user documentation. Don't underestimate this. Grant discovery and donor outreach: hold for now.
+*None — agentic pivot approved below*
+
+## Approved — Agentic Pivot (2026-02-06)
+
+**FundFish is becoming an agent-first product.**
+
+Agent template scaffolded at `~/clawd/agents/fundfish/`:
+- `AGENTS.md` — Instructions for grant discovery + proposal writing
+- `scripts/fundfish-api.sh` — FundFish API wrapper
+- `config.json` — Clawdbot agent config
+- Dytto context integration — Agent knows org profile, past grants, writing style
+
+**Architecture:**
+- Same Hetzner box as personal agents (different agent type)
+- Each nonprofit gets their own agent instance
+- Chat interface on fundfish.pro routes to their agent
+- Dytto powers organizational context (mission, history, style)
+
+**Next steps:**
+1. Deploy agent template to Hetzner
+2. Add fundfish agent type to bridge config
+3. Build chat interface on fundfish.pro
+4. Test end-to-end: signup → agent creation → grant search → proposal help
 
 ## Approved — Investigate ASAP
 
