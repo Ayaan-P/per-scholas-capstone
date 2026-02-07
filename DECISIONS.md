@@ -88,3 +88,4 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Converted all Header/landing <a> tags to Next.js <Link> for client-side routing (Issue #36, 2026-02-04)
 - [x] Updated sitemap.xml with /about page (2026-02-04)
 - [x] BEGIN main.py split (Issue #37): Extracted health, categories, scheduler, dashboard routes to `routes/` package. main.py 3097→2816 lines (-281). Commit 77fe2a3 (2026-02-06)
+- [x] CONTINUE main.py split (Issue #37): Extracted organization routes (auth init, org config, documents). main.py 2816→2147 lines (-669). Total: 3097→2147 (-950, -31%). Commit 8a365d1 (2026-02-07)
