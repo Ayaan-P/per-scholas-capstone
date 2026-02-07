@@ -77,11 +77,23 @@ class SemanticService:
             return None
 
         try:
-            result = genai.embed_content(
-                model=self.model,
-                content=text,
-                output_dimensionality=self.embedding_dimension
-            )
+            # Try with output_dimensionality first (older SDK versions)
+            try:
+                result = genai.embed_content(
+                    model=self.model,
+                    content=text,
+                    output_dimensionality=self.embedding_dimension
+                )
+            except TypeError:
+                # Newer SDK versions don't support output_dimensionality
+                # Fall back to full-dimension embeddings and truncate
+                result = genai.embed_content(
+                    model=self.model,
+                    content=text
+                )
+                # Truncate to match database dimension if needed
+                if len(result['embedding']) > self.embedding_dimension:
+                    result['embedding'] = result['embedding'][:self.embedding_dimension]
             return result['embedding']
         except Exception as e:
             print(f"[SEMANTIC] Error generating embedding: {e}")
