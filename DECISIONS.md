@@ -90,3 +90,4 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] BEGIN main.py split (Issue #37): Extracted health, categories, scheduler, dashboard routes to `routes/` package. main.py 3097→2816 lines (-281). Commit 77fe2a3 (2026-02-06)
 - [x] CONTINUE main.py split (Issue #37): Extracted organization routes (auth init, org config, documents). main.py 2816→2147 lines (-669). Total: 3097→2147 (-950, -31%). Commit 8a365d1 (2026-02-07)
 - [x] Fixed Gemini SDK API change for embeddings (Issue #41 CLOSED, 2026-02-07): output_dimensionality no longer supported
+- [x] CONTINUE main.py split (Issue #37): Extracted proposals routes to routes/proposals.py. main.py 2147→1805 lines (-342). Total: 3097→1805 (-1292, -42%). Commit f92d210 (2026-02-08)
