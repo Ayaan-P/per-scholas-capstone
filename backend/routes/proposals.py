@@ -9,17 +9,19 @@ import os
 import uuid
 
 from auth_service import get_current_user
+from claude_code_service import generate_proposal_content, create_claude_api_session, PER_SCHOLAS_CONTEXT
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
 
 # These will be injected from main.py
 supabase = None
 jobs_db = None
+# Keep for backwards compatibility but prefer Claude API
 create_gemini_cli_session = None
 parse_proposal_orchestration_response = None
 
 
-def set_dependencies(db, jobs, gemini_session_fn, parse_proposal_fn):
+def set_dependencies(db, jobs, gemini_session_fn=None, parse_proposal_fn=None):
     """Allow main.py to inject dependencies"""
     global supabase, jobs_db, create_gemini_cli_session, parse_proposal_orchestration_response
     supabase = db
@@ -132,177 +134,79 @@ async def download_proposal(proposal_id: int, user_id: str = Depends(get_current
 
 
 async def run_proposal_generation(job_id: str, request: ProposalRequest):
-    """Execute Claude Code agent for proposal generation"""
+    """Execute proposal generation using Claude API (migrated from Gemini CLI)"""
     job = jobs_db[job_id]
 
     try:
         # Update job status
-        job["current_task"] = "Initializing Claude Code proposal agent..."
+        job["current_task"] = "Initializing Claude API proposal generation..."
         job["progress"] = 10
 
-        # Per Scholas context for proposal generation
-        per_scholas_context = """
-Per Scholas is a leading national nonprofit that advances economic equity through rigorous,
-tuition-free technology training for individuals from underrepresented communities.
+        job["current_task"] = "Generating proposal with Claude API..."
+        job["progress"] = 30
 
-Mission: To advance economic equity by providing access to technology careers for individuals
-from underrepresented communities.
+        print(f"[Proposal Generation] Starting for '{request.opportunity_title}'")
 
-Programs:
-- Cybersecurity Training (16-week intensive program)
-- Cloud Computing (AWS/Azure certification tracks)
-- Software Development (Full-stack development)
-- IT Support (CompTIA certification preparation)
+        # Use Claude API directly for proposal generation
+        result = generate_proposal_content(
+            opportunity_title=request.opportunity_title,
+            funder=request.funder,
+            amount=request.amount,
+            deadline=request.deadline,
+            description=request.description,
+            requirements=request.requirements,
+            timeout=300
+        )
 
-Impact:
-- 20,000+ graduates to date
-- 85% job placement rate
-- 150% average salary increase
-- 24 markets across the United States
-- Focus on underrepresented minorities, women, veterans
+        job["progress"] = 70
 
-Target Demographics:
-- Individuals from underrepresented communities
-- Women seeking technology careers
-- Veterans transitioning to civilian workforce
-- Career changers from declining industries
-- Low-income individuals seeking economic mobility
-"""
-
-        # Comprehensive orchestration prompt for proposal generation
-        proposal_orchestration_prompt = f"""You are a comprehensive proposal generation system for Per Scholas. Use your Task tool to orchestrate multiple specialized agents for creating a winning grant proposal.
+        if not result['success']:
+            # Fallback to Gemini CLI if Claude fails and Gemini is available
+            if create_gemini_cli_session:
+                print(f"[Proposal Generation] Claude API failed, falling back to Gemini CLI...")
+                job["current_task"] = "Falling back to Gemini CLI..."
+                
+                proposal_prompt = f"""Generate a complete grant proposal for Per Scholas.
 
 Organization Context:
-{per_scholas_context}
+{PER_SCHOLAS_CONTEXT}
 
 Opportunity Details:
-Title: {request.opportunity_title}
-Funder: {request.funder}
-Amount: ${request.amount:,}
-Deadline: {request.deadline}
-Description: {request.description}
-Requirements: {', '.join(request.requirements)}
+- Title: {request.opportunity_title}
+- Funder: {request.funder}
+- Amount: ${request.amount:,}
+- Deadline: {request.deadline}
+- Description: {request.description}
+- Requirements: {', '.join(request.requirements)}
 
-Multi-Agent Orchestration Plan:
+Generate a professional proposal with: Executive Summary, Organization Background, 
+Project Description, Target Population, Implementation Plan, Budget Justification, 
+Expected Outcomes, Sustainability Plan, and Conclusion."""
 
-1. Use fundraising-cro agent for:
-   - Grant writing best practices
-   - Funder research and alignment
-   - Compliance requirements analysis
-   - Proposal structure and sections
-
-2. Use financial-cfo agent for:
-   - Budget development and justification
-   - ROI calculations and projections
-   - Cost-effectiveness analysis
-   - Financial sustainability planning
-
-3. Use product-cpo agent for:
-   - Impact metrics and measurement
-   - Program effectiveness data
-   - User outcomes and success rates
-   - Evaluation methodology
-
-4. Use marketing-cmo agent for:
-   - Compelling messaging and positioning
-   - Stakeholder engagement strategy
-   - Communication and dissemination plan
-
-Generate a complete, professional grant proposal with these sections:
-1. Executive Summary
-2. Organization Background
-3. Project Description and Goals
-4. Target Population and Need Assessment
-5. Implementation Plan and Timeline
-6. Budget Justification
-7. Expected Outcomes and Evaluation
-8. Sustainability Plan
-9. Conclusion
-
-The proposal should be compelling, data-driven, and specifically tailored to {request.funder}'s priorities and requirements."""
-
-        job["current_task"] = "Creating Claude Code proposal session..."
-        job["progress"] = 50
-
-        # Create Claude Code session for proposal generation (with dummy content fallback)
-        print(f"[Claude Code Session] Starting proposal generation...")
-
-        # Use dummy proposal content if Claude Code not available, otherwise use Claude Code
-        use_api = False  # Set to False to use Claude Code instead
-
-        if use_api:
-            print(f"[Claude Code Session] Using dummy proposal template...")
-            proposal_result = f'''
-# Grant Proposal: {request.opportunity_title}
-
-## Executive Summary
-Per Scholas requests ${request.amount:,} from {request.funder} to expand our proven technology workforce development program, directly addressing the critical need for skilled tech professionals from underrepresented communities.
-
-## Organization Background
-Per Scholas is a leading nonprofit that advances economic equity through rigorous, tuition-free technology training programs. Since 1995, we have graduated over 18,000 students with an average starting salary of $52,000—a 3x increase from their pre-program earnings.
-
-## Project Description and Goals
-This initiative will:
-- Train 250 additional learners in high-demand technology roles
-- Achieve 85% job placement rate within 180 days
-- Generate $13M in aggregate annual wage increases
-- Partner with 50+ employers for direct hiring pathways
-
-## Target Population and Need Assessment
-We serve adults from communities that have been systemically excluded from economic opportunity:
-- 65% people of color
-- 50% women and gender-expansive individuals
-- 70% earning less than $30,000 annually
-- Average age: 32 years old
-
-## Implementation Plan and Timeline
-**Phase 1 (Months 1-6):** Program expansion and curriculum development
-**Phase 2 (Months 7-18):** Student recruitment and training delivery
-**Phase 3 (Months 19-24):** Job placement and career support services
-
-## Budget Justification
-- Instruction and curriculum: 45% (${int(request.amount * 0.45):,})
-- Student support services: 25% (${int(request.amount * 0.25):,})
-- Employer engagement: 20% (${int(request.amount * 0.20):,})
-- Administrative costs: 10% (${int(request.amount * 0.10):,})
-
-## Expected Outcomes and Evaluation
-- 250 program graduates
-- 85% job placement rate
-- $52,000 average starting salary
-- 90% job retention at 12 months
-- ROI of 400% through increased tax revenue and reduced social services
-
-## Sustainability Plan
-Per Scholas will sustain this program through diversified funding including corporate partnerships, government contracts, and earned revenue from employer-paid training services.
-
-## Conclusion
-This partnership with {request.funder} will create lasting economic mobility for underserved communities while addressing critical workforce needs in the technology sector. Together, we can build a more equitable and prosperous future.
-
----
-*Generated on {datetime.now().strftime("%B %d, %Y")} for {request.funder}*
-            '''.strip()
+                gemini_result = create_gemini_cli_session(
+                    prompt=proposal_prompt,
+                    session_type="fundraising",
+                    timeout=900
+                )
+                
+                if gemini_result['success']:
+                    proposal_content = gemini_result['output']
+                else:
+                    raise Exception(f"Both Claude API and Gemini CLI failed. Claude: {result['error']}, Gemini: {gemini_result['error']}")
+            else:
+                raise Exception(f"Claude API failed: {result['error']}")
         else:
-            session_result = create_gemini_cli_session(
-                prompt=proposal_orchestration_prompt,
-                session_type="fundraising",
-                timeout=900
-            )
+            proposal_content = result['content']
+            print(f"[Proposal Generation] Claude API succeeded, generated {len(proposal_content)} chars")
+            if result.get('usage'):
+                print(f"[Proposal Generation] Token usage: {result['usage']}")
 
-            if not session_result['success']:
-                raise Exception(f"Gemini CLI session failed: {session_result['error']}")
+        job["current_task"] = "Saving proposal to database..."
+        job["progress"] = 85
 
-            proposal_result = session_result['output']
-
-        job["current_task"] = "Processing proposal session results..."
-        job["progress"] = 80
-
-        # Parse the orchestrated proposal
-        proposal_content = parse_proposal_orchestration_response(proposal_result)
-
-        # If no content from agent, raise error
+        # If no content, raise error
         if not proposal_content:
-            raise Exception("Fundraising agent failed to generate proposal content")
+            raise Exception("No proposal content was generated")
 
         # Save proposal to database
         proposal_id = str(uuid.uuid4())
@@ -321,8 +225,9 @@ This partnership with {request.funder} will create lasting economic mobility for
                 "created_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat()
             }).execute()
+            print(f"[Proposal Generation] Saved proposal {proposal_id} to database")
         except Exception as e:
-            print(f"Error saving proposal to Supabase: {e}")
+            print(f"[Proposal Generation] Error saving to Supabase: {e}")
 
         # Complete job
         job["status"] = "completed"
@@ -332,10 +237,12 @@ This partnership with {request.funder} will create lasting economic mobility for
             "proposal_id": proposal_id,
             "title": f"Proposal for {request.opportunity_title}",
             "content_length": len(proposal_content),
-            "completed_at": datetime.now().isoformat()
+            "completed_at": datetime.now().isoformat(),
+            "engine": "claude-api" if result.get('success') else "gemini-fallback"
         }
 
     except Exception as e:
+        print(f"[Proposal Generation] FAILED: {str(e)}")
         job["status"] = "failed"
         job["error"] = str(e)
         job["current_task"] = f"Error: {str(e)}"

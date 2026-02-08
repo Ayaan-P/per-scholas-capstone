@@ -560,7 +560,9 @@ async def startup_event():
     set_scheduler_deps(scheduler_service, supabase)
     set_dashboard_deps(supabase, jobs_db)
     set_org_deps(supabase, supabase_admin, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    # Pass Gemini as optional fallback - Claude API is now primary
     set_proposals_deps(supabase, jobs_db, create_gemini_cli_session, parse_proposal_orchestration_response)
+    print("[STARTUP] Proposal generation configured: Claude API primary, Gemini CLI fallback")
 
 @app.on_event("shutdown")
 async def shutdown_event():
