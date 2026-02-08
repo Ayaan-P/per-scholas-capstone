@@ -1,7 +1,9 @@
 'use client'
 
 import './globals.css'
+import { Suspense } from 'react'
 import { AuthProvider } from '../context/AuthContext'
+import { AnalyticsProvider } from '../components/AnalyticsProvider'
 import { Header } from '../components/Header'
 
 export default function RootLayout({
@@ -51,8 +53,12 @@ export default function RootLayout({
           />
         </head>
         <body className="bg-gray-50 min-h-screen">
-          <Header />
-          <main>{children}</main>
+          <Suspense fallback={null}>
+            <AnalyticsProvider>
+              <Header />
+              <main>{children}</main>
+            </AnalyticsProvider>
+          </Suspense>
         </body>
       </html>
     </AuthProvider>

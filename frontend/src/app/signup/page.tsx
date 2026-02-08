@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../utils/supabaseClient'
+import { track } from '@/lib/analytics'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -75,6 +76,12 @@ export default function SignupPage() {
       if (!initResponse.ok) {
         throw new Error(`Failed to initialize user: ${initResponse.status}`)
       }
+
+      // Track successful signup
+      track('Signup', {
+        organization: organizationName,
+        method: 'email'
+      })
 
       // Redirect to onboarding for new users
       router.push('/onboarding')

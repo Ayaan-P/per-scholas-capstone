@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { api } from '../../utils/api'
+import { track } from '@/lib/analytics'
 
 interface Proposal {
   id: string
@@ -96,11 +97,25 @@ export default function ProposalsPage() {
   const viewProposal = (proposal: Proposal) => {
     setSelectedProposal(proposal)
     setShowModal(true)
+    
+    // Track proposal view
+    track('Proposal Viewed', {
+      proposal_id: proposal.id,
+      status: proposal.status,
+      funding_amount: proposal.funding_amount
+    })
   }
 
   const updateProposalStatus = async (proposalId: string, newStatus: string) => {
     try {
       await api.updateProposalStatus(proposalId, newStatus)
+      
+      // Track proposal status change
+      track('Proposal Status Updated', {
+        proposal_id: proposalId,
+        new_status: newStatus
+      })
+      
       fetchProposals()
     } catch (error) {
     }

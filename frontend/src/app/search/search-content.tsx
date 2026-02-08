@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { api } from '../../utils/api'
+import { track } from '@/lib/analytics'
 import { UpgradeModal } from '../../components/UpgradeModal'
 import { SearchAllocation } from '../../components/SearchAllocation'
 
@@ -94,6 +95,16 @@ export default function SearchPageContent() {
     setSavingIds(prev => new Set(prev).add(opportunityId))
     try {
       await api.saveOpportunity(opportunityId)
+      
+      // Track opportunity save
+      const opp = opportunities.find(o => o.id === opportunityId)
+      track('Opportunity Saved', {
+        opportunity_id: opportunityId,
+        funder: opp?.funder,
+        amount: opp?.amount,
+        match_score: opp?.match_score
+      })
+      
       // Refresh opportunities after save
       setTimeout(() => {
         setSavingIds(prev => {
@@ -149,6 +160,13 @@ export default function SearchPageContent() {
         if (jobData.status === 'completed') {
           setOpportunities(jobData.result.opportunities)
           setIsSearching(false)
+          
+          // Track successful grant search
+          track('Grant Search', {
+            prompt_length: searchPrompt.length,
+            results_count: jobData.result.opportunities.length,
+            ai_enabled: aiSearchEnabled
+          })
         } else if (jobData.status === 'failed') {
           alert('Search failed: ' + jobData.error)
           setIsSearching(false)

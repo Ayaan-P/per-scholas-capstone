@@ -494,13 +494,14 @@ REQUIREMENTS:
 - Use null for optional fields if no data available
 - Do NOT include match_score (it will be calculated automatically)"""
 
-                        # Call same Gemini CLI session as search endpoint
-                        from main import create_gemini_cli_session, parse_orchestration_response
+                        # Use Claude API for AI search (falls back to Gemini if Claude unavailable)
+                        from claude_code_service import create_claude_api_session
+                        from main import parse_orchestration_response
 
-                        result = create_gemini_cli_session(
+                        result = create_claude_api_session(
                             prompt=orchestration_prompt,
                             session_type="fundraising",
-                            timeout=900
+                            timeout=300
                         )
 
                         if result.get('success'):

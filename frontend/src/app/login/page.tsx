@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../context/AuthContext'
+import { track } from '@/lib/analytics'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -30,6 +31,7 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password)
+      track('Login', { method: 'email' })
       router.push('/dashboard')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.'
