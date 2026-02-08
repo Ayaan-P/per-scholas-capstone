@@ -294,3 +294,70 @@ async def get_saved_grants(user_id: str = Depends(get_current_user)):
     
     grants = ws.get_saved_grants(org_id)
     return {"grants": grants, "count": len(grants)}
+
+
+# ============================================
+# Agent Chat (the main interaction point)
+# ============================================
+
+class ChatRequest(BaseModel):
+    session_id: str
+    message: str
+    include_grants: bool = True  # Include grant context in agent's knowledge
+
+
+class StartSessionResponse(BaseModel):
+    session_id: str
+    greeting: str
+    has_profile: bool
+
+
+@router.post("/chat/start")
+async def start_chat_session(
+    request: CreateSessionRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """Start a new chat session with the agent"""
+    from session_service import get_session_service
+    
+    org_id = await get_user_org_id(user_id)
+    session_svc = get_session_service(_supabase)
+    
+    result = await session_svc.start_session(org_id, request.session_id)
+    
+    return {
+        "status": "success",
+        "session_id": result["session_id"],
+        "greeting": result["greeting"],
+        "has_profile": result["has_profile"]
+    }
+
+
+@router.post("/chat")
+async def chat_with_agent(
+    request: ChatRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """Send a message to the agent and get a response"""
+    from session_service import get_session_service
+    
+    org_id = await get_user_org_id(user_id)
+    session_svc = get_session_service(_supabase)
+    
+    result = await session_svc.chat(
+        org_id=org_id,
+        session_id=request.session_id,
+        user_message=request.message,
+        include_grants=request.include_grants
+    )
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    return {
+        "status": "success",
+        "response": result["response"],
+        "session_id": result["session_id"],
+        "tokens_used": result.get("tokens_used"),
+        "model": result.get("model")
+    }
