@@ -27,6 +27,7 @@ from routes.scheduler import router as scheduler_router, set_dependencies as set
 from routes.dashboard import router as dashboard_router, set_dependencies as set_dashboard_deps
 from routes.organization import router as organization_router, set_dependencies as set_org_deps
 from routes.proposals import router as proposals_router, set_dependencies as set_proposals_deps
+from routes.workspace import router as workspace_router, set_dependencies as set_workspace_deps
 from datetime import datetime, timedelta
 import json
 from supabase import create_client, Client
@@ -364,6 +365,7 @@ app.include_router(scheduler_router)
 app.include_router(dashboard_router)
 app.include_router(organization_router)
 app.include_router(proposals_router)
+app.include_router(workspace_router)
 
 # In-memory job tracking (database for persistence)
 jobs_db: Dict[str, Dict[str, Any]] = {}
@@ -563,6 +565,10 @@ async def startup_event():
     # Pass Gemini as optional fallback - Claude API is now primary
     set_proposals_deps(supabase, jobs_db, create_gemini_cli_session, parse_proposal_orchestration_response)
     print("[STARTUP] Proposal generation configured: Claude API primary, Gemini CLI fallback")
+    
+    # Workspace service for agentic architecture
+    set_workspace_deps(supabase, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    print("[STARTUP] Workspace service configured for per-org agent sessions")
 
 @app.on_event("shutdown")
 async def shutdown_event():

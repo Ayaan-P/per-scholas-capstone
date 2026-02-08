@@ -175,12 +175,25 @@ async def initialize_user(request: UserInitializationRequest, user_id: str = Dep
         if not credits_result["success"]:
             print(f"[AUTH] Warning: Failed to initialize credits for user {user_id}: {credits_result.get('error')}")
 
+        # Initialize workspace for the organization (agentic architecture)
+        workspace_initialized = False
+        try:
+            from workspace_service import get_workspace_service
+            ws = get_workspace_service()
+            ws.init_workspace(org_id)
+            ws.sync_profile_from_db(org_id, org_data)
+            workspace_initialized = True
+            print(f"[AUTH] Workspace initialized for org {org_id}")
+        except Exception as ws_err:
+            print(f"[AUTH] Warning: Failed to initialize workspace: {ws_err}")
+
         return {
             "status": "initialized",
             "user_id": user_id,
             "organization_id": org_id,
             "message": "User initialized successfully",
-            "credits_initialized": credits_result.get("success", False)
+            "credits_initialized": credits_result.get("success", False),
+            "workspace_initialized": workspace_initialized
         }
 
     except HTTPException:
@@ -330,6 +343,13 @@ async def save_organization_configuration(config_request: OrganizationConfigRequ
                     config_list = fetch_response.json()
                     if config_list:
                         saved_config = config_list[0]
+                        # Sync to workspace
+                        try:
+                            from workspace_service import get_workspace_service
+                            ws = get_workspace_service()
+                            ws.sync_profile_from_db(organization_id, saved_config)
+                        except Exception as ws_err:
+                            print(f"[ORG CONFIG] Workspace sync failed: {ws_err}")
                         return {
                             "status": "updated",
                             "id": saved_config.get("id"),
@@ -364,6 +384,15 @@ async def save_organization_configuration(config_request: OrganizationConfigRequ
                             headers=headers,
                             json={"organization_id": org_id}
                         )
+
+                    # Init workspace for new org
+                    try:
+                        from workspace_service import get_workspace_service
+                        ws = get_workspace_service()
+                        ws.init_workspace(org_id)
+                        ws.sync_profile_from_db(org_id, saved_config)
+                    except Exception as ws_err:
+                        print(f"[ORG CONFIG] Workspace init failed: {ws_err}")
 
                     return {
                         "status": "created",
