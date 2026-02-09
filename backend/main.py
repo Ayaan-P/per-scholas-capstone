@@ -29,6 +29,7 @@ from routes.organization import router as organization_router, set_dependencies 
 from routes.proposals import router as proposals_router, set_dependencies as set_proposals_deps
 from routes.workspace import router as workspace_router, set_dependencies as set_workspace_deps
 from routes.grants import router as grants_router, set_dependencies as set_grants_deps
+from routes.rfps import router as rfps_router, set_dependencies as set_rfps_deps
 from datetime import datetime, timedelta
 import json
 from supabase import create_client, Client
@@ -368,6 +369,7 @@ app.include_router(organization_router)
 app.include_router(proposals_router)
 app.include_router(workspace_router)
 app.include_router(grants_router)
+app.include_router(rfps_router)
 
 # In-memory job tracking (database for persistence)
 jobs_db: Dict[str, Dict[str, Any]] = {}
@@ -575,6 +577,10 @@ async def startup_event():
     # Grants routes (Issue #37)
     set_grants_deps(supabase, supabase_admin, jobs_db)
     print("[STARTUP] Grants routes configured")
+    
+    # RFPs routes (Issue #37)
+    set_rfps_deps(supabase, supabase_admin, semantic_service)
+    print("[STARTUP] RFPs routes configured")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -1186,168 +1192,7 @@ async def dismiss_opportunity(opportunity_id: str, user_id: str = Depends(get_cu
 
 # NOTE: Duplicate /api/scraped-grants route removed — the authenticated version above handles this.
 # The previous unauthenticated version was a security risk (exposed all grants without auth).
-
-@app.post("/api/rfps/load")
-async def load_rfps(user_id: str = Depends(get_current_user)):
-    """Load RFPs from directory into database (admin endpoint, requires authentication)"""
-    try:
-        # Load RFPs from directory
-        # rfps = semantic_service.load_rfps_from_directory()  # Disabled for Render free tier
-        rfps = []
-
-        if not rfps:
-            return {"status": "no_rfps", "message": "No RFPs found to load - semantic service disabled"}
-
-        # Store in Supabase
-        # success = semantic_service.store_rfps_in_supabase(rfps)  # Disabled for Render free tier
-        success = False
-
-        if success:
-            return {
-                "status": "success",
-                "message": f"Successfully loaded {len(rfps)} RFPs into database",
-                "count": len(rfps)
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to store RFPs in database")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load RFPs: {str(e)}")
-
-@app.post("/api/rfps/upload")
-async def upload_rfp(
-    file: UploadFile = File(...),
-    title: Optional[str] = None,
-    funder: Optional[str] = None,
-    deadline: Optional[str] = None,
-    user_id: str = Depends(get_current_user)
-):
-    """Upload and analyze an RFP/grant document"""
-    try:
-        print(f"[RFP UPLOAD] Starting upload for user {user_id}")
-
-        # Validate file is PDF
-        if file.content_type != "application/pdf":
-            raise HTTPException(status_code=400, detail="Only PDF files are supported")
-
-        # Read file bytes
-        file_bytes = await file.read()
-        if len(file_bytes) == 0:
-            raise HTTPException(status_code=400, detail="File is empty")
-        if len(file_bytes) > 50 * 1024 * 1024:  # 50MB limit
-            raise HTTPException(status_code=400, detail="File is too large (max 50MB)")
-
-        print(f"[RFP UPLOAD] File size: {len(file_bytes)} bytes")
-
-        # Extract text from PDF
-        pdf_text = extract_text_from_pdf(file_bytes)
-        if not pdf_text or len(pdf_text) < 50:
-            raise HTTPException(status_code=400, detail="Could not extract meaningful text from PDF")
-
-        print(f"[RFP UPLOAD] Extracted {len(pdf_text)} characters from PDF")
-
-        # Analyze with Claude
-        analyzed_data = await analyze_uploaded_rfp(pdf_text, title, funder, deadline)
-
-        print(f"[RFP UPLOAD] Analysis complete: {analyzed_data.get('title')}")
-
-        # Generate unique opportunity_id
-        opportunity_id = f"user-upload-{uuid.uuid4()}"
-
-        # Calculate match score (simple for now - will be enhanced based on org profile)
-        match_score = 75  # Default score for user uploads
-
-        # Prepare opportunity data for saving
-        opportunity_data = {
-            "opportunity_id": opportunity_id,
-            "title": analyzed_data.get("title", title or "Uploaded RFP"),
-            "description": analyzed_data.get("description", "User-uploaded grant opportunity"),
-            "funder": analyzed_data.get("funder", funder or "Unknown"),
-            "amount": parse_amount(analyzed_data.get("amount")),
-            "deadline": analyzed_data.get("deadline", deadline),
-            "requirements": analyzed_data.get("key_requirements", []),
-            "tags": analyzed_data.get("tags", []),
-            "source": "user_upload",
-            "match_score": match_score,
-            "user_id": user_id,
-            "created_at": datetime.now().isoformat(),
-            "saved_at": datetime.now().isoformat(),
-            "contact": "User uploaded document",
-            "application_url": None,
-            "embedding": None,
-            "llm_summary": None,
-            "detailed_match_reasoning": None,
-            "winning_strategies": [],
-            "key_themes": [],
-            "recommended_metrics": [],
-            "considerations": [],
-            "similar_past_proposals": [],
-            "status": "active"
-        }
-
-        # Save to database
-        result = supabase_admin.table("saved_opportunities").insert(opportunity_data).execute()
-
-        if not result.data:
-            raise HTTPException(status_code=500, detail="Failed to save opportunity to database")
-
-        print(f"[RFP UPLOAD] Successfully saved opportunity {opportunity_id}")
-
-        # Return success response with analyzed data
-        return {
-            "message": "RFP uploaded and analyzed successfully",
-            "title": analyzed_data.get("title", title or "Uploaded RFP"),
-            "funder": analyzed_data.get("funder", funder or "Unknown"),
-            "deadline": analyzed_data.get("deadline", deadline),
-            "match_score": match_score,
-            "llm_summary": analyzed_data.get("description", ""),
-            "tags": analyzed_data.get("tags", []),
-            "opportunity_id": opportunity_id
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"[RFP UPLOAD] Error: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
-@app.get("/api/rfps/similar/{opportunity_id}")
-async def get_similar_rfps(opportunity_id: str, user_id: str = Depends(get_current_user)):
-    """Get similar RFPs for a saved opportunity using semantic search"""
-    try:
-        # Find opportunity in saved opportunities
-        result = supabase.table("saved_opportunities").select("*").eq("opportunity_id", opportunity_id).eq("user_id", user_id).execute()
-
-        if not result.data:
-            raise HTTPException(status_code=404, detail="Saved opportunity not found")
-
-        opportunity = result.data[0]
-        opportunity_text = f"{opportunity['title']} {opportunity['description']}"
-
-        # Find similar RFPs using semantic service
-        similar_rfps = []
-        if semantic_service:
-            try:
-                similar_rfps = semantic_service.find_similar_rfps(opportunity_text, limit=5)
-
-                if similar_rfps:
-                    print(f"[SIMILAR_RFPS] Found {len(similar_rfps)} similar RFPs for opportunity {opportunity_id}")
-                    for rfp in similar_rfps:
-                        print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
-                else:
-                    print(f"[SIMILAR_RFPS] No similar RFPs found for opportunity {opportunity_id}")
-            except Exception as e:
-                print(f"[SIMILAR_RFPS] Error finding similar RFPs: {e}")
-
-        return {
-            "opportunity": opportunity,
-            "similar_rfps": similar_rfps
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error finding similar RFPs: {str(e)}")
+# RFPs routes moved to routes/rfps.py (Issue #37)
 
 # Proposal routes moved to routes/proposals.py (Issue #37)
 
