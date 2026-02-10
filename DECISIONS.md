@@ -93,3 +93,4 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] CONTINUE main.py split (Issue #37): Extracted proposals routes to routes/proposals.py. main.py 2147→1805 lines (-342). Total: 3097→1805 (-1292, -42%). Commit f92d210 (2026-02-08)
 - [x] CONTINUE main.py split (Issue #37): Extracted grants routes to routes/grants.py. main.py 1813→1630 lines (-183). Commit 5b5c8ce (2026-02-09)
 - [x] CONTINUE main.py split (Issue #37): Extracted RFPs routes to routes/rfps.py. main.py 1630→1475 lines (-155). Total: 3097→1475 (-1622, -52%). Commit 373b4ab (2026-02-09)
+- [x] COMPLETE main.py split (Issue #37): Extracted opportunities routes to routes/opportunities.py. main.py 1475→601 lines (-874). Total: 3097→601 (-2496, -81%). Commit d2fc3e0 (2026-02-10)
