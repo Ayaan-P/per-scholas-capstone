@@ -78,15 +78,12 @@ export function Header() {
               </Link>
               <Link
                 href="/chat"
-                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-1.5 ${
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/chat')
                     ? 'bg-perscholas-primary text-white shadow-md'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
                 }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
                 Agent
               </Link>
               <Link
@@ -196,15 +193,12 @@ export function Header() {
                   <Link
                     href="/chat"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium transition-colors px-4 py-2 rounded-lg flex items-center gap-2 ${
+                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
                       isActive('/chat')
                         ? 'text-blue-600 font-bold bg-blue-50'
                         : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
                     }`}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
                     Agent
                   </Link>
                   <Link
