@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import Image from 'next/image'
+import { Bot, Radio, FileEdit, BarChart3, FileSearch, Shield } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -170,45 +171,50 @@ export default function Home() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                icon: '🤖',
+                icon: Bot,
                 title: 'AI Grant Matching',
                 desc: 'Personalized match scores based on your mission, budget, programs, and demographics.',
               },
               {
-                icon: '📡',
+                icon: Radio,
                 title: 'Auto-Discovery',
                 desc: 'Scheduled scrapers pull from Grants.gov, state portals, and foundation databases daily.',
               },
               {
-                icon: 'DOC',
+                icon: FileEdit,
                 title: 'Proposal Generator',
                 desc: 'AI drafts full grant proposals tailored to each funder\'s requirements and priorities.',
               },
               {
-                icon: '📊',
+                icon: BarChart3,
                 title: 'Pipeline Dashboard',
                 desc: 'Track opportunities from discovery to submission. See funding totals and match trends.',
               },
               {
-                icon: 'PDF',
+                icon: FileSearch,
                 title: 'Document Intelligence',
                 desc: 'Upload your org documents — AI extracts mission, programs, and metrics automatically.',
               },
               {
-                icon: '🔒',
+                icon: Shield,
                 title: 'Secure & Private',
                 desc: 'Your data stays yours. Auth-protected API, encrypted at rest, no data sharing.',
               },
-            ].map((feature, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl p-6 border border-gray-100 shadow-card hover:shadow-card-hover transition-all duration-300"
-              >
-                <div className="text-3xl mb-4">{feature.icon}</div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>
-              </div>
-            ))}
+            ].map((feature, i) => {
+              const Icon = feature.icon
+              return (
+                <div
+                  key={i}
+                  className="bg-white rounded-2xl p-6 border border-gray-100 shadow-card hover:shadow-card-hover transition-all duration-300"
+                >
+                  <div className="w-12 h-12 bg-perscholas-primary/10 rounded-xl flex items-center justify-center mb-4">
+                    <Icon className="w-6 h-6 text-perscholas-primary" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">{feature.title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>

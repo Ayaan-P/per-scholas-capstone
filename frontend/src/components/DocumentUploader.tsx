@@ -2,6 +2,15 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { supabase } from '../utils/supabaseClient'
+import { 
+  FileText, 
+  File, 
+  Upload, 
+  Loader2, 
+  CheckCircle2, 
+  XCircle, 
+  Clock 
+} from 'lucide-react'
 
 interface UploadedDocument {
   id: string | null
@@ -31,12 +40,6 @@ export function DocumentUploader({
 
   const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
   const allowedExtensions = ['.pdf', '.docx', '.txt']
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }
 
   const validateFiles = (files: File[]): File[] => {
     const valid: File[] = []
@@ -146,10 +149,25 @@ export function DocumentUploader({
 
   const getFileIcon = (fileType: string) => {
     switch (fileType) {
-      case 'pdf': return 'PDF'
-      case 'docx': return 'DOC'
-      case 'txt': return 'TXT'
-      default: return 'FILE'
+      case 'pdf':
+      case 'docx':
+      case 'txt':
+        return <FileText className="w-5 h-5 text-perscholas-primary" />
+      default:
+        return <File className="w-5 h-5 text-gray-400" />
+    }
+  }
+
+  const getStatusIcon = (status: 'pending' | 'uploading' | 'done' | 'error') => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="w-5 h-5 text-gray-400" />
+      case 'uploading':
+        return <Loader2 className="w-5 h-5 text-perscholas-primary animate-spin" />
+      case 'done':
+        return <CheckCircle2 className="w-5 h-5 text-green-500" />
+      case 'error':
+        return <XCircle className="w-5 h-5 text-red-500" />
     }
   }
 
@@ -180,8 +198,12 @@ export function DocumentUploader({
         />
 
         <div className="space-y-3">
-          <div className="text-4xl">
-            uploading ? 'Uploading...' : 'Upload'
+          <div className="flex justify-center">
+            {uploading ? (
+              <Loader2 className="w-12 h-12 text-perscholas-primary animate-spin" />
+            ) : (
+              <Upload className="w-12 h-12 text-gray-400" />
+            )}
           </div>
           <div>
             <p className="text-gray-700 font-medium">
@@ -213,17 +235,12 @@ export function DocumentUploader({
               key={filename}
               className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
             >
-              <span className="text-lg">
-                {status === 'pending' && '...'}
-                {status === 'uploading' && '...'}
-                {status === 'done' && 'Done'}
-                {status === 'error' && 'Error'}
-              </span>
+              {getStatusIcon(status)}
               <span className="flex-1 text-sm text-gray-700 truncate">{filename}</span>
               <span className="text-xs text-gray-500">
                 {status === 'pending' && 'Waiting...'}
                 {status === 'uploading' && 'Uploading...'}
-                {status === 'done' && 'Done'}
+                {status === 'done' && 'Complete'}
                 {status === 'error' && 'Failed'}
               </span>
             </div>
@@ -241,7 +258,7 @@ export function DocumentUploader({
                 key={doc.id}
                 className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg"
               >
-                <span className="text-lg">{getFileIcon(doc.file_type)}</span>
+                {getFileIcon(doc.file_type)}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-700 truncate">{doc.filename}</p>
                   <p className="text-xs text-gray-400">
