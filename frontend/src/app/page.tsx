@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '../context/AuthContext'
 import Image from 'next/image'
-import { Bot, Radio, FileEdit, BarChart3, FileSearch, Shield } from 'lucide-react'
+import { Robot, Broadcast, NotePencil, ChartBar, FileMagnifyingGlass, ShieldCheck } from '@phosphor-icons/react'
 
 export default function Home() {
   const router = useRouter()
@@ -171,32 +171,32 @@ export default function Home() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                icon: Bot,
+                icon: Robot,
                 title: 'AI Grant Matching',
                 desc: 'Personalized match scores based on your mission, budget, programs, and demographics.',
               },
               {
-                icon: Radio,
+                icon: Broadcast,
                 title: 'Auto-Discovery',
                 desc: 'Scheduled scrapers pull from Grants.gov, state portals, and foundation databases daily.',
               },
               {
-                icon: FileEdit,
+                icon: NotePencil,
                 title: 'Proposal Generator',
                 desc: 'AI drafts full grant proposals tailored to each funder\'s requirements and priorities.',
               },
               {
-                icon: BarChart3,
+                icon: ChartBar,
                 title: 'Pipeline Dashboard',
                 desc: 'Track opportunities from discovery to submission. See funding totals and match trends.',
               },
               {
-                icon: FileSearch,
+                icon: FileMagnifyingGlass,
                 title: 'Document Intelligence',
                 desc: 'Upload your org documents — AI extracts mission, programs, and metrics automatically.',
               },
               {
-                icon: Shield,
+                icon: ShieldCheck,
                 title: 'Secure & Private',
                 desc: 'Your data stays yours. Auth-protected API, encrypted at rest, no data sharing.',
               },
@@ -208,7 +208,7 @@ export default function Home() {
                   className="bg-white rounded-2xl p-6 border border-gray-100 shadow-card hover:shadow-card-hover transition-all duration-300"
                 >
                   <div className="w-12 h-12 bg-perscholas-primary/10 rounded-xl flex items-center justify-center mb-4">
-                    <Icon className="w-6 h-6 text-perscholas-primary" />
+                    <Icon className="w-6 h-6 text-perscholas-primary" weight="duotone" />
                   </div>
                   <h3 className="text-lg font-bold text-gray-900 mb-2">{feature.title}</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>

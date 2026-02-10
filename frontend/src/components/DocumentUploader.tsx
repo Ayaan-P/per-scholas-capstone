@@ -5,12 +5,12 @@ import { supabase } from '../utils/supabaseClient'
 import { 
   FileText, 
   File, 
-  Upload, 
-  Loader2, 
-  CheckCircle2, 
+  UploadSimple, 
+  SpinnerGap, 
+  CheckCircle, 
   XCircle, 
   Clock 
-} from 'lucide-react'
+} from '@phosphor-icons/react'
 
 interface UploadedDocument {
   id: string | null
@@ -152,22 +152,22 @@ export function DocumentUploader({
       case 'pdf':
       case 'docx':
       case 'txt':
-        return <FileText className="w-5 h-5 text-perscholas-primary" />
+        return <FileText className="w-5 h-5 text-perscholas-primary" weight="duotone" />
       default:
-        return <File className="w-5 h-5 text-gray-400" />
+        return <File className="w-5 h-5 text-gray-400" weight="duotone" />
     }
   }
 
   const getStatusIcon = (status: 'pending' | 'uploading' | 'done' | 'error') => {
     switch (status) {
       case 'pending':
-        return <Clock className="w-5 h-5 text-gray-400" />
+        return <Clock className="w-5 h-5 text-gray-400" weight="duotone" />
       case 'uploading':
-        return <Loader2 className="w-5 h-5 text-perscholas-primary animate-spin" />
+        return <SpinnerGap className="w-5 h-5 text-perscholas-primary animate-spin" weight="bold" />
       case 'done':
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />
+        return <CheckCircle className="w-5 h-5 text-green-500" weight="duotone" />
       case 'error':
-        return <XCircle className="w-5 h-5 text-red-500" />
+        return <XCircle className="w-5 h-5 text-red-500" weight="duotone" />
     }
   }
 
@@ -200,9 +200,9 @@ export function DocumentUploader({
         <div className="space-y-3">
           <div className="flex justify-center">
             {uploading ? (
-              <Loader2 className="w-12 h-12 text-perscholas-primary animate-spin" />
+              <SpinnerGap className="w-12 h-12 text-perscholas-primary animate-spin" weight="bold" />
             ) : (
-              <Upload className="w-12 h-12 text-gray-400" />
+              <UploadSimple className="w-12 h-12 text-gray-400" weight="duotone" />
             )}
           </div>
           <div>
