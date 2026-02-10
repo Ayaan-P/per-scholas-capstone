@@ -32,6 +32,13 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 
 ## Approved — Investigate ASAP
 
+### Claude API Key Invalid (Issue #42)
+- **Priority:** HIGH
+- **Status:** 🔴 BLOCKING
+- **Discovered:** 2026-02-10
+- **Details:** The ANTHROPIC_API_KEY in Render is invalid. AI state/local scraper is completely broken (0 grants found). Proposal generation using Claude is also affected.
+- **Fix Required:** Verify/regenerate API key at console.anthropic.com and update in Render environment variables.
+
 ### Backend Scheduler Not Producing New Grants
 - **Priority:** High
 - **Status:** ✅ FIXED (2026-02-04)
