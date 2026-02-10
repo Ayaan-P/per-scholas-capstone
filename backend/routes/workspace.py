@@ -58,6 +58,12 @@ async def get_user_org_id(user_id: str) -> str:
     """Get organization ID for authenticated user"""
     import httpx
     
+    if not _supabase_service_role_key or not _supabase_url:
+        raise HTTPException(
+            status_code=500, 
+            detail="Server configuration error: Supabase credentials not set"
+        )
+    
     headers = {
         "Authorization": f"Bearer {_supabase_service_role_key}",
         "apikey": _supabase_service_role_key,
