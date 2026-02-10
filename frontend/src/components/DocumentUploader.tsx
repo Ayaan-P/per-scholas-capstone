@@ -146,10 +146,10 @@ export function DocumentUploader({
 
   const getFileIcon = (fileType: string) => {
     switch (fileType) {
-      case 'pdf': return '📄'
-      case 'docx': return '📝'
-      case 'txt': return '📃'
-      default: return '📎'
+      case 'pdf': return 'PDF'
+      case 'docx': return 'DOC'
+      case 'txt': return 'TXT'
+      default: return 'FILE'
     }
   }
 
@@ -181,7 +181,7 @@ export function DocumentUploader({
 
         <div className="space-y-3">
           <div className="text-4xl">
-            {uploading ? '⏳' : '📄'}
+            uploading ? 'Uploading...' : 'Upload'
           </div>
           <div>
             <p className="text-gray-700 font-medium">
@@ -214,10 +214,10 @@ export function DocumentUploader({
               className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
             >
               <span className="text-lg">
-                {status === 'pending' && '⏳'}
-                {status === 'uploading' && '⏳'}
-                {status === 'done' && '✅'}
-                {status === 'error' && '❌'}
+                {status === 'pending' && '...'}
+                {status === 'uploading' && '...'}
+                {status === 'done' && 'Done'}
+                {status === 'error' && 'Error'}
               </span>
               <span className="flex-1 text-sm text-gray-700 truncate">{filename}</span>
               <span className="text-xs text-gray-500">

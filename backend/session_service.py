@@ -337,7 +337,7 @@ class SessionService:
         """Get contextual greeting for new session"""
         if not has_profile:
             return (
-                "👋 Hi! I'm FundFish, your grant research assistant. "
+                "Hi! I'm FundFish, your grant research assistant. "
                 "I don't have much information about your organization yet. "
                 "Would you like to tell me about your mission and programs so I can find relevant grants?"
             )
@@ -350,7 +350,7 @@ class SessionService:
         org_name = name_match.group(1) if name_match else "your organization"
 
         return (
-            f"👋 Welcome back! I'm here to help {org_name} find and win grants. "
+            f"Welcome back! I'm here to help {org_name} find and win grants. "
             "What would you like to work on today?\n\n"
             "You can ask me to:\n"
             "- Find new grant opportunities\n"

@@ -263,7 +263,7 @@ export function UpgradeModal({ isOpen, onClose, reason = 'upgrade' }: UpgradeMod
 
           {/* Security Note */}
           <p className="text-xs text-gray-600 text-center">
-            💳 Powered by Stripe. Your payment information is secure and encrypted.
+            Powered by Stripe. Your payment information is secure and encrypted.
           </p>
         </div>
       </div>

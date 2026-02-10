@@ -180,7 +180,7 @@ export default function Home() {
                 desc: 'Scheduled scrapers pull from Grants.gov, state portals, and foundation databases daily.',
               },
               {
-                icon: '📝',
+                icon: 'DOC',
                 title: 'Proposal Generator',
                 desc: 'AI drafts full grant proposals tailored to each funder\'s requirements and priorities.',
               },
@@ -190,7 +190,7 @@ export default function Home() {
                 desc: 'Track opportunities from discovery to submission. See funding totals and match trends.',
               },
               {
-                icon: '📄',
+                icon: 'PDF',
                 title: 'Document Intelligence',
                 desc: 'Upload your org documents — AI extracts mission, programs, and metrics automatically.',
               },

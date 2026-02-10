@@ -1211,7 +1211,7 @@ export default function Dashboard() {
                                   title="View RFP"
                                 >
                                   <span className="hidden sm:inline">RFP</span>
-                                  <span className="sm:hidden">📄</span>
+                                  <span className="sm:hidden">RFP</span>
                                 </a>
                               )}
                               <button

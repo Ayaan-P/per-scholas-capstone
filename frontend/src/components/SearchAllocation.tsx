@@ -107,11 +107,11 @@ export function SearchAllocation({ onUpgrade }: { onUpgrade?: () => void }) {
       <div className="text-xs text-gray-700 bg-white bg-opacity-50 rounded p-2">
         {remaining === 0 ? (
           <span className="text-red-600 font-medium">
-            ⚠️ No searches available this month. Purchase more credits or wait for your monthly reset.
+            No searches available this month. Purchase more credits or wait for your monthly reset.
           </span>
         ) : remaining <= 2 ? (
           <span className="text-yellow-600 font-medium">
-            ⚠️ Only {remaining} search{remaining === 1 ? '' : 'es'} remaining. Consider purchasing more.
+            Only {remaining} search{remaining === 1 ? '' : 'es'} remaining. Consider purchasing more.
           </span>
         ) : (
           <span>
