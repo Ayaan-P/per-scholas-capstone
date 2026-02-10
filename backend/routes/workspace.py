@@ -325,8 +325,17 @@ async def start_chat_session(
 ):
     """Start a new chat session with the agent"""
     from session_service import get_session_service
+    import uuid
     
-    org_id = await get_user_org_id(user_id)
+    try:
+        org_id = await get_user_org_id(user_id)
+    except HTTPException as e:
+        if e.status_code == 400 and "no organization" in str(e.detail).lower():
+            # User hasn't completed onboarding - use user_id as temp org_id
+            org_id = f"temp-{user_id}"
+        else:
+            raise
+    
     session_svc = get_session_service(_supabase)
     
     result = await session_svc.start_session(org_id, request.session_id)
@@ -347,7 +356,13 @@ async def chat_with_agent(
     """Send a message to the agent and get a response"""
     from session_service import get_session_service
     
-    org_id = await get_user_org_id(user_id)
+    try:
+        org_id = await get_user_org_id(user_id)
+    except HTTPException as e:
+        if e.status_code == 400 and "no organization" in str(e.detail).lower():
+            org_id = f"temp-{user_id}"
+        else:
+            raise
     session_svc = get_session_service(_supabase)
     
     result = await session_svc.chat(
