@@ -87,6 +87,19 @@ export function Header() {
                 AI Search
               </Link>
               <Link
+                href="/chat"
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-1.5 ${
+                  isActive('/chat')
+                    ? 'bg-gradient-to-r from-perscholas-primary to-perscholas-secondary text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Chat
+              </Link>
+              <Link
                 href="/settings"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/settings')
@@ -200,6 +213,20 @@ export function Header() {
                     }`}
                   >
                     AI Search
+                  </Link>
+                  <Link
+                    href="/chat"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`font-medium transition-colors px-4 py-2 rounded-lg flex items-center gap-2 ${
+                      isActive('/chat')
+                        ? 'text-blue-600 font-bold bg-blue-50'
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    Chat
                   </Link>
                   <Link
                     href="/settings"

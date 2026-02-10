@@ -255,5 +255,28 @@ export const api = {
     fetch(`${API_BASE_URL}/api/categories`),
 
   getCategoryDetail: (categoryId: number) =>
-    fetch(`${API_BASE_URL}/api/categories/${categoryId}`)
+    fetch(`${API_BASE_URL}/api/categories/${categoryId}`),
+
+  // Chat / Agent
+  startChatSession: (sessionId?: string) =>
+    authenticatedFetch(`${API_BASE_URL}/api/workspace/chat/start`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId })
+    }),
+
+  sendChatMessage: (sessionId: string, message: string, includeGrants: boolean = true) =>
+    authenticatedFetch(`${API_BASE_URL}/api/workspace/chat`, {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        message: message,
+        include_grants: includeGrants
+      })
+    }),
+
+  getChatSessions: (limit: number = 10) =>
+    authenticatedFetch(`${API_BASE_URL}/api/workspace/sessions?limit=${limit}`),
+
+  getChatHistory: (sessionId: string) =>
+    authenticatedFetch(`${API_BASE_URL}/api/workspace/sessions/${sessionId}`)
 }
