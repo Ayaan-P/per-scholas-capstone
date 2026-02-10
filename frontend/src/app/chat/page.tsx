@@ -1,16 +1,25 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { api } from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 import { useRouter } from 'next/navigation'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface Message {
   id: string
-  role: 'user' | 'agent'
+  role: 'user' | 'assistant'
   content: string
   timestamp: Date
 }
+
+const SUGGESTED_PROMPTS = [
+  { text: "Find federal grants for job training programs", icon: "search" },
+  { text: "What grants are due in the next 30 days?", icon: "calendar" },
+  { text: "Help me write a compelling project narrative", icon: "edit" },
+  { text: "Analyze our organization's grant readiness", icon: "chart" },
+]
 
 export default function ChatPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
@@ -19,8 +28,10 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -32,7 +43,7 @@ export default function ChatPage() {
     if (isAuthenticated && !sessionId) {
       startSession()
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, sessionId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -41,7 +52,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`
     }
   }, [input])
 
@@ -51,27 +62,20 @@ export default function ChatPage() {
       if (response.ok) {
         const data = await response.json()
         setSessionId(data.session_id)
-        if (data.greeting) {
-          setMessages([{
-            id: 'greeting',
-            role: 'agent',
-            content: data.greeting,
-            timestamp: new Date()
-          }])
-        }
       }
     } catch (error) {
       console.error('Failed to start session:', error)
     }
   }
 
-  const sendMessage = async () => {
-    if (!input.trim() || !sessionId || isLoading) return
+  const sendMessage = useCallback(async (messageText?: string) => {
+    const text = messageText || input
+    if (!text.trim() || !sessionId || isLoading) return
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: input.trim(),
+      content: text.trim(),
       timestamp: new Date()
     }
 
@@ -79,31 +83,36 @@ export default function ChatPage() {
     setInput('')
     setIsLoading(true)
 
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+    }
+
     try {
       const response = await api.sendChatMessage(sessionId, userMessage.content)
       if (response.ok) {
         const data = await response.json()
         setMessages(prev => [...prev, {
-          id: `agent-${Date.now()}`,
-          role: 'agent',
-          content: data.response || "I'm processing your request...",
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: data.response || "I couldn't process that request.",
           timestamp: new Date()
         }])
       } else {
-        throw new Error('Failed to send message')
+        throw new Error('Request failed')
       }
     } catch (error) {
-      console.error('Chat error:', error)
       setMessages(prev => [...prev, {
         id: `error-${Date.now()}`,
-        role: 'agent',
-        content: "Sorry, I encountered an error. Please try again.",
+        role: 'assistant',
+        content: "Something went wrong. Please try again.",
         timestamp: new Date()
       }])
     } finally {
       setIsLoading(false)
+      inputRef.current?.focus()
     }
-  }
+  }, [input, sessionId, isLoading])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -112,115 +121,176 @@ export default function ChatPage() {
     }
   }
 
+  const copyToClipboard = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const getPromptIcon = (icon: string) => {
+    switch (icon) {
+      case 'search':
+        return <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      case 'calendar':
+        return <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      case 'edit':
+        return <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      case 'chart':
+        return <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      default:
+        return null
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-perscholas-primary"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-2 border-gray-200 border-t-perscholas-primary rounded-full animate-spin" />
+          <span className="text-sm text-gray-500">Loading...</span>
+        </div>
       </div>
     )
   }
 
   if (!isAuthenticated) return null
 
+  const hasMessages = messages.length > 0
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          {messages.length === 0 && !isLoading && (
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">FundFish Agent</h2>
-              <p className="text-gray-500 mb-8">Ask me anything about grants, funding opportunities, or proposal writing.</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {[
-                  "Find grants for workforce development",
-                  "Help me write a project narrative",
-                  "What's due in the next 30 days?"
-                ].map((prompt, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setInput(prompt)}
-                    className="px-4 py-2 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 rounded-full text-sm transition-colors"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
+      {/* Messages Area */}
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
+        {!hasMessages ? (
+          /* Empty State */
+          <div className="h-full flex flex-col items-center justify-center px-4 py-12">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-perscholas-primary to-perscholas-secondary flex items-center justify-center mb-6 shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
             </div>
-          )}
-
-          <div className="space-y-6">
-            {messages.map((message) => (
-              <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : ''}>
-                <div className={`${
-                  message.role === 'user' 
-                    ? 'bg-perscholas-primary text-white max-w-[80%] rounded-2xl rounded-br-sm px-4 py-3' 
-                    : 'max-w-none'
-                }`}>
-                  {message.role === 'agent' && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">FundFish Agent</h1>
+            <p className="text-gray-500 text-center max-w-md mb-10">
+              Your AI assistant for grant discovery, proposal writing, and funding strategy.
+            </p>
+            
+            <div className="w-full max-w-2xl grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SUGGESTED_PROMPTS.map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => sendMessage(prompt.text)}
+                  className="group flex items-start gap-3 p-4 rounded-xl border border-gray-200 hover:border-perscholas-primary/30 hover:bg-perscholas-primary/5 text-left transition-all duration-200"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-perscholas-primary/10 flex items-center justify-center flex-shrink-0 transition-colors">
+                    <svg className="w-4 h-4 text-gray-500 group-hover:text-perscholas-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {getPromptIcon(prompt.icon)}
+                    </svg>
+                  </div>
+                  <span className="text-sm text-gray-700 group-hover:text-gray-900 leading-relaxed">
+                    {prompt.text}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* Messages */
+          <div className="max-w-3xl mx-auto px-4 py-6">
+            <div className="space-y-6">
+              {messages.map((message) => (
+                <div key={message.id} className={`group ${message.role === 'user' ? 'flex justify-end' : ''}`}>
+                  {message.role === 'user' ? (
+                    <div className="max-w-[85%] bg-perscholas-primary text-white rounded-2xl rounded-br-sm px-4 py-3">
+                      <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                  ) : (
+                    <div className="flex gap-4">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-perscholas-primary to-perscholas-secondary flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                       </div>
-                      <div className="text-gray-700 text-[15px] leading-relaxed whitespace-pre-wrap pt-1">
-                        {message.content}
+                      <div className="flex-1 min-w-0">
+                        <div className="prose prose-sm max-w-none text-gray-700 prose-p:leading-relaxed prose-headings:text-gray-900 prose-a:text-perscholas-primary prose-strong:text-gray-900 prose-code:text-perscholas-primary prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                        <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => copyToClipboard(message.content, message.id)}
+                            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {copiedId === message.id ? (
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
-                  {message.role === 'user' && (
-                    <div className="text-[15px] leading-relaxed whitespace-pre-wrap">
-                      {message.content}
-                    </div>
-                  )}
                 </div>
-              </div>
-            ))}
+              ))}
 
-            {isLoading && (
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
+              {isLoading && (
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-perscholas-primary to-perscholas-secondary flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div className="flex items-center gap-1.5 py-3">
+                    <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 pt-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+            <div ref={messagesEndRef} className="h-4" />
           </div>
-          <div ref={messagesEndRef} />
-        </div>
+        )}
       </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-100 bg-white">
+      {/* Input Area */}
+      <div className="border-t border-gray-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-end gap-3">
+          <div className="relative flex items-end gap-2 bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-perscholas-primary/50 focus-within:ring-2 focus-within:ring-perscholas-primary/10 transition-all">
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Message FundFish..."
-              className="flex-1 resize-none rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:border-gray-300 text-[15px] placeholder-gray-400"
+              placeholder="Ask about grants, proposals, or funding..."
+              className="flex-1 resize-none bg-transparent px-4 py-3.5 focus:outline-none text-[15px] text-gray-900 placeholder-gray-400 max-h-[200px]"
               rows={1}
               disabled={isLoading}
             />
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={!input.trim() || isLoading}
-              className="p-3 bg-perscholas-primary text-white rounded-xl hover:bg-perscholas-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="m-2 p-2.5 bg-perscholas-primary text-white rounded-xl hover:bg-perscholas-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 disabled:hover:bg-perscholas-primary"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
             </button>
           </div>
+          <p className="text-xs text-gray-400 text-center mt-3">
+            FundFish may make mistakes. Verify important information.
+          </p>
         </div>
       </div>
     </div>
