@@ -236,6 +236,12 @@ export default function Dashboard() {
   }
 
   const handleSaveGrant = async (grantId: string) => {
+    // Redirect to signup if not authenticated
+    if (!isAuthenticated) {
+      window.location.href = '/signup'
+      return
+    }
+
     try {
       setSavingGrants(prev => new Set(prev).add(grantId))
       const response = await api.saveScrapedGrant(grantId)
@@ -477,50 +483,91 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="card-elevated p-6 sm:p-10 animate-fade-in">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="bg-perscholas-primary p-3 rounded-xl shadow-md">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+            {isAuthenticated ? (
+              <>
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="bg-perscholas-primary p-3 rounded-xl shadow-md">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-3xl sm:text-4xl font-bold text-perscholas-primary">
+                      Discover Funding
+                    </h2>
+                  </div>
+                  {/* View Toggle */}
+                  <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1.5">
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                        viewMode === 'grid'
+                          ? 'bg-white text-perscholas-primary shadow-md scale-105'
+                          : 'text-gray-600 hover:text-perscholas-primary hover:bg-gray-50'
+                      }`}
+                      title="Grid View"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('table')}
+                      className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                        viewMode === 'table'
+                          ? 'bg-white text-perscholas-primary shadow-md scale-105'
+                          : 'text-gray-600 hover:text-perscholas-primary hover:bg-gray-50'
+                      }`}
+                      title="Table View"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <h2 className="text-3xl sm:text-4xl font-bold text-perscholas-primary">
-                  Discover Funding
-                </h2>
-              </div>
-              {/* View Toggle */}
-              <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1.5">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    viewMode === 'grid'
-                      ? 'bg-white text-perscholas-primary shadow-md scale-105'
-                      : 'text-gray-600 hover:text-perscholas-primary hover:bg-gray-50'
-                  }`}
-                  title="Grid View"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    viewMode === 'table'
-                      ? 'bg-white text-perscholas-primary shadow-md scale-105'
-                      : 'text-gray-600 hover:text-perscholas-primary hover:bg-gray-50'
-                  }`}
-                  title="Table View"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <p className="text-gray-600 text-base sm:text-lg">
-              Browse opportunities matched to your organization. Save promising grants to unlock AI-powered insights.
-            </p>
+                <p className="text-gray-600 text-base sm:text-lg">
+                  Browse opportunities matched to your organization. Save promising grants to unlock AI-powered insights.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="bg-perscholas-primary p-3 rounded-xl shadow-md">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-3xl sm:text-4xl font-bold text-perscholas-primary">
+                        Free Grants Database
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-1">Updated daily by AI · Always free to browse</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <a
+                      href="/signup"
+                      className="btn-primary whitespace-nowrap text-center"
+                    >
+                      Sign Up Free
+                    </a>
+                    <a
+                      href="/login"
+                      className="btn-secondary whitespace-nowrap text-center"
+                    >
+                      Sign In
+                    </a>
+                  </div>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    <span className="font-semibold text-perscholas-primary">Browse for free.</span> Sign up to save grants and unlock AI-powered matching, summaries, and insights.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -930,8 +977,7 @@ export default function Dashboard() {
                         )}
                         <button
                           onClick={() => handleSaveGrant(grant.id)}
-                          disabled={savingGrants.has(grant.id) || !isAuthenticated}
-                          title={!isAuthenticated ? 'Sign in to save grants' : undefined}
+                          disabled={savingGrants.has(grant.id)}
                           className="flex-1 btn-primary py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {savingGrants.has(grant.id) ? (
@@ -947,7 +993,7 @@ export default function Dashboard() {
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Save
+                              {isAuthenticated ? 'Save' : 'Sign up to Save'}
                             </span>
                           )}
                         </button>
@@ -1216,9 +1262,9 @@ export default function Dashboard() {
                               )}
                               <button
                                 onClick={() => handleSaveGrant(grant.id)}
-                                disabled={savingGrants.has(grant.id) || !isAuthenticated}
-                                className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-perscholas-primary text-white rounded text-xs font-medium hover:bg-perscholas-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={!isAuthenticated ? 'Sign in to save grants' : 'Save Grant'}
+                                disabled={savingGrants.has(grant.id)}
+                                className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-perscholas-primary text-white rounded text-xs font-medium hover:bg-perscholas-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                title={isAuthenticated ? 'Save Grant' : 'Sign up to save'}
                               >
                                 {savingGrants.has(grant.id) ? (
                                   <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
@@ -1226,9 +1272,12 @@ export default function Dashboard() {
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                   </svg>
                                 ) : (
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span className="hidden sm:inline">{isAuthenticated ? 'Save' : 'Sign up'}</span>
+                                  </span>
                                 )}
                               </button>
                             </div>
