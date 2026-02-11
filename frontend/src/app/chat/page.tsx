@@ -200,7 +200,7 @@ export default function ChatPage() {
           /* Empty State */
           <div className="h-full flex flex-col items-center justify-center px-4 py-12">
             <div className="w-16 h-16 rounded-2xl bg-perscholas-primary flex items-center justify-center mb-6 shadow-lg overflow-hidden">
-              <img src="/logo.png" alt="FundFish" className="w-10 h-10 object-contain" />
+              <img src="/logo.png" alt="FundFish" className="w-10 h-10 object-contain rounded-lg" />
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">FundFish Agent</h1>
             <p className="text-gray-500 text-center max-w-md mb-10">
@@ -239,7 +239,7 @@ export default function ChatPage() {
                   ) : (
                     <div className="flex gap-4">
                       <div className="w-8 h-8 rounded-lg bg-perscholas-primary flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
-                        <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain" />
+                        <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain rounded" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="prose prose-sm max-w-none text-gray-700 prose-p:leading-relaxed prose-headings:text-gray-900 prose-a:text-perscholas-primary prose-strong:text-gray-900 prose-code:text-perscholas-primary prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
@@ -278,7 +278,7 @@ export default function ChatPage() {
               {isLoading && (
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-lg bg-perscholas-primary flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
-                    <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain" />
+                    <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain rounded" />
                   </div>
                   <div className="flex items-center gap-1.5 py-3">
                     <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" />
