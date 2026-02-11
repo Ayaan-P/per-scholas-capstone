@@ -493,7 +493,7 @@ export default function Dashboard() {
                   <h2 className="text-3xl sm:text-4xl font-bold text-perscholas-primary">
                     Comprehensive Grants Database
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">Updated daily by AI · Open access</p>
+                  <p className="text-sm text-gray-500 mt-1">Updated daily</p>
                 </div>
               </div>
               {!isAuthenticated && (
