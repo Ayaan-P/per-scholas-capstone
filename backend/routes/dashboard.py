@@ -1,7 +1,9 @@
 """Dashboard and analytics routes"""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timedelta
+import httpx
+import os
 
 from auth_service import get_current_user
 
@@ -19,23 +21,72 @@ def set_dependencies(db, jobs):
     jobs_db = jobs
 
 
+async def get_user_org_id(user_id: str) -> int:
+    """Get organization ID for authenticated user"""
+    supabase_url = os.getenv('SUPABASE_URL')
+    supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if not supabase_key or not supabase_url:
+        raise HTTPException(status_code=500, detail="Server configuration error")
+    
+    headers = {
+        "Authorization": f"Bearer {supabase_key}",
+        "apikey": supabase_key,
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{supabase_url}/rest/v1/users?select=organization_id&id=eq.{user_id}",
+            headers=headers
+        )
+    
+    if response.status_code != 200:
+        # Fallback to saved_opportunities if no org
+        return None
+    
+    data = response.json()
+    if not data or not data[0].get("organization_id"):
+        return None
+    
+    return int(data[0]["organization_id"])
+
+
 @router.get("/dashboard/stats")
 async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
     """Get dashboard statistics"""
     try:
-        # Get opportunities count and funding from unified table
-        opportunities_result = supabase.table("saved_opportunities").select("amount").eq("user_id", user_id).execute()
-        opportunities = opportunities_result.data
+        org_id = await get_user_org_id(user_id)
+        
+        if org_id:
+            # New: Read from org_grants (org-specific scored grants)
+            org_grants_result = supabase.table("org_grants") \
+                .select("grant_id, match_score, status, scraped_grants(amount)") \
+                .eq("org_id", org_id) \
+                .neq("status", "dismissed") \
+                .execute()
+            
+            grants = org_grants_result.data
+            total_opportunities = len(grants)
+            total_funding = sum(
+                grant.get("scraped_grants", {}).get("amount", 0) 
+                for grant in grants 
+                if grant.get("scraped_grants")
+            )
+            avg_match_score = sum(grant.get("match_score", 0) for grant in grants) // len(grants) if grants else 0
+        else:
+            # Fallback: Read from saved_opportunities (legacy)
+            opportunities_result = supabase.table("saved_opportunities").select("amount").eq("user_id", user_id).execute()
+            opportunities = opportunities_result.data
+            
+            total_opportunities = len(opportunities)
+            total_funding = sum(opp.get("amount", 0) for opp in opportunities)
+            avg_match_score = 85
 
         # Get proposals count
         proposals_result = supabase.table("proposals").select("id, status").execute()
         proposals = proposals_result.data
 
-        # Calculate stats
-        total_opportunities = len(opportunities)
         total_proposals = len(proposals)
-        total_funding = sum(opp.get("amount", 0) for opp in opportunities)
-
         approved_proposals = len([p for p in proposals if p.get("status") == "approved"])
         submitted_proposals = len([p for p in proposals if p.get("status") in ["submitted", "approved"]])
 
@@ -44,9 +95,10 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
             "totalProposals": total_proposals,
             "totalFunding": total_funding,
             "recentSearches": len(jobs_db) if jobs_db else 0,
-            "avgMatchScore": 85
+            "avgMatchScore": avg_match_score
         }
     except Exception as e:
+        print(f"[DASHBOARD] Error: {e}")
         return {
             "totalOpportunities": 0,
             "totalProposals": 0,

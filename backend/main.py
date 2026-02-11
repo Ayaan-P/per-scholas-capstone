@@ -31,6 +31,7 @@ from routes.workspace import router as workspace_router, set_dependencies as set
 from routes.grants import router as grants_router, set_dependencies as set_grants_deps
 from routes.rfps import router as rfps_router, set_dependencies as set_rfps_deps
 from routes.opportunities import router as opportunities_router, set_dependencies as set_opportunities_deps
+from routes.processing import router as processing_router, set_dependencies as set_processing_deps
 from datetime import datetime, timedelta
 import json
 from supabase import create_client, Client
@@ -372,6 +373,7 @@ app.include_router(workspace_router)
 app.include_router(grants_router)
 app.include_router(rfps_router)
 app.include_router(opportunities_router)
+app.include_router(processing_router)
 
 # In-memory job tracking (database for persistence)
 jobs_db: Dict[str, Dict[str, Any]] = {}
@@ -564,6 +566,9 @@ async def startup_event():
         semantic_service, create_gemini_cli_session, parse_orchestration_response,
         get_organization_config, GrantsGovService
     )
+    
+    # Processing routes (qualification agent)
+    set_processing_deps(supabase)
     print("[STARTUP] Opportunities routes configured")
 
 @app.on_event("shutdown")
