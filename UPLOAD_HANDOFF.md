@@ -25,7 +25,7 @@
 
 ## What's Left ⏳
 
-### 1. Chat UI Upload Button
+### 1. Chat UI Upload Button (ONLY REMAINING TASK)
 **File:** `frontend/src/app/chat/page.tsx`
 
 Add before the input box:
@@ -97,45 +97,20 @@ const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 )}
 ```
 
-### 2. Update Agent TOOLS.md
+### 2. Update Agent TOOLS.md ✅ DONE
 **File (on Hetzner):** `/home/dytto-agent/templates-fundfish/TOOLS.md`
 
-Add section:
-```markdown
-## Uploaded Documents
+**Status:** ✅ Complete (2026-02-11 00:28 EST)
 
-Users can upload documents (PDF, DOCX, TXT, MD) to share context with you.
+Added full "📎 Uploaded Documents" section covering:
+- Where files are (`uploads/` directory)
+- How to check for uploads (`ls uploads/`)
+- Reading text files (`cat uploads/file.txt`)
+- Handling binary files (PDFs, DOCX - tell user you can't read them yet)
+- When to check (user mentions upload, new session, etc.)
+- Examples of good responses
 
-**Location:** `uploads/` in your workspace
-
-**Check for uploads:**
-```bash
-ls uploads/
-```
-
-**Read uploaded files:**
-```bash
-cat uploads/document.pdf  # Won't work for PDF
-# For PDFs, tell user you see the file but can't read binary formats yet
-```
-
-**When to mention:**
-- User asks "did you get my file?"
-- User uploads a proposal/RFP and asks for help
-- User mentions a document by name
-
-**Example:**
-User: "I uploaded our RFP template"
-You: "I see RFP_template.docx in my workspace. Let me know how I can help with it!"
-```
-
-SSH to Hetzner and edit:
-```bash
-ssh -i ~/.ssh/id_ed25519 root@46.225.82.130
-nano /home/dytto-agent/templates-fundfish/TOOLS.md
-# Add the section above
-# Restart agents: systemctl restart clawdbot-agent
-```
+**Clawdbot-agent service restarted** - agents now have the updated TOOLS.md
 
 ### 3. (Optional) Database Table
 **File:** Create migration in `backend/migrations/`
@@ -184,13 +159,13 @@ Agent should check `uploads/` and report.
 
 ## Ready for Completion
 
-- [ ] Add upload button to chat UI
-- [ ] Update TOOLS.md on Hetzner
+- [ ] Add upload button to chat UI (ONLY REMAINING TASK)
+- [x] Update TOOLS.md on Hetzner (DONE - 2026-02-11 00:28 EST)
 - [ ] Create database migration (optional)
 - [ ] Test end-to-end flow
 - [ ] Document in user-facing help
 
-**Time estimate:** 30-60 minutes for UI + TOOLS.md update
+**Time estimate:** 20-30 minutes for UI only
 
 ---
 
