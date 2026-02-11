@@ -516,9 +516,9 @@ export default function Dashboard() {
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
               <p className="text-sm text-gray-700 leading-relaxed">
                 {isAuthenticated ? (
-                  <>Browse the full database. <span className="font-semibold text-perscholas-primary">Save grants</span> to unlock AI-powered matching, summaries, and insights in your personal pipeline.</>
+                  <><span className="font-semibold text-perscholas-primary">Save any grant</span> to your pipeline to unlock AI-powered matching, summaries, and insights.</>
                 ) : (
-                  <>Browse the full database. <span className="font-semibold text-perscholas-primary">Sign up</span> to save grants and unlock AI-powered matching, summaries, and insights.</>
+                  <><span className="font-semibold text-perscholas-primary">Sign up to save grants</span> and unlock AI-powered matching, summaries, and insights in your personal pipeline.</>
                 )}
               </p>
             </div>
