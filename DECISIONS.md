@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-06
+# Last updated: 2026-02-10
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -65,8 +65,10 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] **Landing page** — Built full landing page (hero, features, CTA, footer). Issue #28, commit 532a9d8. ✅ 2026-01-31
 - [x] **GA4 Analytics** — Added GA4 tracking script to layout.tsx. Placeholder ID `G-FUNDFISH` — needs real measurement ID from Ayaan. Issue #31. ✅ 2026-02-02
 - [x] **GA4 — Real Measurement ID** — G-90C1JMVYN0 wired in commit b5d871b. Issue #31 closed. ✅ 2026-02-03
-- [ ] **Polish existing features** — ONGOING. Auth fixes shipped, nav fixed, signup bug fixed. Continue polishing.
-- [ ] **Fix Multi-Tenant Data Model (2026-02-10)** — Discovered during librarian review: `status=dismissed` on central `scraped_grants` table affects ALL orgs. Should be org-specific. **Plan:** Create `org_grant_dismissals(org_id, grant_id, dismissed_at)` table. Keep `status` on scraped_grants ONLY for grant lifecycle (active/expired/closed), not user preferences. Critical for agentic pivot — each org's agent needs to filter dismissals from their own table.
+- [x] **Polish existing features** — ✅ 2026-02-10. Auth fixes shipped, nav fixed, signup bug fixed, chat input polished, org profile auto-creation, agent auto-fill profile.
+- [ ] **Wire Qualification Agent (CRITICAL PATH)** — Agent reads scraped_grants → scores → writes org_grants. Unlock personalized dashboard.
+- [ ] **Update Dashboard Query** — Read from org_grants instead of scraped_grants. Show org-specific scores.
+- [ ] **Multi-Tenant Data Model (RESOLVED 2026-02-10)** — Architecture clarified: `scraped_grants` = global pool, `org_grants` = org-specific scores/status. No need for separate dismissals table - status lives in org_grants.
 
 ## How to Work
 - For each approved item: **plan first** — break into subtask issues on GitHub, THEN implement.
@@ -102,3 +104,6 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] CONTINUE main.py split (Issue #37): Extracted grants routes to routes/grants.py. main.py 1813→1630 lines (-183). Commit 5b5c8ce (2026-02-09)
 - [x] CONTINUE main.py split (Issue #37): Extracted RFPs routes to routes/rfps.py. main.py 1630→1475 lines (-155). Total: 3097→1475 (-1622, -52%). Commit 373b4ab (2026-02-09)
 - [x] COMPLETE main.py split (Issue #37): Extracted opportunities routes to routes/opportunities.py. main.py 1475→601 lines (-874). Total: 3097→601 (-2496, -81%). Commit d2fc3e0 (2026-02-10)
+- [x] Agent auto-fill profile endpoint (2026-02-10): POST /api/workspace/update-profile-from-agent allows agent to update org profile directly from conversation. Magic moment UX - profile auto-fills as users chat. Commit 8f42a4c
+- [x] Defensive org profile creation (2026-02-10): GET /api/organization/config auto-creates missing org profiles with defaults. No more 404 errors. Commit 8faed4c
+- [x] Database schema restoration for agents (2026-02-10): Restored complete 30-field extraction schema to search agent prompt and librarian TOOLS.md. Agents now capture contact info, consortium requirements, award details, geographic focus, attachment requirements - not just basics. Commits 6cfc457, 8620f46
