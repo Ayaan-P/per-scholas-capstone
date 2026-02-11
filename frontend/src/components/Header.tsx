@@ -45,39 +45,26 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-2">
-            {isAuthenticated ? (
-              <>
-                <Link
-                  href="/opportunities"
-                  className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                    isActive('/opportunities')
-                      ? 'bg-perscholas-primary text-white shadow-md'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
-                  }`}
-                >
-                  Opportunities
-                </Link>
-                <Link
-                  href="/chat"
-                  className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                    isActive('/chat')
-                      ? 'bg-perscholas-primary text-white shadow-md'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
-                  }`}
-                >
-                  Agent
-                </Link>
-              </>
-            ) : (
+            <Link
+              href={isAuthenticated ? "/opportunities" : "/dashboard"}
+              className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                isActive('/opportunities') || isActive('/dashboard')
+                  ? 'bg-perscholas-primary text-white shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
+              }`}
+            >
+              Discover
+            </Link>
+            {isAuthenticated && (
               <Link
-                href="/dashboard"
+                href="/chat"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                  isActive('/dashboard')
+                  isActive('/chat')
                     ? 'bg-perscholas-primary text-white shadow-md'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
                 }`}
               >
-                Discover
+                Agent
               </Link>
             )}
           </nav>
@@ -142,19 +129,19 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4 animate-slide-up">
             <nav className="flex flex-col space-y-2">
-              {isAuthenticated ? (
+              <Link
+                href={isAuthenticated ? "/opportunities" : "/dashboard"}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                  isActive('/opportunities') || isActive('/dashboard')
+                    ? 'text-blue-600 font-bold bg-blue-50'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                Discover
+              </Link>
+              {isAuthenticated && (
                 <>
-                  <Link
-                    href="/opportunities"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
-                      isActive('/opportunities')
-                        ? 'text-blue-600 font-bold bg-blue-50'
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Opportunities
-                  </Link>
                   <Link
                     href="/chat"
                     onClick={() => setMobileMenuOpen(false)}
@@ -178,18 +165,6 @@ export function Header() {
                     Settings
                   </Link>
                 </>
-              ) : (
-                <Link
-                  href="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`font-medium transition-colors px-4 py-2 rounded-lg ${
-                    isActive('/dashboard')
-                      ? 'text-blue-600 font-bold bg-blue-50'
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                  }`}
-                >
-                  Discover
-                </Link>
               )}
             {isAuthenticated ? (
                 <>
