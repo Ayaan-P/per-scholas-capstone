@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
+import ScoringAccuracy from '../../components/ScoringAccuracy'
 
 interface SimilarPastProposal {
   title?: string
@@ -261,6 +262,14 @@ export default function OpportunitiesPage() {
       const response = await api.deleteOpportunity(opportunityId)
 
       if (response.ok) {
+        // Record feedback for adaptive learning
+        try {
+          await api.recordGrantFeedback(opportunityId, 'dismissed')
+        } catch (e) {
+          console.error('Failed to record feedback:', e)
+          // Don't block dismiss on feedback failure
+        }
+        
         // Remove from opportunities list with a slight delay for visual feedback
         setTimeout(() => {
           setRawOpportunities(prev => prev.filter(opp => opp.opportunity_id !== opportunityId))
@@ -298,6 +307,13 @@ export default function OpportunitiesPage() {
 
 
       if (response.ok) {
+        // Record feedback for adaptive learning (saved action)
+        try {
+          await api.recordGrantFeedback(opportunityId, 'saved')
+        } catch (e) {
+          console.error('Failed to record feedback:', e)
+        }
+        
         if (data.status === 'already_exists') {
           // Show message that it already exists
           setRfpDbSuccessMessage(prev => ({
@@ -595,6 +611,11 @@ export default function OpportunitiesPage() {
               Review and analyze your saved opportunities with AI-powered insights, match reasoning, and similar past proposals.
             </p>
           </div>
+        </div>
+
+        {/* Scoring Accuracy */}
+        <div className="mb-6">
+          <ScoringAccuracy />
         </div>
 
         {/* Stats Bar */}

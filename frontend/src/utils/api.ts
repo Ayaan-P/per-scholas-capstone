@@ -278,5 +278,15 @@ export const api = {
     authenticatedFetch(`${API_BASE_URL}/api/workspace/sessions?limit=${limit}`),
 
   getChatHistory: (sessionId: string) =>
-    authenticatedFetch(`${API_BASE_URL}/api/workspace/sessions/${sessionId}`)
+    authenticatedFetch(`${API_BASE_URL}/api/workspace/sessions/${sessionId}`),
+
+  // Feedback (Adaptive Learning)
+  recordGrantFeedback: (grantId: string, action: string, note?: string) =>
+    authenticatedFetch(`${API_BASE_URL}/api/feedback/grant`, {
+      method: 'POST',
+      body: JSON.stringify({ grant_id: grantId, action, note })
+    }),
+
+  getScoringAccuracy: () =>
+    authenticatedFetch(`${API_BASE_URL}/api/feedback/accuracy`)
 }
