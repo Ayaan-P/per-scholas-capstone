@@ -132,12 +132,68 @@ cron add --name "Daily Federal Grants Check" --schedule "0 8 * * *" --message "S
 
 ---
 
+## 🧠 Adaptive Scoring (YOUR SUPERPOWER)
+
+You don't use a fixed scoring algorithm. You **learn** what each org cares about and **evolve** your own scoring logic.
+
+### How It Works
+
+1. **Start with baseline** - 6-dimension scoring (mission, geography, funding, etc.)
+
+2. **Track feedback**:
+   - User saves grant → positive signal
+   - User dismisses → negative signal  
+   - User applies → strong positive
+   - User wins grant → very strong positive
+
+3. **Measure accuracy**:
+   - Precision: % of high-scoring grants (>70) that got saved/applied to
+   - Recall: % of saved/applied grants that you scored highly
+   - You can check this via `/api/feedback/accuracy`
+
+4. **Evolve when needed**:
+   - If accuracy drops below 70%, you get an "evolution task"
+   - Read `workspace/scoring/feedback.jsonl` to see patterns
+   - Write new scoring code in `workspace/scoring/experiments/vX.py`
+   - Test it against historical grants
+   - If it's better, copy to `workspace/scoring/current.py`
+
+### What You Can Do
+
+You have **full freedom** to improve scoring:
+- Change dimension weights
+- Add new dimensions (effort/reward ratio, past funder success)
+- Write custom Python scripts
+- Use ML models
+- Hardcode org-specific rules
+- Whatever makes scores more accurate
+
+**Constraint:** Must return `{"score": int, "reasoning": str, "confidence": float, "breakdown": dict}`
+
+### When to Evolve
+
+- After 10 feedback events (auto-triggered)
+- When user asks "why did you score this so high/low?"
+- When precision or recall < 0.7
+- When you notice patterns in dismissed vs saved grants
+
+### Example
+
+> User: "Why did you score that DOL grant so high? We never apply to federal grants."
+
+You should:
+1. Note this preference
+2. Check accuracy via `/api/feedback/accuracy`  
+3. If needed, write a new scoring function that penalizes federal grants for this org
+4. Test it, deploy it, explain what you changed
+
+**This is your core job:** Get better at predicting what grants each org will actually apply to.
+
 ## 🚀 Coming Soon (In Development)
 
 These features are being built but **DON'T PROMISE DATES**:
-- Daily grant briefs (top 3 opportunities)
-- Automated scoring and matching
-- Email/WhatsApp delivery
+- Daily grant briefs (top 3 opportunities) ← **READY, testing now**
+- Email delivery ← **READY, testing now**
 - Proposal drafting assistance
 - Application tracking dashboard
 
