@@ -2,11 +2,15 @@
 Workspace routes - Session-based agentic interactions
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from auth_service import get_current_user
 from workspace_service import get_workspace_service
+import os
+from pathlib import Path
+import uuid
+from datetime import datetime
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
 
@@ -455,3 +459,131 @@ async def chat_with_agent(
         "tokens_used": result.get("tokens_used"),
         "model": result.get("model")
     }
+
+
+@router.post("/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Upload a document to the organization's workspace.
+    Supports: PDF, DOCX, TXT (max 10MB)
+    """
+    # Get org ID
+    try:
+        org_id = await get_user_org_id(user_id)
+    except HTTPException as e:
+        if e.status_code == 400 and "no organization" in str(e.detail).lower():
+            org_id = f"temp-{user_id}"
+        else:
+            raise
+    
+    # Validate file type
+    allowed_types = {
+        'application/pdf': '.pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'text/plain': '.txt',
+        'text/markdown': '.md'
+    }
+    
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: PDF, DOCX, TXT, MD"
+        )
+    
+    # Validate file size (10MB max)
+    MAX_SIZE = 10 * 1024 * 1024
+    file_content = await file.read()
+    if len(file_content) > MAX_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="File too large. Maximum size: 10MB"
+        )
+    
+    # Create uploads directory
+    uploads_dir = Path("uploads") / org_id
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate unique filename
+    file_ext = allowed_types[file.content_type]
+    original_name = file.filename or f"document{file_ext}"
+    safe_name = "".join(c if c.isalnum() or c in '.-_' else '_' for c in original_name)
+    unique_id = str(uuid.uuid4())[:8]
+    filename = f"{unique_id}_{safe_name}"
+    
+    # Save file
+    file_path = uploads_dir / filename
+    with open(file_path, "wb") as f:
+        f.write(file_content)
+    
+    # Store metadata in database
+    file_record = {
+        "org_id": org_id,
+        "file_id": unique_id,
+        "filename": safe_name,
+        "file_path": str(file_path),
+        "file_type": file_ext[1:],  # Remove dot
+        "file_size": len(file_content),
+        "uploaded_by": user_id,
+        "uploaded_at": datetime.now().isoformat()
+    }
+    
+    try:
+        _supabase.table("workspace_files").insert(file_record).execute()
+    except Exception as e:
+        # If DB insert fails, still return success (file is saved)
+        print(f"Warning: Failed to log file upload to DB: {e}")
+    
+    return {
+        "status": "success",
+        "file": {
+            "id": unique_id,
+            "filename": safe_name,
+            "size": len(file_content),
+            "type": file_ext[1:],
+            "uploaded_at": file_record["uploaded_at"]
+        }
+    }
+
+
+@router.get("/uploads")
+async def list_uploads(user_id: str = Depends(get_current_user)):
+    """List all uploaded documents for the organization"""
+    try:
+        org_id = await get_user_org_id(user_id)
+    except HTTPException as e:
+        if e.status_code == 400 and "no organization" in str(e.detail).lower():
+            org_id = f"temp-{user_id}"
+        else:
+            raise
+    
+    try:
+        result = _supabase.table("workspace_files") \
+            .select("*") \
+            .eq("org_id", org_id) \
+            .order("uploaded_at", desc=True) \
+            .execute()
+        
+        return {
+            "status": "success",
+            "files": result.data
+        }
+    except Exception as e:
+        # Fallback: read from filesystem
+        uploads_dir = Path("uploads") / org_id
+        if not uploads_dir.exists():
+            return {"status": "success", "files": []}
+        
+        files = []
+        for f in uploads_dir.iterdir():
+            if f.is_file():
+                stat = f.stat()
+                files.append({
+                    "filename": f.name,
+                    "size": stat.st_size,
+                    "uploaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+        
+        return {"status": "success", "files": files}
