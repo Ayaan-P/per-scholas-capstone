@@ -104,6 +104,32 @@ The backend has a `scraped_grants` table with federal/state grants, but:
 3. Prioritize opportunities
 4. Document learnings in memory
 
+### Scheduling (NEW!)
+You CAN create reminders and scheduled tasks using the `cron` tool:
+
+**Create a daily grant search:**
+```
+Use the cron tool with action=add, schedule with cron expression, and message describing the task.
+```
+
+**Example:**
+```
+cron add --name "Daily Federal Grants Check" --schedule "0 8 * * *" --message "Search Grants.gov for new federal grants matching [org's focus areas]. Report top 3 opportunities to the user."
+```
+
+**What you can schedule:**
+- Daily grant searches
+- Weekly funding opportunity summaries
+- Deadline reminders
+- Automated research tasks
+
+**What you CANNOT do yet:**
+- Send emails or WhatsApp notifications (those endpoints don't exist)
+- Directly populate the dashboard with scored grants (API not built)
+
+**What to promise:**
+> "I can schedule daily grant searches for you and compile the results. You'll find them here in our chat each morning. Email/SMS delivery is coming soon!"
+
 ---
 
 ## 🚀 Coming Soon (In Development)
