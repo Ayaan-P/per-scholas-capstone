@@ -199,10 +199,8 @@ export default function ChatPage() {
         {!hasMessages ? (
           /* Empty State */
           <div className="h-full flex flex-col items-center justify-center px-4 py-12">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-perscholas-primary to-perscholas-secondary flex items-center justify-center mb-6 shadow-lg">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+            <div className="w-16 h-16 rounded-2xl bg-perscholas-primary flex items-center justify-center mb-6 shadow-lg overflow-hidden">
+              <img src="/logo.png" alt="FundFish" className="w-10 h-10 object-contain" />
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">FundFish Agent</h1>
             <p className="text-gray-500 text-center max-w-md mb-10">
@@ -240,10 +238,8 @@ export default function ChatPage() {
                     </div>
                   ) : (
                     <div className="flex gap-4">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-perscholas-primary to-perscholas-secondary flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
+                      <div className="w-8 h-8 rounded-lg bg-perscholas-primary flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+                        <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="prose prose-sm max-w-none text-gray-700 prose-p:leading-relaxed prose-headings:text-gray-900 prose-a:text-perscholas-primary prose-strong:text-gray-900 prose-code:text-perscholas-primary prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
@@ -281,10 +277,8 @@ export default function ChatPage() {
 
               {isLoading && (
                 <div className="flex gap-4">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-perscholas-primary to-perscholas-secondary flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                  <div className="w-8 h-8 rounded-lg bg-perscholas-primary flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+                    <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain" />
                   </div>
                   <div className="flex items-center gap-1.5 py-3">
                     <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" />
