@@ -7,24 +7,20 @@
 
 ## Pending Decisions (awaiting Ayaan's input)
 
-### ✅ Document Upload Feature - Ready for Completion (2026-02-11)
-**Status:** Backend complete, UI pending  
+### ✅ Document Upload Feature - COMPLETE (2026-02-11)
+**Status:** ✅ DONE  
 **Priority:** Medium (nice-to-have, not blocking)
 
-**What's done:**
+**Completed:**
 - ✅ Hetzner endpoint live: `POST http://46.225.82.130:9090/agent/upload`
 - ✅ Render backend proxies uploads to Hetzner
 - ✅ Files save to `/home/dytto-agent/workspaces/ff-{org_id}/uploads/`
-- ✅ Tested and working
+- ✅ Chat UI upload button added (commit 1cce7bf, 2026-02-11)
+- ✅ Agent TOOLS.md updated so agents know about `uploads/` directory
+- ✅ Fixed api.ts syntax error (upload methods were outside object)
+- ✅ Installed missing deps: react-markdown, remark-gfm, @phosphor-icons/react
 
-**What you need to do:**
-1. Add upload button to chat UI (`frontend/src/app/chat/page.tsx`)
-2. Update agent TOOLS.md so agents know about `uploads/` directory
-3. (Optional) Create `workspace_files` database table
-
-**Full spec:** See `UPLOAD_HANDOFF.md` in repo root — complete implementation guide with code examples.
-
-**Time estimate:** 30-60 minutes
+**Optional remaining:** Create `workspace_files` database table for persistent file metadata
 
 ---
 
@@ -127,3 +123,4 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Agent auto-fill profile endpoint (2026-02-10): POST /api/workspace/update-profile-from-agent allows agent to update org profile directly from conversation. Magic moment UX - profile auto-fills as users chat. Commit 8f42a4c
 - [x] Defensive org profile creation (2026-02-10): GET /api/organization/config auto-creates missing org profiles with defaults. No more 404 errors. Commit 8faed4c
 - [x] Database schema restoration for agents (2026-02-10): Restored complete 30-field extraction schema to search agent prompt and librarian TOOLS.md. Agents now capture contact info, consortium requirements, award details, geographic focus, attachment requirements - not just basics. Commits 6cfc457, 8620f46
+- [x] Document upload UI complete (2026-02-11): Added file upload button to chat page, collapsible file list, fixed api.ts syntax error, installed missing deps. Commit 1cce7bf
