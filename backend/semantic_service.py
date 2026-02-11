@@ -27,7 +27,10 @@ class SemanticService:
     def _init_model(self):
         """Initialize Gemini for embeddings (free tier: 1500 req/min)"""
         try:
-            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+            api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                raise ValueError("GEMINI_API_KEY not found in environment")
+            genai.configure(api_key=api_key)
             self.model = "models/text-embedding-004"
             self.embedding_dimension = 384  # Match existing pgvector dimension
             print("[SEMANTIC] Initialized Gemini embeddings")
