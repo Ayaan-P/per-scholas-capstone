@@ -169,3 +169,45 @@ async def processing_status(user_id: str = Depends(get_current_user)):
             "has_scores": False,
             "error": str(e)
         }
+
+
+@router.post("/generate-brief")
+async def generate_brief(
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Manually trigger morning brief generation for the user's org.
+    
+    Useful for testing. In production, this runs via cron at 8am daily.
+    """
+    org_id = await get_user_org_id(user_id)
+    
+    def run_brief_generation():
+        """Run the brief generation script"""
+        backend_dir = Path(__file__).parent.parent
+        script_path = backend_dir / "jobs" / "generate_briefs.py"
+        
+        try:
+            result = subprocess.run(
+                ["python3", str(script_path)],
+                cwd=str(backend_dir),
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            
+            print(f"[BRIEF] Manual trigger completed")
+            print(f"[BRIEF] stdout: {result.stdout}")
+            if result.stderr:
+                print(f"[BRIEF] stderr: {result.stderr}")
+        except Exception as e:
+            print(f"[BRIEF] Error: {e}")
+    
+    background_tasks.add_task(run_brief_generation)
+    
+    return {
+        "status": "processing",
+        "message": "Brief generation started in background",
+        "org_id": org_id
+    }
