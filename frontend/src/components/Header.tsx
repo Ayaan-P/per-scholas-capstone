@@ -36,8 +36,8 @@ export function Header() {
           {/* Logo */}
           <div className="flex items-center space-x-2 sm:space-x-4">
             <Link href="/" className="flex items-center space-x-2 sm:space-x-4 group">
-              <div className="relative">
-                <Image src="/logo.png" alt="FundFish Logo" width={40} height={40} className="h-8 sm:h-10 w-auto transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
+              <div className="relative bg-white rounded-xl p-1 shadow-sm border border-gray-100">
+                <Image src="/logo.png" alt="FundFish Logo" width={40} height={40} className="h-8 sm:h-10 w-auto transition-transform duration-300 group-hover:scale-110" />
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-perscholas-primary">fundfish</h1>
             </Link>
@@ -55,6 +55,16 @@ export function Header() {
                 }`}
               >
                 Discover
+              </Link>
+              <Link
+                href="/opportunities"
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                  isActive('/opportunities')
+                    ? 'bg-perscholas-primary text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
+                }`}
+              >
+                Opportunities
               </Link>
               <Link
                 href="/chat"
@@ -141,6 +151,17 @@ export function Header() {
                     }`}
                   >
                     Discover
+                  </Link>
+                  <Link
+                    href="/opportunities"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                      isActive('/opportunities')
+                        ? 'text-blue-600 font-bold bg-blue-50'
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Opportunities
                   </Link>
                   <Link
                     href="/chat"
