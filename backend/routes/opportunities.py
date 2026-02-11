@@ -785,7 +785,13 @@ Example of CORRECT output:
       "award_ceiling": 250000,
       "attachments": [],
       "version": "1 or null",
-      "last_updated_date": "2025-01-01 or null"
+      "last_updated_date": "2025-01-01 or null",
+      "geographic_focus": "State(s) or region(s) where applicants can operate or null",
+      "award_type": "Grant, Cooperative Agreement, Loan, Subsidy, etc. or null",
+      "anticipated_awards": "Expected number/range of awards or null",
+      "consortium_required": false,
+      "consortium_description": "Consortium/partnership details or null",
+      "rfp_attachment_requirements": "Summary of attachment requirements or null"
     }}
   ]
 }}
@@ -799,7 +805,8 @@ REQUIREMENTS:
 - Do NOT include match_score (it will be calculated automatically)
 - requirements is array of strings
 - attachments is empty array [] (no attachment fetching)
-- Use null for optional fields if no data available"""
+- Use null for optional fields if no data available
+- Extract ALL fields listed above - these are in the database schema
 
             job["current_task"] = "Creating Gemini CLI fundraising session..."
             job["progress"] = 50
