@@ -303,7 +303,7 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about grants, proposals, or funding..."
-              className="flex-1 resize-none bg-transparent px-4 py-3.5 focus:outline-none text-[15px] text-gray-900 placeholder-gray-400 max-h-[200px]"
+              className="flex-1 resize-none bg-transparent px-4 py-4 focus:outline-none text-[15px] text-gray-900 placeholder-gray-400 max-h-[200px] min-h-[56px]"
               rows={1}
               disabled={isLoading}
             />

@@ -215,16 +215,72 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
 
         # Get user's organization from users table
         with httpx.Client() as client:
-            user_url = f"{_supabase_url}/rest/v1/users?select=organization_id&id=eq.{user_id}"
+            user_url = f"{_supabase_url}/rest/v1/users?select=organization_id,email&id=eq.{user_id}"
             user_response = client.get(user_url, headers=headers)
 
-        if user_response.status_code != 200:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        user_data = user_response.json()
+        user_data = user_response.json() if user_response.status_code == 200 else []
+        
+        # If user doesn't exist in users table, auto-initialize them
         if not user_data or len(user_data) == 0:
-            raise HTTPException(status_code=404, detail="User not found")
-
+            print(f"[ORG CONFIG] User {user_id} not in users table, auto-initializing")
+            # Get email from Supabase auth
+            with httpx.Client() as client:
+                auth_url = f"{_supabase_url}/auth/v1/user"
+                auth_response = client.get(auth_url, headers={
+                    "Authorization": f"Bearer {_supabase_service_role_key}",
+                    "apikey": _supabase_service_role_key
+                })
+            
+            email = "user@example.com"  # Default fallback
+            if auth_response.status_code == 200:
+                auth_data = auth_response.json()
+                email = auth_data.get("email", email)
+            
+            # Auto-initialize the user
+            org_data = {
+                "name": "My Organization",
+                "mission": "",
+                "focus_areas": [],
+                "impact_metrics": {},
+                "programs": [],
+                "target_demographics": [],
+                "owner_id": user_id
+            }
+            
+            with httpx.Client() as client:
+                org_response = client.post(
+                    f"{_supabase_url}/rest/v1/organization_config",
+                    headers=headers,
+                    json=org_data
+                )
+            
+            if org_response.status_code not in [200, 201]:
+                raise HTTPException(status_code=500, detail="Failed to auto-create organization")
+            
+            org_result = org_response.json()
+            organization_id = org_result[0].get("id") if org_result else None
+            
+            if not organization_id:
+                raise HTTPException(status_code=500, detail="Failed to get organization ID")
+            
+            # Create user record
+            user_data_insert = {
+                "id": user_id,
+                "email": email,
+                "organization_id": organization_id,
+                "role": "admin"
+            }
+            
+            with httpx.Client() as client:
+                user_insert_response = client.post(
+                    f"{_supabase_url}/rest/v1/users",
+                    headers=headers,
+                    json=user_data_insert
+                )
+            
+            print(f"[ORG CONFIG] Auto-initialized user {user_id} with org {organization_id}")
+            user_data = [{"organization_id": organization_id, "email": email}]
+        
         organization_id = user_data[0].get("organization_id")
 
         if not organization_id:
