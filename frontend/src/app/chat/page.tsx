@@ -193,9 +193,9 @@ export default function ChatPage() {
   const hasMessages = messages.length > 0
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="h-screen bg-white flex flex-col overflow-hidden">
       {/* Messages Area */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto pb-4">
         {!hasMessages ? (
           /* Empty State */
           <div className="h-full flex flex-col items-center justify-center px-4 py-12">
@@ -300,7 +300,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-100 bg-white/80 backdrop-blur-xl">
+      <div className="flex-shrink-0 border-t border-gray-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="relative flex items-end gap-2 bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-perscholas-primary/50 focus-within:ring-2 focus-within:ring-perscholas-primary/10 transition-all">
             <textarea
