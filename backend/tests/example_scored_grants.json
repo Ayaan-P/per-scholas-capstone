@@ -1,0 +1,168 @@
+{
+  "processing_timestamp": "2025-02-11T14:30:00Z",
+  "org_id": "per-scholas-test",
+  "org_name": "Per Scholas",
+  "grants_processed": 10,
+  "grants_qualified": 6,
+  "processing_stats": {
+    "total_time_ms": 4500,
+    "avg_time_per_grant_ms": 450,
+    "tokens_used": 8200,
+    "estimated_cost_usd": 0.074,
+    "pre_filtered": 1
+  },
+  "scored_grants": [
+    {
+      "grant_id": "grant-001",
+      "title": "Workforce Innovation and Opportunity Grant for Technology Training",
+      "funder": "US Department of Labor",
+      "amount_range": "$500,000 - $2,000,000",
+      "deadline": "2025-03-28",
+      "match_score": 92,
+      "score_breakdown": {
+        "mission_alignment": 28,
+        "target_population": 19,
+        "geographic_coverage": 14,
+        "funding_fit": 15,
+        "eligibility": 9,
+        "strategic_value": 7
+      },
+      "reasoning": "This grant directly funds technology workforce development for underserved populations, perfectly aligning with Per Scholas's core mission. The $500K-$2M range fits the organization's capacity, and the national scope covers all operating locations. DOL has historically funded similar organizations.",
+      "summary": "Federal grant supporting nonprofit technology workforce training programs for underemployed adults in urban areas. Funds software development, cybersecurity, and IT certification pathways.",
+      "key_tags": ["workforce", "technology", "underserved", "federal", "training"],
+      "effort_estimate": "high",
+      "winning_strategies": [
+        "Emphasize track record of job placement rates (85%+)",
+        "Highlight partnerships with major tech employers like Google, JPMorgan",
+        "Include detailed curriculum and certification partnerships"
+      ]
+    },
+    {
+      "grant_id": "grant-002",
+      "title": "Digital Equity Technology Training Initiative",
+      "funder": "NTIA",
+      "amount_range": "$250,000 - $1,500,000",
+      "deadline": "2025-04-12",
+      "match_score": 88,
+      "score_breakdown": {
+        "mission_alignment": 27,
+        "target_population": 18,
+        "geographic_coverage": 13,
+        "funding_fit": 15,
+        "eligibility": 9,
+        "strategic_value": 6
+      },
+      "reasoning": "Strong alignment with Per Scholas's mission of advancing digital equity through tech training. The focus on underrepresented communities and coding bootcamps matches the organization's programs exactly. Urban focus aligns with all Per Scholas locations.",
+      "summary": "NTIA funding for programs advancing digital equity through technology skills training for underrepresented communities, including coding bootcamps and IT certifications.",
+      "key_tags": ["digital-equity", "technology", "underserved", "urban", "training"],
+      "effort_estimate": "medium",
+      "winning_strategies": [
+        "Demonstrate digital equity outcomes with data",
+        "Show partnerships with community organizations",
+        "Include alumni success stories from underrepresented groups"
+      ]
+    },
+    {
+      "grant_id": "grant-003",
+      "title": "Career Pathways in Cybersecurity Grant Program",
+      "funder": "NSF",
+      "amount_range": "$100,000 - $500,000",
+      "deadline": "2025-05-22",
+      "match_score": 81,
+      "score_breakdown": {
+        "mission_alignment": 25,
+        "target_population": 16,
+        "geographic_coverage": 12,
+        "funding_fit": 14,
+        "eligibility": 8,
+        "strategic_value": 6
+      },
+      "reasoning": "Per Scholas's cybersecurity training program is a direct match for this NSF opportunity. The focus on nontraditional students and career changers aligns with the organization's target population. Employer partnership requirement is easily met with existing relationships.",
+      "summary": "NSF funding for innovative cybersecurity education targeting nontraditional students and career changers, including certification prep and employer partnerships.",
+      "key_tags": ["cybersecurity", "stem", "career-changers", "certification", "federal"],
+      "effort_estimate": "medium",
+      "winning_strategies": [
+        "Lead with cybersecurity program outcomes and certifications awarded",
+        "Document employer partnerships (must have 3+)",
+        "Emphasize diversity in tech outcomes"
+      ]
+    },
+    {
+      "grant_id": "grant-004",
+      "title": "Community Development Block Grant - Economic Development",
+      "funder": "HUD",
+      "amount_range": "$200,000 - $1,000,000",
+      "deadline": "2025-03-12",
+      "match_score": 62,
+      "score_breakdown": {
+        "mission_alignment": 18,
+        "target_population": 14,
+        "geographic_coverage": 10,
+        "funding_fit": 12,
+        "eligibility": 5,
+        "strategic_value": 3
+      },
+      "reasoning": "While job training is eligible, this grant's broader economic development focus means Per Scholas would be competing against many types of projects. The LMI benefit requirement is met, but may require partnership with a local government.",
+      "summary": "HUD grant for economic development in low-income communities, can fund job training but also covers small business development and community facilities.",
+      "key_tags": ["economic-development", "community", "lmi", "federal"],
+      "effort_estimate": "high",
+      "winning_strategies": [
+        "Partner with a city or local government for stronger application",
+        "Document LMI population served with clear metrics",
+        "Frame tech training as economic mobility strategy"
+      ]
+    },
+    {
+      "grant_id": "grant-005",
+      "title": "Youth Career Connect Initiative",
+      "funder": "DOE",
+      "amount_range": "$150,000 - $750,000",
+      "deadline": "2025-04-26",
+      "match_score": 58,
+      "score_breakdown": {
+        "mission_alignment": 15,
+        "target_population": 10,
+        "geographic_coverage": 10,
+        "funding_fit": 12,
+        "eligibility": 6,
+        "strategic_value": 5
+      },
+      "reasoning": "Per Scholas primarily serves adults, not the 16-24 youth focus of this grant. While some programs may serve opportunity youth, this isn't the core population. The STEM and technology focus is relevant, but demographic mismatch reduces fit.",
+      "summary": "DOE funding connecting opportunity youth (16-24) with career pathways and work-based learning in STEM fields, including technology.",
+      "key_tags": ["youth", "stem", "career", "education"],
+      "effort_estimate": "medium",
+      "winning_strategies": [
+        "If pursuing, emphasize any youth-focused programs or partnerships",
+        "Consider partnership with youth-serving organization",
+        "Document any 18-24 participants in existing programs"
+      ]
+    },
+    {
+      "grant_id": "grant-008",
+      "title": "Community Health Center Expansion Grant",
+      "funder": "HRSA",
+      "amount_range": "$300,000 - $1,500,000",
+      "deadline": "2025-04-02",
+      "match_score": 15,
+      "score_breakdown": {
+        "mission_alignment": 0,
+        "target_population": 5,
+        "geographic_coverage": 5,
+        "funding_fit": 0,
+        "eligibility": 0,
+        "strategic_value": 5
+      },
+      "reasoning": "This grant is for healthcare service delivery, not workforce training. Per Scholas is not a health center and does not meet eligibility requirements. The underserved population overlap is incidental.",
+      "summary": "HRSA funding to expand primary health care services in medically underserved areas through new sites and staff.",
+      "key_tags": ["healthcare", "medical", "ineligible"],
+      "effort_estimate": "n/a",
+      "winning_strategies": []
+    }
+  ],
+  "recommendations": {
+    "high_priority": ["grant-001", "grant-002"],
+    "worth_considering": ["grant-003", "grant-004"],
+    "unlikely_fit": ["grant-005"],
+    "do_not_pursue": ["grant-008"]
+  }
+}

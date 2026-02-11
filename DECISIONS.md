@@ -66,6 +66,7 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] **GA4 Analytics** — Added GA4 tracking script to layout.tsx. Placeholder ID `G-FUNDFISH` — needs real measurement ID from Ayaan. Issue #31. ✅ 2026-02-02
 - [x] **GA4 — Real Measurement ID** — G-90C1JMVYN0 wired in commit b5d871b. Issue #31 closed. ✅ 2026-02-03
 - [ ] **Polish existing features** — ONGOING. Auth fixes shipped, nav fixed, signup bug fixed. Continue polishing.
+- [ ] **Fix Multi-Tenant Data Model (2026-02-10)** — Discovered during librarian review: `status=dismissed` on central `scraped_grants` table affects ALL orgs. Should be org-specific. **Plan:** Create `org_grant_dismissals(org_id, grant_id, dismissed_at)` table. Keep `status` on scraped_grants ONLY for grant lifecycle (active/expired/closed), not user preferences. Critical for agentic pivot — each org's agent needs to filter dismissals from their own table.
 
 ## How to Work
 - For each approved item: **plan first** — break into subtask issues on GitHub, THEN implement.

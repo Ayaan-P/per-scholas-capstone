@@ -26,3 +26,6 @@ google-api-python-client==2.108.0
 beautifulsoup4==4.12.2
 python-dateutil==2.8.2
 aiohttp>=3.9.0
+
+# Discovery Agent dependencies (browser-based grant scraping)
+playwright>=1.40.0  # Also run: playwright install chromium
