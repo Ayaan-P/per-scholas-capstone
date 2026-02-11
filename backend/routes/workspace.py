@@ -467,9 +467,13 @@ async def upload_document(
     user_id: str = Depends(get_current_user)
 ):
     """
-    Upload a document to the organization's workspace.
-    Supports: PDF, DOCX, TXT (max 10MB)
+    Upload a document to the organization's workspace on Hetzner.
+    Supports: PDF, DOCX, TXT, MD (max 10MB)
+    
+    Files are sent to the Hetzner agent workspace, not stored on Render.
     """
+    import httpx
+    
     # Get org ID
     try:
         org_id = await get_user_org_id(user_id)
@@ -502,50 +506,54 @@ async def upload_document(
             detail="File too large. Maximum size: 10MB"
         )
     
-    # Create uploads directory
-    uploads_dir = Path("uploads") / org_id
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Generate unique filename
-    file_ext = allowed_types[file.content_type]
-    original_name = file.filename or f"document{file_ext}"
-    safe_name = "".join(c if c.isalnum() or c in '.-_' else '_' for c in original_name)
-    unique_id = str(uuid.uuid4())[:8]
-    filename = f"{unique_id}_{safe_name}"
-    
-    # Save file
-    file_path = uploads_dir / filename
-    with open(file_path, "wb") as f:
-        f.write(file_content)
-    
-    # Store metadata in database
-    file_record = {
-        "org_id": org_id,
-        "file_id": unique_id,
-        "filename": safe_name,
-        "file_path": str(file_path),
-        "file_type": file_ext[1:],  # Remove dot
-        "file_size": len(file_content),
-        "uploaded_by": user_id,
-        "uploaded_at": datetime.now().isoformat()
-    }
+    # Proxy upload to Hetzner agent-api
+    HETZNER_URL = os.environ.get('AGENT_BRIDGE_URL', 'http://46.225.82.130:9090')
+    HETZNER_TOKEN = os.environ.get('AGENT_BRIDGE_TOKEN', 'dytto-agent-token-v1')
     
     try:
-        _supabase.table("workspace_files").insert(file_record).execute()
-    except Exception as e:
-        # If DB insert fails, still return success (file is saved)
-        print(f"Warning: Failed to log file upload to DB: {e}")
+        async with httpx.AsyncClient() as client:
+            files = {'file': (file.filename, file_content, file.content_type)}
+            data = {'user_id': org_id, 'agent_type': 'fundfish'}
+            headers = {'Authorization': f'Bearer {HETZNER_TOKEN}'}
+            
+            response = await client.post(
+                f'{HETZNER_URL}/agent/upload',
+                files=files,
+                data=data,
+                headers=headers,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Log to database for tracking
+                try:
+                    file_record = {
+                        "org_id": org_id,
+                        "filename": result['file']['filename'],
+                        "file_path": result['file']['path'],
+                        "file_size": result['file']['size'],
+                        "uploaded_by": user_id,
+                        "uploaded_at": result['file']['uploaded_at']
+                    }
+                    _supabase.table("workspace_files").insert(file_record).execute()
+                except Exception as e:
+                    print(f"Warning: Failed to log upload to DB: {e}")
+                
+                return result
+            else:
+                error_text = response.text
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Upload to agent workspace failed: {error_text}"
+                )
     
-    return {
-        "status": "success",
-        "file": {
-            "id": unique_id,
-            "filename": safe_name,
-            "size": len(file_content),
-            "type": file_ext[1:],
-            "uploaded_at": file_record["uploaded_at"]
-        }
-    }
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not reach agent workspace: {str(e)}"
+        )
 
 
 @router.get("/uploads")
@@ -559,6 +567,7 @@ async def list_uploads(user_id: str = Depends(get_current_user)):
         else:
             raise
     
+    # Fetch from database (Hetzner uploads are logged here)
     try:
         result = _supabase.table("workspace_files") \
             .select("*") \
@@ -571,19 +580,5 @@ async def list_uploads(user_id: str = Depends(get_current_user)):
             "files": result.data
         }
     except Exception as e:
-        # Fallback: read from filesystem
-        uploads_dir = Path("uploads") / org_id
-        if not uploads_dir.exists():
-            return {"status": "success", "files": []}
-        
-        files = []
-        for f in uploads_dir.iterdir():
-            if f.is_file():
-                stat = f.stat()
-                files.append({
-                    "filename": f.name,
-                    "size": stat.st_size,
-                    "uploaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat()
-                })
-        
-        return {"status": "success", "files": files}
+        print(f"Error listing uploads: {e}")
+        return {"status": "success", "files": []}
