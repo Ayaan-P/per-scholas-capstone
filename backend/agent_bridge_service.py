@@ -81,6 +81,17 @@ class AgentBridgeService:
                                 "no_response": True
                             }
                         
+                        # Strip debug messages from agent replies
+                        if reply and isinstance(reply, str):
+                            # Remove "[agents/...] inherited..." debug prefix
+                            if reply.startswith('[agents/'):
+                                lines = reply.split('\n')
+                                # Find first non-debug line
+                                for i, line in enumerate(lines):
+                                    if not line.strip().startswith('[agents/'):
+                                        reply = '\n'.join(lines[i:]).strip()
+                                        break
+                        
                         logger.info(f"Agent {agent_id} reply for org {org_id}: {len(reply)} chars")
                         return {
                             "response": reply,
