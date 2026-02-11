@@ -35,7 +35,7 @@ export function Header() {
         <div className="flex justify-between items-center py-3 sm:py-4">
           {/* Logo */}
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <Link href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-4 group">
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-4 group">
               <div className="relative">
                 <Image src="/logo.png" alt="FundFish Logo" width={40} height={40} className="h-8 sm:h-10 w-auto transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
               </div>
@@ -57,26 +57,6 @@ export function Header() {
                 Discover
               </Link>
               <Link
-                href="/opportunities"
-                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                  isActive('/opportunities')
-                    ? 'bg-perscholas-primary text-white shadow-md'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
-                }`}
-              >
-                Opportunities
-              </Link>
-              <Link
-                href="/proposals"
-                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                  isActive('/proposals')
-                    ? 'bg-perscholas-primary text-white shadow-md'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
-                }`}
-              >
-                Proposals
-              </Link>
-              <Link
                 href="/chat"
                 className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
                   isActive('/chat')
@@ -86,33 +66,27 @@ export function Header() {
               >
                 Agent
               </Link>
-              <Link
-                href="/settings"
-                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                  isActive('/settings')
-                    ? 'bg-perscholas-primary text-white shadow-md'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
-                }`}
-              >
-                Settings
-              </Link>
             </nav>
           )}
 
           {/* Auth Actions */}
           <div className="hidden md:flex items-center space-x-3">
-            <Link
-              href="/about"
-              className={`px-3 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
-                isActive('/about')
-                  ? 'text-perscholas-primary'
-                  : 'text-gray-500 hover:text-perscholas-primary'
-              }`}
-            >
-              About
-            </Link>
             {isAuthenticated ? (
               <>
+                <Link
+                  href="/settings"
+                  className={`p-2 rounded-xl transition-all duration-200 ${
+                    isActive('/settings')
+                      ? 'text-perscholas-primary bg-gray-100'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
+                  }`}
+                  title="Settings"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </Link>
                 <span className="text-sm text-gray-600 px-3 py-1.5 bg-gray-100 rounded-full">{user?.email}</span>
                 <button
                   onClick={handleSignOut}
@@ -169,28 +143,6 @@ export function Header() {
                     Discover
                   </Link>
                   <Link
-                    href="/opportunities"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
-                      isActive('/opportunities')
-                        ? 'text-blue-600 font-bold bg-blue-50'
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Opportunities
-                  </Link>
-                  <Link
-                    href="/proposals"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
-                      isActive('/proposals')
-                        ? 'text-blue-600 font-bold bg-blue-50'
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Proposals
-                  </Link>
-                  <Link
                     href="/chat"
                     onClick={() => setMobileMenuOpen(false)}
                     className={`font-medium transition-colors px-4 py-2 rounded-lg ${
@@ -214,17 +166,6 @@ export function Header() {
                   </Link>
                 </>
               )}
-                <Link
-                href="/about"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`font-medium transition-colors px-4 py-2 rounded-lg ${
-                  isActive('/about')
-                    ? 'text-blue-600 font-bold bg-blue-50'
-                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                }`}
-              >
-                About
-              </Link>
             {isAuthenticated ? (
                 <>
                   <div className="px-4 py-2 text-sm text-gray-600 border-t border-gray-200 mt-2">
