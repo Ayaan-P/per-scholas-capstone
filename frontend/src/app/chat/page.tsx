@@ -242,7 +242,19 @@ export default function ChatPage() {
                         <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain rounded" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="prose prose-sm max-w-none text-gray-700 prose-p:leading-relaxed prose-headings:text-gray-900 prose-a:text-perscholas-primary prose-strong:text-gray-900 prose-code:text-perscholas-primary prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+                        <div className="prose prose-sm max-w-none text-gray-700 
+                          prose-p:leading-relaxed prose-p:my-2
+                          prose-headings:font-semibold prose-headings:text-gray-900 prose-headings:mt-6 prose-headings:mb-3
+                          prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
+                          prose-a:text-perscholas-primary prose-a:font-medium prose-a:no-underline hover:prose-a:underline
+                          prose-strong:text-gray-900 prose-strong:font-semibold
+                          prose-ul:my-3 prose-ul:space-y-1 prose-li:my-1
+                          prose-ol:my-3 prose-ol:space-y-1
+                          prose-blockquote:border-l-4 prose-blockquote:border-gray-200 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600
+                          prose-code:text-perscholas-primary prose-code:bg-gray-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-code:before:content-none prose-code:after:content-none
+                          prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4 prose-pre:overflow-x-auto
+                          prose-table:border-collapse prose-table:w-full prose-th:border prose-th:border-gray-300 prose-th:p-2 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2
+                          prose-hr:my-6 prose-hr:border-gray-200">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {message.content}
                           </ReactMarkdown>
