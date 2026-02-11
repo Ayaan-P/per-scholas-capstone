@@ -6,7 +6,27 @@
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
 
 ## Pending Decisions (awaiting Ayaan's input)
-*None — agentic pivot approved below*
+
+### ✅ Document Upload Feature - Ready for Completion (2026-02-11)
+**Status:** Backend complete, UI pending  
+**Priority:** Medium (nice-to-have, not blocking)
+
+**What's done:**
+- ✅ Hetzner endpoint live: `POST http://46.225.82.130:9090/agent/upload`
+- ✅ Render backend proxies uploads to Hetzner
+- ✅ Files save to `/home/dytto-agent/workspaces/ff-{org_id}/uploads/`
+- ✅ Tested and working
+
+**What you need to do:**
+1. Add upload button to chat UI (`frontend/src/app/chat/page.tsx`)
+2. Update agent TOOLS.md so agents know about `uploads/` directory
+3. (Optional) Create `workspace_files` database table
+
+**Full spec:** See `UPLOAD_HANDOFF.md` in repo root — complete implementation guide with code examples.
+
+**Time estimate:** 30-60 minutes
+
+---
 
 ## Approved — Agentic Pivot (2026-02-06)
 
