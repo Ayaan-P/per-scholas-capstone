@@ -41,7 +41,14 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
-      startSession()
+      // Try to restore session from localStorage
+      const savedSessionId = localStorage.getItem('fundfish_session_id')
+      if (savedSessionId) {
+        setSessionId(savedSessionId)
+        loadSessionHistory(savedSessionId)
+      } else {
+        startSession()
+      }
     }
   }, [isAuthenticated, sessionId])
 
@@ -56,12 +63,40 @@ export default function ChatPage() {
     }
   }, [input])
 
+  const loadSessionHistory = async (sid: string) => {
+    try {
+      const response = await api.getChatHistory(sid)
+      if (response.ok) {
+        const data = await response.json()
+        // Parse history if it exists
+        if (data.history) {
+          // Parse markdown format: **[HH:MM] USER:** text
+          const historyText = data.history
+          const messagePattern = /\*\*\[([\d:]+)\] (USER|AGENT):\*\* (.+?)(?=\n\*\*\[|$)/gs
+          const matches = [...historyText.matchAll(messagePattern)]
+          
+          const parsedMessages: Message[] = matches.map((match, idx) => ({
+            id: `${match[2].toLowerCase()}-${Date.now()}-${idx}`,
+            role: match[2] === 'USER' ? 'user' : 'assistant',
+            content: match[3].trim(),
+            timestamp: new Date()
+          }))
+          
+          setMessages(parsedMessages)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load session history:', error)
+    }
+  }
+
   const startSession = async () => {
     try {
       const response = await api.startChatSession()
       if (response.ok) {
         const data = await response.json()
         setSessionId(data.session_id)
+        localStorage.setItem('fundfish_session_id', data.session_id)
       }
     } catch (error) {
       console.error('Failed to start session:', error)

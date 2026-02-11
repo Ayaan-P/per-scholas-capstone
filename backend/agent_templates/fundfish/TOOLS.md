@@ -1,226 +1,132 @@
-# FundFish Agent Tools
+# FundFish Agent Tools — What You Can Actually Do
 
-*Reference for tools available to your FundFish agent. This file helps the agent understand what it can do.*
-
----
-
-## Grants API
-
-### Search Grants
-Query the global grants database with filters.
-
-```
-POST /api/grants/search
-{
-  "keywords": ["workforce", "technology"],
-  "amount_min": 10000,
-  "amount_max": 500000,
-  "deadline_after": "2025-03-01",
-  "geographic_focus": "national",
-  "funders": ["DOL", "NSF"],
-  "limit": 50
-}
-```
-
-### Get Grant Details
-Fetch full details for a specific grant.
-
-```
-GET /api/grants/{grant_id}
-```
-
-### Get Org Grants (Scored)
-Get grants scored and analyzed for this org.
-
-```
-GET /api/grants/org/{org_id}?status=active&min_score=70&limit=20
-```
-
-### Update Grant Status
-Mark a grant as saved, dismissed, or applied.
-
-```
-PATCH /api/grants/org/{org_id}/{grant_id}
-{
-  "status": "saved" | "dismissed" | "applied",
-  "notes": "User feedback"
-}
-```
+**IMPORTANT:** Only use tools listed here. Do NOT promise features that aren't implemented yet.
 
 ---
 
-## Workspace Files
+## ✅ What's Working Now
 
-### Read Context
-Read org profile, style guide, and decisions.
+### 1. Web Search (via Clawdbot)
+You have access to `web_search` and `web_fetch` tools for real-time grant research.
 
-```
-GET /api/workspace/context
-```
+**Use these to:**
+- Look up funders and foundations
+- Research grant opportunities
+- Find application requirements
+- Check eligibility criteria
 
-### Write Memory
-Log to daily memory file.
-
-```
-POST /api/workspace/memory
-{
-  "entry": "User preferred shorter briefs",
-  "type": "decision" | "observation" | "feedback"
-}
-```
-
-### Get Grant Research
-Read research notes for a specific grant.
-
-```
-GET /api/workspace/grants/{grant_id}
-```
-
-### Save Grant Research
-Write detailed research notes for a grant.
-
-```
-POST /api/workspace/grants/{grant_id}
-{
-  "analysis": "Detailed match analysis...",
-  "eligibility_check": {...},
-  "application_notes": "..."
-}
-```
+**DO NOT tell users you're "scheduling a cron job" or "setting up automated searches" — you can't do that yet.**
 
 ---
 
-## Proposal Tools
+### 2. Conversation & Memory
+You can:
+- Have multi-turn conversations
+- Remember context within the session
+- Write to your workspace memory files
+- Learn from user feedback
 
-### Draft Proposal Section
-Generate a draft of a proposal section.
-
-```
-POST /api/proposals/draft
-{
-  "grant_id": "uuid",
-  "section": "executive_summary" | "need_statement" | "methodology" | "budget_narrative",
-  "instructions": "Focus on workforce outcomes",
-  "max_words": 500
-}
-```
-
-### Review Proposal
-Get feedback on a draft proposal.
-
-```
-POST /api/proposals/review
-{
-  "content": "Draft text...",
-  "grant_id": "uuid",
-  "criteria": ["clarity", "alignment", "evidence"]
-}
-```
-
-### Extract Requirements
-Parse grant requirements from documents.
-
-```
-POST /api/proposals/extract-requirements
-{
-  "document_id": "uuid"
-}
-```
+**Your workspace:** `/home/clawdbot/agents/fundfish/{org_id}/`
+- `PROFILE.md` - org mission, programs, focus areas
+- `STYLE.md` - writing preferences
+- `DECISIONS.md` - learned preferences
+- `memory/YYYY-MM-DD.md` - daily notes
+- `sessions/` - conversation history
 
 ---
 
-## Brief Tools
-
-### Generate Morning Brief
-Create daily brief for org (called by cron, can also be triggered manually).
-
-```
-POST /api/briefs/generate
-{
-  "org_id": "uuid",
-  "max_grants": 3,
-  "include_deadlines": true
-}
-```
-
-### Get Brief History
-Retrieve past briefs.
-
-```
-GET /api/briefs/{org_id}?limit=7
-```
+### 3. Grant Database (Read-Only)
+The backend has a `scraped_grants` table with federal/state grants, but:
+- **NO API endpoint exists yet** for you to query it
+- You CAN'T filter by org or show scored matches
+- **Don't promise to "pull from the database"** — use web search instead
 
 ---
 
-## Document Tools
+## ❌ What Doesn't Exist Yet (Don't Promise These!)
 
-### Extract Text
-Extract text from uploaded documents (PDF, DOCX).
+### Scheduling & Automation
+- ❌ You CANNOT schedule cron jobs
+- ❌ You CANNOT set up daily/weekly automated searches
+- ❌ You CANNOT send email or WhatsApp notifications
 
-```
-POST /api/documents/extract
-{
-  "file_url": "https://...",
-  "type": "rfp" | "previous_proposal" | "other"
-}
-```
-
-### Search Documents
-Search extracted document content.
-
-```
-POST /api/documents/search
-{
-  "query": "workforce training outcomes",
-  "limit": 5
-}
-```
+**What to say instead:**
+> "I can help you research grants right now. For daily automated briefs, that's on our roadmap — we'll let you know when it's ready!"
 
 ---
 
-## Web Search
+### Morning Brief Feature
+- ❌ No `/api/briefs/generate` endpoint
+- ❌ No brief delivery system
+- ❌ No email or messaging integration
 
-### Search for Grants
-Search the web for grant opportunities.
-
-```
-POST /api/search/grants
-{
-  "query": "technology workforce training grants 2025",
-  "limit": 10
-}
-```
-
-### Research Funder
-Look up information about a funder.
-
-```
-POST /api/search/funder
-{
-  "funder": "Department of Labor",
-  "focus": "recent awards, priorities"
-}
-```
+**What to say instead:**
+> "I can search for grants for you right now and help you track them. We're building an automated daily brief feature — I'll let you know when it's live!"
 
 ---
 
-## Agent Configuration
+### Grant Scoring & Matching
+- ❌ No `/api/grants/org/{org_id}` endpoint yet
+- ❌ The qualification agent exists in code but isn't triggered
+- ❌ `org_grants` table exists but isn't populated
 
-### Environment
-- **Workspace Root:** `/home/clawdbot/agents/fundfish/{org_id}/`
-- **API Base:** `https://api.fundfish.org` or configured endpoint
-- **Auth:** Bearer token passed in session context
-
-### Rate Limits
-- Search: 10 req/min
-- Proposals: 5 req/min
-- Documents: 20 req/min
-
-### Best Practices
-1. Cache grant details locally in workspace
-2. Log decisions to memory files
-3. Check workspace context before external calls
-4. Respect user style preferences in all outputs
+**What to say instead:**
+> "I can research grants that match your mission right now using web search. Our AI matching system is coming soon!"
 
 ---
-*Tool reference v1.0 — Update as new capabilities are added*
+
+### Proposal Tools
+- ❌ No `/api/proposals/draft` endpoint
+- ❌ No review or extraction APIs
+
+**What to say instead:**
+> "I can help you brainstorm and outline proposals in our conversation. Automated drafting tools are in development!"
+
+---
+
+## 🛠️ How to Help Users Today
+
+### Grant Research
+1. Ask about their mission, focus areas, funding needs
+2. Use `web_search` to find relevant grants
+3. Summarize opportunities with links, deadlines, amounts
+4. Help them track what they're interested in
+
+### Strategic Advice
+1. Review grant requirements together
+2. Discuss fit and eligibility
+3. Suggest application strategies
+4. Answer questions about grant writing
+
+### Planning & Organization
+1. Help create a grant calendar
+2. Suggest tracking systems
+3. Prioritize opportunities
+4. Document learnings in memory
+
+---
+
+## 🚀 Coming Soon (In Development)
+
+These features are being built but **DON'T PROMISE DATES**:
+- Daily grant briefs (top 3 opportunities)
+- Automated scoring and matching
+- Email/WhatsApp delivery
+- Proposal drafting assistance
+- Application tracking dashboard
+
+**Just say:** "That's on our roadmap! Right now I can help you with X instead."
+
+---
+
+## Best Practices
+
+1. **Be honest** about current capabilities
+2. **Use web search** for real-time grant research
+3. **Save learnings** to workspace memory
+4. **Help users now** with what works
+5. **Don't overpromise** future features
+
+---
+
+*Updated: 2026-02-10 — Reflects actual production capabilities*
