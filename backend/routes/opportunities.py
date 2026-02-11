@@ -376,16 +376,16 @@ async def save_opportunity(opportunity_id: str, user_id: str = Depends(get_curre
             "rfp_attachment_requirements": opportunity.get("rfp_attachment_requirements")
         }
 
-        print(f"[SAVE] Saving Agent grant to grants: {opportunity['title'][:50]}...")
+        print(f"[SAVE] Saving Agent grant to scraped_grants: {opportunity['title'][:50]}...")
 
-        # Save to grants table
-        result = _supabase.table("grants").insert(scraped_data).execute()
+        # Save to scraped_grants table (global grant pool)
+        result = _supabase.table("scraped_grants").insert(scraped_data).execute()
         scraped_grant_id = result.data[0]["id"] if result.data else None
 
         if not scraped_grant_id:
-            raise HTTPException(status_code=500, detail="Failed to save to grants")
+            raise HTTPException(status_code=500, detail="Failed to save to scraped_grants")
 
-        print(f"[SAVE] Saved to grants with ID: {scraped_grant_id}")
+        print(f"[SAVE] Saved to scraped_grants with ID: {scraped_grant_id}")
 
         # Also add to local cache
         _opportunities_db.append(opportunity)
