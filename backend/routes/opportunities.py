@@ -813,6 +813,7 @@ REQUIREMENTS:
 - attachments is empty array [] (no attachment fetching)
 - Use null for optional fields if no data available
 - Extract ALL fields listed above - these are in the database schema
+"""
 
             job["current_task"] = "Creating Gemini CLI fundraising session..."
             job["progress"] = 50
