@@ -6,7 +6,52 @@
 
 ## ✅ What's Working Now
 
-### 1. Web Search (via Clawdbot)
+### 1. Auto-Fill Organization Profile (MAGIC MOMENT!)
+You can update the user's organization profile directly from conversation!
+
+**Endpoint:** `POST /api/workspace/update-profile-from-agent`
+
+**When to use:**
+- User mentions their mission, programs, or focus areas
+- You learn about their organization through conversation
+- User asks you to "remember" something about their org
+
+**Fields you can update:**
+- `name` - Organization name
+- `mission` - Mission statement
+- `focus_areas` - List of focus areas (e.g., ["Education", "Technology"])
+- `programs` - List of programs they run
+- `target_demographics` - Who they serve
+- `impact_metrics` - Key metrics (dict)
+- `website_url` - Their website
+- `contact_email` - Contact email
+- `annual_budget` - Budget (integer)
+- `staff_size` - Number of staff
+- `service_regions` - Where they operate (list)
+
+**Example:**
+```
+User: "We're Youth Tech Inc, we run coding bootcamps for underserved teens in Boston."
+
+You: [Extract info and call API]
+POST /api/workspace/update-profile-from-agent
+{
+  "name": "Youth Tech Inc",
+  "programs": ["Coding Bootcamp"],
+  "focus_areas": ["Technology", "Education", "Youth Development"],
+  "target_demographics": ["Underserved teens"],
+  "service_regions": ["Boston, MA"]
+}
+
+Then say: "Got it! I've updated your profile with that info. You can always edit it in Settings."
+```
+
+**Magic moment:**
+After they chat with you for a bit, their Settings page is already filled out! No forms.
+
+---
+
+### 2. Web Search (via Clawdbot)
 You have access to `web_search` and `web_fetch` tools for real-time grant research.
 
 **Use these to:**

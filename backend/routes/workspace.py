@@ -152,6 +152,79 @@ async def sync_profile(user_id: str = Depends(get_current_user)):
     return {"status": "success", "message": "Profile synced to workspace"}
 
 
+class UpdateProfileRequest(BaseModel):
+    """Request model for updating organization profile from agent"""
+    name: Optional[str] = None
+    mission: Optional[str] = None
+    focus_areas: Optional[List[str]] = None
+    impact_metrics: Optional[Dict[str, Any]] = None
+    programs: Optional[List[str]] = None
+    target_demographics: Optional[List[str]] = None
+    website_url: Optional[str] = None
+    contact_email: Optional[str] = None
+    annual_budget: Optional[int] = None
+    staff_size: Optional[int] = None
+    service_regions: Optional[List[str]] = None
+    # Add any other fields the agent might want to update
+
+
+@router.post("/update-profile-from-agent")
+async def update_profile_from_agent(
+    profile_data: UpdateProfileRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Allow agent to update organization profile in database with extracted info from conversation.
+    This creates the 'magic moment' where the agent auto-fills the profile.
+    """
+    import httpx
+    
+    org_id = await get_user_org_id(user_id)
+    
+    # Build update payload (only include non-None fields)
+    update_data = {k: v for k, v in profile_data.dict().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Update database
+    headers = {
+        "Authorization": f"Bearer {_supabase_service_role_key}",
+        "apikey": _supabase_service_role_key,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    
+    with httpx.Client() as client:
+        update_url = f"{_supabase_url}/rest/v1/organization_config?id=eq.{org_id}"
+        response = client.patch(update_url, headers=headers, json=update_data)
+    
+    if response.status_code not in [200, 204]:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to update profile: {response.text}"
+        )
+    
+    # Sync back to workspace
+    ws = get_workspace_service()
+    
+    # Fetch updated config
+    with httpx.Client() as client:
+        config_url = f"{_supabase_url}/rest/v1/organization_config?select=*&id=eq.{org_id}"
+        fetch_response = client.get(config_url, headers=headers)
+    
+    if fetch_response.status_code == 200:
+        updated_config = fetch_response.json()
+        if updated_config:
+            ws.sync_profile_from_db(org_id, updated_config[0])
+    
+    return {
+        "status": "success", 
+        "message": "Profile updated from agent conversation",
+        "updated_fields": list(update_data.keys())
+    }
+
+
 # ============================================
 # Session Management
 # ============================================
