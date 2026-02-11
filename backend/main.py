@@ -537,12 +537,13 @@ async def startup_event():
     from category_service import get_category_service
     get_category_service(supabase_admin)
     
-    scheduler_service = SchedulerService(supabase)
-    scheduler_service.start()
+    # DISABLED: All grant scraping now handled by Hetzner librarian agent
+    # scheduler_service = SchedulerService(supabase)
+    # scheduler_service.start()
     
     # Inject dependencies into route modules (Issue #37)
-    set_health_scheduler(scheduler_service)
-    set_scheduler_deps(scheduler_service, supabase)
+    # set_health_scheduler(scheduler_service)  # Scheduler disabled
+    # set_scheduler_deps(scheduler_service, supabase)  # Scheduler disabled
     set_dashboard_deps(supabase, jobs_db)
     set_org_deps(supabase, supabase_admin, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     # Pass Gemini as optional fallback - Claude API is now primary
