@@ -14,6 +14,12 @@ interface Message {
   timestamp: Date
 }
 
+interface UploadedFile {
+  filename: string
+  size: number
+  uploaded_at?: string
+}
+
 const SUGGESTED_PROMPTS = [
   { text: "Find federal grants for job training programs", icon: "search" },
   { text: "What grants are due in the next 30 days?", icon: "calendar" },
@@ -29,9 +35,13 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
+  const [showFiles, setShowFiles] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -62,6 +72,20 @@ export default function ChatPage() {
       inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`
     }
   }, [input])
+
+  // Load uploaded files when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      api.listUploads()
+        .then(res => res.json())
+        .then(data => {
+          if (data.files) setUploadedFiles(data.files)
+        })
+        .catch(() => {
+          // Silently fail - uploads feature may not be available
+        })
+    }
+  }, [isAuthenticated])
 
   const loadSessionHistory = async (sid: string) => {
     try {
@@ -160,6 +184,35 @@ export default function ChatPage() {
     await navigator.clipboard.writeText(text)
     setCopiedId(id)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const response = await api.uploadDocument(file)
+      const result = await response.json()
+
+      if (result.status === 'success') {
+        setUploadedFiles(prev => [result.file, ...prev])
+        setShowFiles(true)
+      } else {
+        throw new Error(result.error || 'Upload failed')
+      }
+    } catch (err) {
+      console.error('Upload failed:', err)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
   }
 
   const getPromptIcon = (icon: string) => {
@@ -308,14 +361,76 @@ export default function ChatPage() {
       {/* Input Area */}
       <div className="flex-shrink-0 border-t border-gray-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-3xl mx-auto px-4 py-4">
+          {/* Uploaded Files Indicator */}
+          {uploadedFiles.length > 0 && (
+            <div className="mb-3">
+              <button
+                onClick={() => setShowFiles(!showFiles)}
+                className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>{uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} uploaded</span>
+                <svg className={`w-4 h-4 transition-transform ${showFiles ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showFiles && (
+                <div className="mt-2 p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1.5">
+                  {uploadedFiles.map((f, idx) => (
+                    <div key={`${f.filename}-${idx}`} className="flex items-center gap-2 text-sm text-gray-600">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span className="truncate flex-1">{f.filename}</span>
+                      <span className="text-xs text-gray-400">{formatFileSize(f.size)}</span>
+                    </div>
+                  ))}
+                  <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-200">
+                    The agent can access these files when helping you.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Hidden File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.txt,.md"
+            onChange={handleUpload}
+            className="hidden"
+          />
+
           <div className="relative flex items-end gap-2 bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-perscholas-primary/50 focus-within:ring-2 focus-within:ring-perscholas-primary/10 transition-all">
+            {/* Upload Button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="ml-2 mb-3 p-2 text-gray-400 hover:text-perscholas-primary disabled:opacity-40 transition-colors"
+              title="Upload document (PDF, DOCX, TXT, MD)"
+            >
+              {uploading ? (
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              )}
+            </button>
+
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about grants, proposals, or funding..."
-              className="flex-1 resize-none bg-transparent px-4 py-4 focus:outline-none text-[15px] text-gray-900 placeholder-gray-400 max-h-[200px] min-h-[56px]"
+              className="flex-1 resize-none bg-transparent px-2 py-4 focus:outline-none text-[15px] text-gray-900 placeholder-gray-400 max-h-[200px] min-h-[56px]"
               rows={1}
               disabled={isLoading}
             />

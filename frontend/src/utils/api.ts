@@ -288,8 +288,9 @@ export const api = {
     }),
 
   getScoringAccuracy: () =>
-    authenticatedFetch(`${API_BASE_URL}/api/feedback/accuracy`)
-}
+    authenticatedFetch(`${API_BASE_URL}/api/feedback/accuracy`),
+
+  // Document Uploads
   uploadDocument: async (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -302,4 +303,5 @@ export const api = {
   },
 
   listUploads: () =>
-    authenticatedFetch(`${API_BASE_URL}/api/workspace/uploads`),
+    authenticatedFetch(`${API_BASE_URL}/api/workspace/uploads`)
+}
