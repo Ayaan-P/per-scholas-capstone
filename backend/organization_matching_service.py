@@ -39,23 +39,29 @@ class OrganizationMatchingService:
             Organization profile dict or None if not found
         """
         try:
-            # Get user's organization
-            user_response = self.supabase.table("users").select("organization_id").eq("id", user_id).single().execute()
-            organization_id = user_response.data.get("organization_id")
+            # Get user's organization (don't use .single() - it throws on 0 rows)
+            user_response = self.supabase.table("users").select("organization_id").eq("id", user_id).execute()
+            
+            if not user_response.data:
+                return None
+            
+            organization_id = user_response.data[0].get("organization_id")
 
             if not organization_id:
                 return None
 
-            # Get organization config
+            # Get organization config (don't use .single() - it throws on 0 rows)
             org_response = (
                 self.supabase.table("organization_config")
                 .select("*")
                 .eq("id", organization_id)
-                .single()
                 .execute()
             )
 
-            return org_response.data
+            if not org_response.data:
+                return None
+                
+            return org_response.data[0]
         except Exception as e:
             print(f"[OrganizationMatching] Error fetching org profile: {e}")
             return None
