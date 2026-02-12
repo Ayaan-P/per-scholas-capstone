@@ -124,3 +124,6 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Defensive org profile creation (2026-02-10): GET /api/organization/config auto-creates missing org profiles with defaults. No more 404 errors. Commit 8faed4c
 - [x] Database schema restoration for agents (2026-02-10): Restored complete 30-field extraction schema to search agent prompt and librarian TOOLS.md. Agents now capture contact info, consortium requirements, award details, geographic focus, attachment requirements - not just basics. Commits 6cfc457, 8620f46
 - [x] Document upload UI complete (2026-02-11): Added file upload button to chat page, collapsible file list, fixed api.ts syntax error, installed missing deps. Commit 1cce7bf
+- [x] Created workspace_files table migration (2026-02-12): Issue #43 created and migration file added. Table needed for tracking uploaded documents. Commit f5e32ed
+- [x] Fixed org profile lookup errors (2026-02-12): OrganizationMatchingService.get_organization_profile() no longer throws on missing users/orgs. Uses safe array access instead of .single(). Commit 6ed6c57
+- [x] Closed Issue #40 (2026-02-12): Gemini quota issue now obsolete — APScheduler disabled, scraping moved to Hetzner librarian
