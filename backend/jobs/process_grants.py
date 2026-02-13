@@ -98,8 +98,12 @@ class GrantProcessingJob:
         logger.info(f"[ProcessGrants] Starting job for org {org_id}")
         
         try:
-            # Initialize scoring agent
-            agent = ScoringAgent(org_id, self.config.workspace_root)
+            # Initialize scoring agent with Supabase client for profile loading
+            agent = ScoringAgent(
+                org_id, 
+                self.config.workspace_root,
+                supabase_client=self.supabase
+            )
             agent.load_org_profile()
             
             # Fetch grants to process

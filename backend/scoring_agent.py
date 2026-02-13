@@ -99,19 +99,25 @@ class ScoringAgent:
     Uses a two-phase approach:
     1. Rule-based pre-filtering (fast, no API cost)
     2. LLM-based deep scoring (accurate, ~$0.02-0.05 per grant)
+    
+    Profile loading priority:
+    1. Supabase organization_config (if supabase_client provided)
+    2. Filesystem PROFILE.md (fallback)
     """
     
     def __init__(
         self, 
         org_id: str,
         workspace_root: str = "/var/fundfish/workspaces",
-        model: str = "claude-sonnet-4-20250514"
+        model: str = "claude-sonnet-4-20250514",
+        supabase_client = None
     ):
         self.org_id = org_id
         self.workspace_root = Path(workspace_root)
         self.model = model
         self.org_profile = None
         self.client = anthropic.Anthropic()
+        self.supabase = supabase_client
         
         # Stats tracking
         self.stats = {
@@ -122,17 +128,115 @@ class ScoringAgent:
         }
     
     def load_org_profile(self) -> Dict[str, Any]:
-        """Load organization profile from workspace PROFILE.md"""
+        """
+        Load organization profile. Tries Supabase first, falls back to filesystem.
+        """
+        # Try Supabase first if client available
+        if self.supabase:
+            try:
+                profile = self._load_profile_from_supabase()
+                if profile:
+                    self.org_profile = profile
+                    return self.org_profile
+            except Exception as e:
+                print(f"[ScoringAgent] Supabase profile load failed: {e}, trying filesystem")
+        
+        # Fallback to filesystem PROFILE.md
         profile_path = self.workspace_root / self.org_id / "PROFILE.md"
         
         if not profile_path.exists():
-            raise FileNotFoundError(f"No profile found at {profile_path}")
+            raise FileNotFoundError(f"No profile found in Supabase or at {profile_path}")
         
         content = profile_path.read_text()
         
         # Parse markdown profile into structured data
         self.org_profile = self._parse_profile_md(content)
         return self.org_profile
+    
+    def _load_profile_from_supabase(self) -> Optional[Dict[str, Any]]:
+        """Load organization profile from Supabase organization_config table"""
+        if not self.supabase:
+            return None
+        
+        # org_id might be numeric (from org_grants) or string
+        try:
+            org_id_int = int(self.org_id)
+            response = self.supabase.table("organization_config")\
+                .select("*")\
+                .eq("id", org_id_int)\
+                .single()\
+                .execute()
+        except ValueError:
+            # Not a numeric ID, try as string identifier
+            response = self.supabase.table("organization_config")\
+                .select("*")\
+                .eq("name", self.org_id)\
+                .limit(1)\
+                .execute()
+            if not response.data:
+                return None
+            response.data = response.data[0] if isinstance(response.data, list) else response.data
+        
+        data = response.data
+        if not data:
+            return None
+        
+        # Transform Supabase org config to scoring profile format
+        profile = {
+            "name": data.get("name", ""),
+            "mission": data.get("mission", "") or data.get("description", ""),
+            "ein": data.get("ein", ""),
+            "focus_areas": self._parse_json_field(data.get("secondary_focus_areas", [])),
+            "programs": self._parse_json_field(data.get("key_programs", [])),
+            "target_demographics": self._parse_json_field(data.get("target_populations", [])),
+            "geographic_focus": self._parse_json_field(data.get("service_regions", [])),
+            "budget_range": {
+                "min": data.get("preferred_grant_size_min") or 0,
+                "max": data.get("preferred_grant_size_max") or 0
+            },
+            "staff_size": str(data.get("staff_size", "")) if data.get("staff_size") else "",
+            "key_metrics": self._parse_json_field(data.get("key_impact_metrics", [])),
+            "past_funders": self._extract_funders_from_grants(data.get("previous_grants", [])),
+            "raw_content": "",  # No raw markdown from DB
+            # Additional fields from org_config
+            "primary_focus_area": data.get("primary_focus_area", ""),
+            "annual_budget": data.get("annual_budget"),
+            "custom_search_keywords": self._parse_json_field(data.get("custom_search_keywords", [])),
+        }
+        
+        # Add primary focus area to focus_areas if not already there
+        if profile["primary_focus_area"] and profile["primary_focus_area"] not in profile["focus_areas"]:
+            profile["focus_areas"].insert(0, profile["primary_focus_area"])
+        
+        return profile
+    
+    def _parse_json_field(self, field) -> List[str]:
+        """Parse a JSONB field that could be list, string, or None"""
+        if not field:
+            return []
+        if isinstance(field, list):
+            return [str(item) for item in field if item]
+        if isinstance(field, str):
+            try:
+                parsed = json.loads(field)
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed if item]
+            except json.JSONDecodeError:
+                return [field] if field else []
+        return []
+    
+    def _extract_funders_from_grants(self, previous_grants) -> List[str]:
+        """Extract funder names from previous_grants JSONB field"""
+        funders = []
+        grants = self._parse_json_field(previous_grants)
+        for grant in grants:
+            if isinstance(grant, dict):
+                funder = grant.get("funder") or grant.get("source") or grant.get("name")
+                if funder:
+                    funders.append(funder)
+            elif isinstance(grant, str):
+                funders.append(grant)
+        return funders
     
     def _parse_profile_md(self, content: str) -> Dict[str, Any]:
         """Parse PROFILE.md into structured data"""
