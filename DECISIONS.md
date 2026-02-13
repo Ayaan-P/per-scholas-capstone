@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-10
+# Last updated: 2026-02-13
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -82,9 +82,9 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] **GA4 Analytics** — Added GA4 tracking script to layout.tsx. Placeholder ID `G-FUNDFISH` — needs real measurement ID from Ayaan. Issue #31. ✅ 2026-02-02
 - [x] **GA4 — Real Measurement ID** — G-90C1JMVYN0 wired in commit b5d871b. Issue #31 closed. ✅ 2026-02-03
 - [x] **Polish existing features** — ✅ 2026-02-10. Auth fixes shipped, nav fixed, signup bug fixed, chat input polished, org profile auto-creation, agent auto-fill profile.
-- [ ] **Wire Qualification Agent (CRITICAL PATH)** — Agent reads scraped_grants → scores → writes org_grants. Unlock personalized dashboard.
-- [ ] **Update Dashboard Query** — Read from org_grants instead of scraped_grants. Show org-specific scores.
-- [ ] **Multi-Tenant Data Model (RESOLVED 2026-02-10)** — Architecture clarified: `scraped_grants` = global pool, `org_grants` = org-specific scores/status. No need for separate dismissals table - status lives in org_grants.
+- [x] **Wire Qualification Agent (CRITICAL PATH)** — ✅ 2026-02-13. Scoring agent can load org profiles from Supabase. `/api/my-grants` endpoint reads from `org_grants`. Issue #44 created for dashboard wiring.
+- [x] **Update Dashboard Query** — ✅ 2026-02-13. `/api/my-grants` endpoint added, reads from `org_grants` with fallback to `scraped_grants`. Dashboard needs to switch to this endpoint (Issue #44).
+- [x] **Multi-Tenant Data Model (RESOLVED 2026-02-10)** — Architecture clarified: `scraped_grants` = global pool, `org_grants` = org-specific scores/status. No need for separate dismissals table - status lives in org_grants.
 
 ## How to Work
 - For each approved item: **plan first** — break into subtask issues on GitHub, THEN implement.
@@ -127,3 +127,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Created workspace_files table migration (2026-02-12): Issue #43 created and migration file added. Table needed for tracking uploaded documents. Commit f5e32ed
 - [x] Fixed org profile lookup errors (2026-02-12): OrganizationMatchingService.get_organization_profile() no longer throws on missing users/orgs. Uses safe array access instead of .single(). Commit 6ed6c57
 - [x] Closed Issue #40 (2026-02-12): Gemini quota issue now obsolete — APScheduler disabled, scraping moved to Hetzner librarian
+- [x] Scoring agent Supabase profile loading (2026-02-13): ScoringAgent now loads org profiles from organization_config table instead of requiring filesystem PROFILE.md. Enables scoring to run on Render backend. Commit 92385ef
+- [x] /api/my-grants endpoint (2026-02-13): New endpoint reads pre-scored grants from org_grants table with fallback to scraped_grants. Includes dismiss endpoint. Issue #44 created for dashboard wiring. Commit 0665235
