@@ -177,6 +177,20 @@ export const api = {
       body: JSON.stringify({})
     }),
 
+  // My Grants (org-specific scored grants from qualification agent)
+  getMyGrants: async (params?: { status?: string; min_score?: number }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.min_score !== undefined) queryParams.append('min_score', params.min_score.toString())
+    return authenticatedFetch(`${API_BASE_URL}/api/my-grants?${queryParams.toString()}`)
+  },
+
+  dismissGrant: (grantId: string, reason?: string) =>
+    authenticatedFetch(`${API_BASE_URL}/api/my-grants/${grantId}/dismiss`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    }),
+
   getSchedulerStatus: () =>
     fetch(`${API_BASE_URL}/api/scheduler/status`),
 

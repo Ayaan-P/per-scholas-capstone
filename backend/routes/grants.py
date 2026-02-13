@@ -222,3 +222,179 @@ async def save_scraped_grant(grant_id: str, user_id: str = Depends(get_current_u
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start enhancement: {str(e)}")
+
+
+async def _get_user_org_id(user_id: str) -> Optional[int]:
+    """Get organization ID for authenticated user"""
+    try:
+        result = _supabase.table("users").select("organization_id").eq("id", user_id).limit(1).execute()
+        if result.data and result.data[0].get("organization_id"):
+            return int(result.data[0]["organization_id"])
+    except Exception as e:
+        print(f"[GET USER ORG] Error: {e}")
+    return None
+
+
+@router.get("/my-grants")
+async def get_my_grants(
+    status: Optional[str] = None,
+    min_score: Optional[int] = None,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Get grants scored for the user's organization (from org_grants table).
+    
+    This returns pre-computed qualification scores from the qualification agent.
+    Falls back to scraped_grants with on-the-fly scoring if no org_grants exist.
+    
+    Args:
+        status: Filter by status (active, dismissed, saved, applied, won, lost)
+        min_score: Minimum match score threshold (0-100)
+    """
+    try:
+        org_id = await _get_user_org_id(user_id)
+        
+        if not org_id:
+            # User has no org, fall back to generic grants
+            return await get_scraped_grants(user_id=user_id)
+        
+        # Try org_grants first (pre-computed scores)
+        query = _supabase.table("org_grants") \
+            .select("""
+                id,
+                grant_id,
+                status,
+                match_score,
+                llm_summary,
+                match_reasoning,
+                key_tags,
+                effort_estimate,
+                winning_strategies,
+                scored_at,
+                scraped_grants (
+                    id,
+                    opportunity_id,
+                    title,
+                    funder,
+                    agency,
+                    amount,
+                    amount_min,
+                    amount_max,
+                    deadline,
+                    description,
+                    eligibility,
+                    requirements,
+                    application_url,
+                    source,
+                    created_at,
+                    updated_at,
+                    posted_date,
+                    category_id
+                )
+            """) \
+            .eq("org_id", org_id)
+        
+        # Apply filters
+        if status:
+            query = query.eq("status", status)
+        else:
+            # Default: show active (not dismissed)
+            query = query.neq("status", "dismissed")
+        
+        if min_score is not None:
+            query = query.gte("match_score", min_score)
+        
+        # Order by score descending
+        query = query.order("match_score", desc=True)
+        
+        result = query.execute()
+        org_grants = result.data or []
+        
+        if org_grants:
+            # Transform to flat grant format for frontend compatibility
+            grants = []
+            for og in org_grants:
+                grant_data = og.get("scraped_grants", {})
+                if not grant_data:
+                    continue
+                
+                # Merge org_grants data with scraped_grants data
+                grant = {
+                    **grant_data,
+                    "match_score": og.get("match_score", 0),
+                    "match_reasoning": og.get("match_reasoning"),
+                    "llm_summary": og.get("llm_summary"),
+                    "key_tags": og.get("key_tags", []),
+                    "effort_estimate": og.get("effort_estimate"),
+                    "winning_strategies": og.get("winning_strategies", []),
+                    "org_status": og.get("status"),
+                    "scored_at": og.get("scored_at"),
+                    "org_grant_id": og.get("id"),
+                }
+                grants.append(grant)
+            
+            return {
+                "grants": grants,
+                "count": len(grants),
+                "org_id": org_id,
+                "source": "org_grants",
+                "personalized": True
+            }
+        
+        # No org_grants yet, fall back to scraped_grants with on-the-fly scoring
+        print(f"[MY GRANTS] No org_grants for org {org_id}, falling back to scraped_grants")
+        return await get_scraped_grants(user_id=user_id)
+        
+    except Exception as e:
+        print(f"[MY GRANTS] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch grants: {str(e)}")
+
+
+@router.post("/my-grants/{grant_id}/dismiss")
+async def dismiss_grant(
+    grant_id: str,
+    reason: Optional[str] = None,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Dismiss a grant from the user's dashboard.
+    
+    Updates the org_grants status to 'dismissed' so it won't show up again.
+    """
+    try:
+        org_id = await _get_user_org_id(user_id)
+        
+        if not org_id:
+            raise HTTPException(status_code=400, detail="User has no organization")
+        
+        # Update org_grants status
+        result = _supabase.table("org_grants") \
+            .update({
+                "status": "dismissed",
+                "dismissed_at": datetime.now().isoformat(),
+                "dismissed_by": user_id,
+                "dismissed_reason": reason
+            }) \
+            .eq("org_id", org_id) \
+            .eq("grant_id", grant_id) \
+            .execute()
+        
+        if not result.data:
+            # Grant not in org_grants yet, create dismissed entry
+            _supabase.table("org_grants").insert({
+                "org_id": org_id,
+                "grant_id": grant_id,
+                "status": "dismissed",
+                "dismissed_at": datetime.now().isoformat(),
+                "dismissed_by": user_id,
+                "dismissed_reason": reason,
+                "match_score": 0
+            }).execute()
+        
+        return {"status": "dismissed", "grant_id": grant_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DISMISS GRANT] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to dismiss grant: {str(e)}")
