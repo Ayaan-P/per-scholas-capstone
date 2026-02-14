@@ -62,9 +62,9 @@ export default function Dashboard() {
   const [selectedCategories, setSelectedCategories] = useState<Set<number>>(new Set())
 
   useEffect(() => {
-    fetchGrants()
+    fetchGrants(isAuthenticated)
     fetchCategories()
-  }, [])
+  }, [isAuthenticated])
 
   // Update sort defaults based on auth status
   useEffect(() => {
@@ -117,10 +117,13 @@ export default function Dashboard() {
     return value ? formatDate(value) : '—'
   }
 
-  const fetchGrants = async () => {
+  const fetchGrants = async (authenticated: boolean) => {
     try {
       setLoading(true)
-      const response = await api.getScrapedGrants()
+      // Use org-specific scored grants for authenticated users, global pool for anonymous
+      const response = authenticated 
+        ? await api.getMyGrants()
+        : await api.getScrapedGrants()
 
       if (response.ok) {
         const data = await response.json()
