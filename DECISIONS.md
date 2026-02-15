@@ -48,6 +48,14 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 
 ## Approved — Investigate ASAP
 
+### Render Deploys Failing (Issue #45)
+- **Priority:** CRITICAL
+- **Status:** 🔴 BLOCKING
+- **Discovered:** 2026-02-15
+- **Details:** All Render deploys failing immediately (within 2 seconds) since 2026-02-12. Backend running old code from commit 6ed6c57. The `/api/my-grants` endpoint and dashboard wiring are not deployed.
+- **Impact:** No new backend features deploying. Blocks Issue #44 resolution.
+- **Action Required:** Check Render dashboard for error details, verify billing status, contact Render support if needed.
+
 ### Claude API Key Invalid (Issue #42)
 - **Priority:** HIGH
 - **Status:** 🔴 BLOCKING
