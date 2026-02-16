@@ -144,3 +144,4 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Scoring agent Supabase profile loading (2026-02-13): ScoringAgent now loads org profiles from organization_config table instead of requiring filesystem PROFILE.md. Enables scoring to run on Render backend. Commit 92385ef
 - [x] /api/my-grants endpoint (2026-02-13): New endpoint reads pre-scored grants from org_grants table with fallback to scraped_grants. Includes dismiss endpoint. Issue #44 created for dashboard wiring. Commit 0665235
 - [x] Dashboard wired to /api/my-grants (2026-02-14): Dashboard now uses getMyGrants() for authenticated users, displaying org-specific scored grants. Issue #44 CLOSED. Commit 4858a2f
+- [x] Improved chat error handling (2026-02-16): Better error messages for agent unavailability (500s) and connection issues. Helps users understand temporary outages. Commit 71ab64f
