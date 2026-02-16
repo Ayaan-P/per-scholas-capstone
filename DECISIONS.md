@@ -48,13 +48,10 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 
 ## Approved — Investigate ASAP
 
-### Render Deploys Failing (Issue #45)
-- **Priority:** CRITICAL
-- **Status:** 🔴 BLOCKING
-- **Discovered:** 2026-02-15
-- **Details:** All Render deploys failing immediately (within 2 seconds) since 2026-02-12. Backend running old code from commit 6ed6c57. The `/api/my-grants` endpoint and dashboard wiring are not deployed.
-- **Impact:** No new backend features deploying. Blocks Issue #44 resolution.
-- **Action Required:** Check Render dashboard for error details, verify billing status, contact Render support if needed.
+### ✅ Render Deploys Fixed (Issue #45 CLOSED 2026-02-16)
+- **Priority:** CRITICAL → RESOLVED
+- **Status:** ✅ FIXED
+- **Resolution:** Verified working 2026-02-16. The `/api/my-grants` endpoint responds correctly, confirming commits through 4858a2f are deployed. Whatever caused the 2026-02-12 failures has been resolved.
 
 ### Claude API Key Invalid (Issue #42)
 - **Priority:** HIGH
@@ -62,6 +59,15 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - **Discovered:** 2026-02-10
 - **Details:** The ANTHROPIC_API_KEY in Render is invalid. AI state/local scraper is completely broken (0 grants found). Proposal generation using Claude is also affected.
 - **Fix Required:** Verify/regenerate API key at console.anthropic.com and update in Render environment variables.
+
+### Hetzner Agent Bridge OAuth Failing (NEW 2026-02-16)
+- **Priority:** HIGH
+- **Status:** 🔴 BLOCKING CHAT
+- **Discovered:** 2026-02-16 (logs show errors from 2026-02-15)
+- **Details:** The Hetzner agent bridge is failing with "OAuth token refresh failed for anthropic" errors. This affects the chat interface - users see 500 errors when trying to chat with their agent.
+- **Error:** `Error: All models failed (2): anthropic/claude-haiku-4-5: OAuth token refresh failed... | anthropic/claude-opus-4-5: OAuth token refresh failed...`
+- **Impact:** Chat is broken for all users. Agents can't respond.
+- **Action Required:** Re-authenticate Clawdbot on Hetzner for anthropic OAuth. Check Hetzner agent-api logs for details.
 
 ### Backend Scheduler Not Producing New Grants
 - **Priority:** High

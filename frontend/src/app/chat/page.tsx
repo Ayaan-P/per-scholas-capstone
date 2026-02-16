@@ -158,13 +158,31 @@ export default function ChatPage() {
           timestamp: new Date()
         }])
       } else {
-        throw new Error('Request failed')
+        // Try to get error details from response
+        let errorDetail = 'Request failed'
+        try {
+          const errorData = await response.json()
+          if (errorData.detail) errorDetail = errorData.detail
+          if (errorData.error) errorDetail = errorData.error
+        } catch {
+          // Couldn't parse error response
+        }
+        throw new Error(`${response.status}: ${errorDetail}`)
       }
     } catch (error) {
+      // Provide more specific error messages
+      let errorMessage = "Something went wrong. Please try again."
+      if (error instanceof Error) {
+        if (error.message.includes('500') || error.message.includes('agent')) {
+          errorMessage = "The AI agent is temporarily unavailable. Our team has been notified. Please try again in a few minutes."
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Unable to reach the server. Please check your connection and try again."
+        }
+      }
       setMessages(prev => [...prev, {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: "Something went wrong. Please try again.",
+        content: errorMessage,
         timestamp: new Date()
       }])
     } finally {
