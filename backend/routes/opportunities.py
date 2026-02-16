@@ -153,11 +153,59 @@ async def get_job_status(job_id: str, user_id: str = Depends(get_current_user)):
 
 @router.get("/api/opportunities")
 async def get_opportunities(user_id: str = Depends(get_current_user)):
-    """Get user's saved opportunities from database (with RLS isolation)"""
+    """Get qualified opportunities from org_grants joined with scraped_grants"""
     try:
-        # Use admin client to bypass RLS, then filter by authenticated user_id for security
-        result = _supabase_admin.table("saved_opportunities").select("*").eq("user_id", user_id).order("saved_at", desc=True).execute()
-        return {"opportunities": result.data}
+        # For Per Scholas demo, use org_id=15
+        # TODO: Look up org_id from user_id via organization_config.owner_id
+        org_id = 15
+        
+        # Query org_grants for this org (qualified grants)
+        org_grants_result = _supabase_admin.table("org_grants").select("*").eq("org_id", org_id).eq("status", "active").order("match_score", desc=True).execute()
+        
+        if not org_grants_result.data:
+            return {"opportunities": []}
+        
+        # Get grant_ids to fetch full grant details
+        grant_ids = [og["grant_id"] for og in org_grants_result.data]
+        
+        # Fetch full grant details from scraped_grants
+        grants_result = _supabase_admin.table("scraped_grants").select("*").in_("id", grant_ids).execute()
+        grants_by_id = {g["id"]: g for g in (grants_result.data or [])}
+        
+        # Merge org_grants scoring with scraped_grants details
+        opportunities = []
+        for og in org_grants_result.data:
+            grant = grants_by_id.get(og["grant_id"], {})
+            if grant:
+                opportunity = {
+                    "id": og["id"],
+                    "opportunity_id": og["grant_id"],
+                    "title": grant.get("title", "Unknown"),
+                    "funder": grant.get("funder", "Unknown"),
+                    "amount": grant.get("amount", 0),
+                    "deadline": grant.get("deadline"),
+                    "description": grant.get("description", ""),
+                    "requirements": grant.get("requirements", []),
+                    "contact": grant.get("contact", ""),
+                    "application_url": grant.get("application_url", ""),
+                    "source": grant.get("source", ""),
+                    "match_score": og.get("match_score", 0),
+                    "match_reasoning": og.get("match_reasoning", ""),
+                    "llm_summary": og.get("llm_summary"),
+                    "created_at": og.get("created_at"),
+                    "scored_at": og.get("scored_at"),
+                    # Additional grant fields
+                    "contact_name": grant.get("contact_name"),
+                    "contact_phone": grant.get("contact_phone"),
+                    "eligibility_explanation": grant.get("eligibility_explanation"),
+                    "award_floor": grant.get("award_floor"),
+                    "award_ceiling": grant.get("award_ceiling"),
+                    "geographic_focus": grant.get("geographic_focus"),
+                    "award_type": grant.get("award_type"),
+                }
+                opportunities.append(opportunity)
+        
+        return {"opportunities": opportunities}
     except Exception as e:
         print(f"[GET OPPORTUNITIES] Error: {e}")
         # Fallback to empty list if database unavailable
