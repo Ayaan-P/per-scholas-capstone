@@ -145,3 +145,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] /api/my-grants endpoint (2026-02-13): New endpoint reads pre-scored grants from org_grants table with fallback to scraped_grants. Includes dismiss endpoint. Issue #44 created for dashboard wiring. Commit 0665235
 - [x] Dashboard wired to /api/my-grants (2026-02-14): Dashboard now uses getMyGrants() for authenticated users, displaying org-specific scored grants. Issue #44 CLOSED. Commit 4858a2f
 - [x] Improved chat error handling (2026-02-16): Better error messages for agent unavailability (500s) and connection issues. Helps users understand temporary outages. Commit 71ab64f
+- [x] OG image for social sharing (2026-02-17): Added dynamic OG/Twitter images using Next.js ImageResponse API. Branded 1200x630 card with logo, tagline, features. Issue #30 CLOSED. Commit f0f63e5
+- [x] Created Issue #46 for agent onboarding org auto-create bug (2026-02-17): When users onboard via chat instead of web, no org gets created. Discovered in BACKLOG.md.
