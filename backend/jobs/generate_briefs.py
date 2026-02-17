@@ -99,7 +99,8 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
         
         print(f"[BRIEF] Selected {len(top_grants)} grants for org {org_id}")
         for i, g in enumerate(top_grants, 1):
-            print(f"  {i}. {g['title']} ({g['match_score']}% match, ${g['amount']:,})")
+            amount = g['amount'] or 0
+            print(f"  {i}. {g['title']} ({g['match_score']}% match, ${amount:,})")
         
         # Send email
         result = await email_service.send_morning_brief(
