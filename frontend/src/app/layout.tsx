@@ -27,14 +27,16 @@ export default function RootLayout({
           <meta property="og:url" content="https://fundfish.pro" />
           <meta property="og:title" content="FundFish | AI Fundraising for Nonprofits" />
           <meta property="og:description" content="AI-powered grant discovery, proposal writing, and fundraising intelligence for nonprofits. Find funding faster with FundFish." />
-          <meta property="og:image" content="https://fundfish.pro/logo.png" />
+          <meta property="og:image" content="https://fundfish.pro/opengraph-image" />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
           <meta property="og:site_name" content="FundFish" />
 
           {/* Twitter Card */}
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="FundFish | AI Fundraising for Nonprofits" />
           <meta name="twitter:description" content="AI-powered grant discovery, proposal writing, and fundraising intelligence for nonprofits." />
-          <meta name="twitter:image" content="https://fundfish.pro/logo.png" />
+          <meta name="twitter:image" content="https://fundfish.pro/twitter-image" />
 
           <link rel="icon" href="/logo.png" />
           <link rel="apple-touch-icon" href="/logo.png" />
