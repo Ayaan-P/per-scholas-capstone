@@ -125,6 +125,150 @@ async def workspace_status(user_id: str = Depends(get_current_user)):
     }
 
 
+@router.post("/ensure-org")
+async def ensure_organization(
+    request: EnsureOrgRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Ensure an organization exists for the authenticated user.
+    Creates org + user records if missing. Used by agent for chat-based onboarding.
+    
+    Issue #46: Users who onboard via agent chat (not web) don't have orgs created.
+    This endpoint fixes that by allowing the agent to create the org during conversation.
+    """
+    import httpx
+    from credits_service import CreditsService
+    
+    headers = {
+        "Authorization": f"Bearer {_supabase_service_role_key}",
+        "apikey": _supabase_service_role_key,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    
+    # Check if user already has an organization
+    with httpx.Client() as client:
+        user_url = f"{_supabase_url}/rest/v1/users?select=organization_id,email&id=eq.{user_id}"
+        user_response = client.get(user_url, headers=headers)
+    
+    if user_response.status_code == 200:
+        user_data = user_response.json()
+        if user_data and user_data[0].get("organization_id"):
+            # User already has an org - optionally update it if params provided
+            org_id = user_data[0]["organization_id"]
+            
+            if request.name or request.mission:
+                update_data = {}
+                if request.name:
+                    update_data["name"] = request.name
+                if request.mission:
+                    update_data["mission"] = request.mission
+                
+                with httpx.Client() as client:
+                    client.patch(
+                        f"{_supabase_url}/rest/v1/organization_config?id=eq.{org_id}",
+                        headers=headers,
+                        json=update_data
+                    )
+            
+            return {
+                "status": "exists",
+                "org_id": org_id,
+                "message": "Organization already exists"
+            }
+    
+    # User doesn't exist or has no org - create everything
+    print(f"[ENSURE-ORG] Creating org for user {user_id}")
+    
+    # Get email from Supabase auth (if available)
+    email = "user@fundfish.pro"
+    try:
+        # Try to get user email from Supabase auth.users via admin API
+        with httpx.Client() as client:
+            auth_url = f"{_supabase_url}/auth/v1/admin/users/{user_id}"
+            auth_response = client.get(auth_url, headers={
+                "Authorization": f"Bearer {_supabase_service_role_key}",
+                "apikey": _supabase_service_role_key
+            })
+            if auth_response.status_code == 200:
+                auth_data = auth_response.json()
+                email = auth_data.get("email", email)
+    except Exception as e:
+        print(f"[ENSURE-ORG] Could not fetch email: {e}")
+    
+    # Create organization
+    org_data = {
+        "name": request.name or "My Organization",
+        "mission": request.mission or "",
+        "focus_areas": [],
+        "impact_metrics": {},
+        "programs": [],
+        "target_demographics": [],
+        "owner_id": user_id
+    }
+    
+    with httpx.Client() as client:
+        org_response = client.post(
+            f"{_supabase_url}/rest/v1/organization_config",
+            headers=headers,
+            json=org_data
+        )
+    
+    if org_response.status_code not in [200, 201]:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to create organization: {org_response.text}"
+        )
+    
+    org_result = org_response.json()
+    org_id = org_result[0].get("id") if org_result else None
+    
+    if not org_id:
+        raise HTTPException(status_code=500, detail="Failed to get organization ID")
+    
+    # Create user record
+    user_record = {
+        "id": user_id,
+        "email": email,
+        "organization_id": org_id,
+        "role": "admin"
+    }
+    
+    with httpx.Client() as client:
+        user_insert = client.post(
+            f"{_supabase_url}/rest/v1/users",
+            headers=headers,
+            json=user_record
+        )
+    
+    if user_insert.status_code not in [200, 201]:
+        print(f"[ENSURE-ORG] Warning: User insert returned {user_insert.status_code}")
+    
+    # Initialize credits
+    try:
+        CreditsService.initialize_user_credits(user_id, plan="free")
+    except Exception as e:
+        print(f"[ENSURE-ORG] Credits init warning: {e}")
+    
+    # Initialize workspace
+    try:
+        ws = get_workspace_service()
+        ws.init_workspace(org_id)
+        ws.sync_profile_from_db(org_id, org_data)
+    except Exception as e:
+        print(f"[ENSURE-ORG] Workspace init warning: {e}")
+    
+    print(f"[ENSURE-ORG] Created org {org_id} for user {user_id}")
+    
+    return {
+        "status": "created",
+        "org_id": org_id,
+        "message": "Organization created successfully",
+        "name": request.name or "My Organization"
+    }
+
+
 @router.post("/sync-profile")
 async def sync_profile(user_id: str = Depends(get_current_user)):
     """Sync organization profile from database to workspace"""
@@ -154,6 +298,12 @@ async def sync_profile(user_id: str = Depends(get_current_user)):
     ws.sync_profile_from_db(org_id, org_config)
     
     return {"status": "success", "message": "Profile synced to workspace"}
+
+
+class EnsureOrgRequest(BaseModel):
+    """Request model for ensuring organization exists (agent onboarding)"""
+    name: Optional[str] = None
+    mission: Optional[str] = None
 
 
 class UpdateProfileRequest(BaseModel):
