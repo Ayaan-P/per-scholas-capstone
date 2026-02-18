@@ -149,3 +149,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Created Issue #46 for agent onboarding org auto-create bug (2026-02-17): When users onboard via chat instead of web, no org gets created. Discovered in BACKLOG.md.
 - [x] Agent onboarding org auto-create endpoint (2026-02-18): Added `POST /api/workspace/ensure-org` endpoint. Creates organization_config + users records if missing. Agent can call this during first conversation. Commit add1dcc. Issue #46 addressed (agent-side integration still needed).
 - [x] Created Issue #47 for context window optimization (2026-02-18): Research-backed enhancement - as orgs add more documents, agent context grows and personalization effectiveness degrades (attention dilution). Future optimization.
+- [x] Fixed Pydantic model ordering crash (2026-02-18): EnsureOrgRequest/UpdateProfileRequest were defined AFTER the endpoints that used them, causing NameError on backend startup. Commit 837f143.
+- [x] Fixed session endpoint temp-org fallback (2026-02-18): Session list/get/add endpoints now handle users without orgs (temp-{user_id} pattern), consistent with chat endpoints. Fixes 400 errors for new users. Commit 290e83a.
