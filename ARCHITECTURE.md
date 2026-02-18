@@ -41,9 +41,16 @@
 | Chat Agent | `ff-{org_id}` | Handles user chat sessions |
 
 #### Key Files on Hetzner:
-- `/home/dytto-agent/workspaces/fundfishmain/` — Librarian workspace
-- `/home/dytto-agent/workspaces/fundfishmain/TOOLS.md` — Librarian tools (includes supabase-grants.sh)
-- `/home/dytto-agent/workspaces/ff-{org_id}/` — Per-org chat agent workspaces
+- `/home/dytto-agent/workspaces/lib-fundfishmain/` — Librarian workspace
+  - `TOOLS.md` — Database CRUD instructions
+  - `supabase-grants.sh` — Script to insert/upsert grants
+  - `send-email.sh` — Resend API wrapper (has RESEND_API_KEY)
+  - `.env` — Supabase credentials
+- `/home/dytto-agent/workspaces/ff-{org_name}/` — Per-org agent workspaces
+  - `TOOLS.md` — Grant querying + scoring + email tools
+  - `send-email.sh` — Copy of email script
+  - `.env` — Supabase credentials
+  - `USER.md` — Org ID and context
 
 ### 2. Render (per-scholas-capstone)
 
@@ -106,26 +113,23 @@ Invoke Librarian Agent (fundfishmain)
 ### Grant Qualification (After Discovery)
 
 ```
-qualify-grants.sh (local script)
-    │
-    ▼
-For each org in organization_config:
-    │
-    ▼
-Invoke Librarian Agent with qualification task
+Org's Personal Agent (ff-{org_name} on Hetzner)
     │
     ├── Query scraped_grants (last 24h)
+    ├── Read org profile from USER.md or organization_config
     ├── Score each grant against org profile
-    └── Write to org_grants with:
-        - match_score (0-100)
-        - match_reasoning (why it fits)
-        - llm_summary (what the grant funds + amount)
-        - key_tags (keywords)
-        - effort_estimate (low/medium/high)
-        - winning_strategies (tips)
+    ├── Write to org_grants with:
+    │   - match_score (0-100)
+    │   - match_reasoning (why it fits)
+    │   - llm_summary (what the grant funds + amount)
+    │   - key_tags (keywords)
+    │   - effort_estimate (low/medium/high)
+    │   - winning_strategies (tips)
+    └── If good matches found → send morning brief via send-email.sh
 ```
 
-**Script:** `~/clawd/agents/fundfish-qualifier/qualify-grants.sh`
+**Tools:** `/home/dytto-agent/workspaces/ff-{org}/TOOLS.md`
+**Email:** `/home/dytto-agent/workspaces/ff-{org}/send-email.sh`
 
 ### Morning Brief (8 AM EST Daily)
 
