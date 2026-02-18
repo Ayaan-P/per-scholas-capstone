@@ -21,7 +21,7 @@ from typing import List, Dict, Any, Optional
 from credits_service import CreditsService
 from credits_routes import router as credits_router
 # Route modules (Issue #37 - splitting main.py)
-from routes.health import router as health_router, set_scheduler_service as set_health_scheduler
+from routes.health import router as health_router, set_scheduler_service as set_health_scheduler, set_brief_scheduler as set_health_brief_scheduler
 from routes.categories import router as categories_router
 from routes.scheduler import router as scheduler_router, set_dependencies as set_scheduler_deps
 from routes.dashboard import router as dashboard_router, set_dependencies as set_dashboard_deps
@@ -38,6 +38,8 @@ import json
 from supabase import create_client, Client
 import google.generativeai as genai
 from scheduler_service import SchedulerService
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 import PyPDF2
 import httpx
 
@@ -350,6 +352,7 @@ except Exception as e:
 
 # Initialize scheduler service (will start on app startup)
 scheduler_service = None
+brief_scheduler = None  # Lightweight scheduler for morning briefs only
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -576,12 +579,52 @@ async def startup_event():
     # Feedback routes (adaptive learning)
     set_feedback_deps(supabase)
     print("[STARTUP] Opportunities routes configured")
+    
+    # Morning brief scheduler (lightweight, runs daily at 8 AM EST)
+    global brief_scheduler
+    brief_scheduler = AsyncIOScheduler(timezone='America/New_York')
+    
+    async def run_morning_briefs():
+        """Generate and send morning briefs to all active orgs"""
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        print(f"[BRIEF] Starting morning brief generation at {datetime.now()}")
+        script_path = Path(__file__).parent / "jobs" / "generate_briefs.py"
+        
+        try:
+            result = subprocess.run(
+                [sys.executable, str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 min timeout
+                env={**os.environ}  # Pass current env vars including RESEND_API_KEY
+            )
+            print(f"[BRIEF] Output: {result.stdout}")
+            if result.stderr:
+                print(f"[BRIEF] Errors: {result.stderr}")
+        except Exception as e:
+            print(f"[BRIEF] Failed: {e}")
+    
+    brief_scheduler.add_job(
+        run_morning_briefs,
+        trigger=CronTrigger(hour=8, minute=0),  # 8 AM EST
+        id='morning_briefs_job',
+        name='Send Morning Briefs',
+        replace_existing=True
+    )
+    brief_scheduler.start()
+    set_health_brief_scheduler(brief_scheduler)
+    print("[STARTUP] Morning brief scheduler started (daily at 8 AM EST)")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Stop scheduler on shutdown"""
+    """Stop schedulers on shutdown"""
     if scheduler_service:
         scheduler_service.stop()
+    if brief_scheduler:
+        brief_scheduler.shutdown()
 
 # Health and scheduler routes moved to routes/health.py and routes/scheduler.py (Issue #37)
 # Opportunities routes (search, jobs, save, feedback, dismiss) moved to routes/opportunities.py (Issue #37)

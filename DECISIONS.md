@@ -90,6 +90,23 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
   - **AI state/local scraper will resume** once the fix deploys — the `opportunity_categories` table has 5 categories ready.
 
 ## Approved — Do These
+
+### Build Dev Blog (NEW 2026-02-18)
+- **Priority:** Medium
+- **Status:** 🟡 TODO
+- **Why:** FundFish already ranks for brand name. Blog content targeting grant/nonprofit keywords will capture organic traffic.
+- **Scope:**
+  1. Create `/blog` route in Next.js frontend
+  2. Blog index page (list of posts, sorted by date)
+  3. Individual post pages (render markdown from `blog/` directory)
+  4. Basic styling consistent with site
+  5. Optional: RSS feed for extra SEO
+- **Content:** Blog posts live in `/blog/*.md` with front matter (title, date, tags, description)
+- **First post:** The "3000 lines to 600" refactor story — already drafted
+- **Approved by:** Ayaan (2026-02-18)
+
+---
+
 - [x] **Verify site status** — fundfish.pro returns HTTP 200, served by Netlify. ✅ 2026-01-31
 - [x] **API security** — Audited all endpoints, found 13 without auth, fixed all. Issue #27, commit c07d455. ✅ 2026-01-31
 - [x] **Landing page** — Built full landing page (hero, features, CTA, footer). Issue #28, commit 532a9d8. ✅ 2026-01-31
