@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-13
+# Last updated: 2026-02-18
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -147,3 +147,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Improved chat error handling (2026-02-16): Better error messages for agent unavailability (500s) and connection issues. Helps users understand temporary outages. Commit 71ab64f
 - [x] OG image for social sharing (2026-02-17): Added dynamic OG/Twitter images using Next.js ImageResponse API. Branded 1200x630 card with logo, tagline, features. Issue #30 CLOSED. Commit f0f63e5
 - [x] Created Issue #46 for agent onboarding org auto-create bug (2026-02-17): When users onboard via chat instead of web, no org gets created. Discovered in BACKLOG.md.
+- [x] Agent onboarding org auto-create endpoint (2026-02-18): Added `POST /api/workspace/ensure-org` endpoint. Creates organization_config + users records if missing. Agent can call this during first conversation. Commit add1dcc. Issue #46 addressed (agent-side integration still needed).
+- [x] Created Issue #47 for context window optimization (2026-02-18): Research-backed enhancement - as orgs add more documents, agent context grows and personalization effectiveness degrades (attention dilution). Future optimization.
