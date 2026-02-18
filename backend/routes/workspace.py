@@ -54,6 +54,27 @@ class SaveGrantRequest(BaseModel):
     grant_data: Dict[str, Any]
 
 
+class EnsureOrgRequest(BaseModel):
+    """Request model for ensuring organization exists (agent onboarding)"""
+    name: Optional[str] = None
+    mission: Optional[str] = None
+
+
+class UpdateProfileRequest(BaseModel):
+    """Request model for updating organization profile from agent"""
+    name: Optional[str] = None
+    mission: Optional[str] = None
+    focus_areas: Optional[List[str]] = None
+    impact_metrics: Optional[Dict[str, Any]] = None
+    programs: Optional[List[str]] = None
+    target_demographics: Optional[List[str]] = None
+    website_url: Optional[str] = None
+    contact_email: Optional[str] = None
+    annual_budget: Optional[int] = None
+    staff_size: Optional[int] = None
+    service_regions: Optional[List[str]] = None
+
+
 # ============================================
 # Helper Functions
 # ============================================
@@ -298,28 +319,6 @@ async def sync_profile(user_id: str = Depends(get_current_user)):
     ws.sync_profile_from_db(org_id, org_config)
     
     return {"status": "success", "message": "Profile synced to workspace"}
-
-
-class EnsureOrgRequest(BaseModel):
-    """Request model for ensuring organization exists (agent onboarding)"""
-    name: Optional[str] = None
-    mission: Optional[str] = None
-
-
-class UpdateProfileRequest(BaseModel):
-    """Request model for updating organization profile from agent"""
-    name: Optional[str] = None
-    mission: Optional[str] = None
-    focus_areas: Optional[List[str]] = None
-    impact_metrics: Optional[Dict[str, Any]] = None
-    programs: Optional[List[str]] = None
-    target_demographics: Optional[List[str]] = None
-    website_url: Optional[str] = None
-    contact_email: Optional[str] = None
-    annual_budget: Optional[int] = None
-    staff_size: Optional[int] = None
-    service_regions: Optional[List[str]] = None
-    # Add any other fields the agent might want to update
 
 
 @router.post("/update-profile-from-agent")
