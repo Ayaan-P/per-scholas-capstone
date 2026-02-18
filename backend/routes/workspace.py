@@ -401,7 +401,13 @@ async def list_sessions(
     user_id: str = Depends(get_current_user)
 ):
     """List recent sessions"""
-    org_id = await get_user_org_id(user_id)
+    try:
+        org_id = await get_user_org_id(user_id)
+    except HTTPException as e:
+        if e.status_code == 400 and "no organization" in str(e.detail).lower():
+            org_id = f"temp-{user_id}"
+        else:
+            raise
     ws = get_workspace_service()
     
     sessions = ws.list_sessions(org_id, limit)
@@ -414,7 +420,13 @@ async def get_session(
     user_id: str = Depends(get_current_user)
 ):
     """Get session history"""
-    org_id = await get_user_org_id(user_id)
+    try:
+        org_id = await get_user_org_id(user_id)
+    except HTTPException as e:
+        if e.status_code == 400 and "no organization" in str(e.detail).lower():
+            org_id = f"temp-{user_id}"
+        else:
+            raise
     ws = get_workspace_service()
     
     history = ws.get_session_history(org_id, session_id)
@@ -431,7 +443,13 @@ async def add_message(
     user_id: str = Depends(get_current_user)
 ):
     """Add a message to session history"""
-    org_id = await get_user_org_id(user_id)
+    try:
+        org_id = await get_user_org_id(user_id)
+    except HTTPException as e:
+        if e.status_code == 400 and "no organization" in str(e.detail).lower():
+            org_id = f"temp-{user_id}"
+        else:
+            raise
     ws = get_workspace_service()
     
     success = ws.append_to_session(org_id, session_id, message.role, message.content)
