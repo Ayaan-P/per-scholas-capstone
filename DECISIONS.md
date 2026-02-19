@@ -91,18 +91,19 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 
 ## Approved — Do These
 
-### Build Dev Blog (NEW 2026-02-18)
+### ✅ Build Dev Blog (2026-02-19)
 - **Priority:** Medium
-- **Status:** 🟡 TODO
+- **Status:** ✅ DONE
 - **Why:** FundFish already ranks for brand name. Blog content targeting grant/nonprofit keywords will capture organic traffic.
 - **Scope:**
-  1. Create `/blog` route in Next.js frontend
-  2. Blog index page (list of posts, sorted by date)
-  3. Individual post pages (render markdown from `blog/` directory)
-  4. Basic styling consistent with site
+  1. ✅ Create `/blog` route in Next.js frontend
+  2. ✅ Blog index page (list of posts, sorted by date)
+  3. ✅ Individual post pages (render markdown from `blog/` directory)
+  4. ✅ Basic styling consistent with site
   5. Optional: RSS feed for extra SEO
 - **Content:** Blog posts live in `/blog/*.md` with front matter (title, date, tags, description)
-- **First post:** The "3000 lines to 600" refactor story — already drafted
+- **First post:** ✅ "How We Refactored 3,000 Lines of Code to 600" published
+- **Completed:** 2026-02-19, commit 47c7508
 - **Approved by:** Ayaan (2026-02-18)
 
 ---
@@ -168,3 +169,4 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Created Issue #47 for context window optimization (2026-02-18): Research-backed enhancement - as orgs add more documents, agent context grows and personalization effectiveness degrades (attention dilution). Future optimization.
 - [x] Fixed Pydantic model ordering crash (2026-02-18): EnsureOrgRequest/UpdateProfileRequest were defined AFTER the endpoints that used them, causing NameError on backend startup. Commit 837f143.
 - [x] Fixed session endpoint temp-org fallback (2026-02-18): Session list/get/add endpoints now handle users without orgs (temp-{user_id} pattern), consistent with chat endpoints. Fixes 400 errors for new users. Commit 290e83a.
+- [x] Dev blog launched (2026-02-19): Created `/blog` route with markdown rendering, blog index, individual post pages. First post: "How We Refactored 3,000 Lines of Code to 600". Added gray-matter for front matter parsing. Updated Header nav + sitemap. Commit 47c7508.
