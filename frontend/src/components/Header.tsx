@@ -67,6 +67,16 @@ export function Header() {
                 Agent
               </Link>
             )}
+            <Link
+              href="/blog"
+              className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                isActive('/blog')
+                  ? 'bg-perscholas-primary text-white shadow-md'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-perscholas-primary'
+              }`}
+            >
+              Blog
+            </Link>
           </nav>
 
           {/* Auth Actions */}
@@ -166,6 +176,17 @@ export function Header() {
                   </Link>
                 </>
               )}
+              <Link
+                href="/blog"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                  isActive('/blog')
+                    ? 'text-blue-600 font-bold bg-blue-50'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                Blog
+              </Link>
             {isAuthenticated ? (
                 <>
                   <div className="px-4 py-2 text-sm text-gray-600 border-t border-gray-200 mt-2">
