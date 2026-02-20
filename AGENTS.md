@@ -40,3 +40,9 @@ render logs -r srv-d5kejlvgi27c739pl6ag --level error --output text
 - **Stack:** Docker on Render
 - **Deploy:** Push to main → auto-deploy
 - **Decisions:** See `DECISIONS.md` for priorities
+
+## WhatsApp
+- **Always use E.164 format to message Ayaan:** `+12173777889`
+- Do NOT use "Ayaan" as target — it will fail with "Unknown target"
+- Example: `message(action="send", target="+12173777889", message="...")`
+
