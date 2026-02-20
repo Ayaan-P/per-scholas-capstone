@@ -29,9 +29,22 @@ export default function BlogPage() {
       <div className="max-w-4xl mx-auto px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
-            Dev Blog
-          </h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900">
+              Dev Blog
+            </h1>
+            <Link
+              href="/blog/feed.xml"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+              title="Subscribe to RSS feed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="6.18" cy="17.82" r="2.18"/>
+                <path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/>
+              </svg>
+              RSS
+            </Link>
+          </div>
           <p className="text-xl text-gray-600">
             Building AI-powered fundraising for nonprofits. Technical insights, learnings, and updates.
           </p>

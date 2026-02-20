@@ -41,6 +41,9 @@ export default function RootLayout({
           <link rel="icon" href="/logo.png" />
           <link rel="apple-touch-icon" href="/logo.png" />
 
+          {/* RSS Feed */}
+          <link rel="alternate" type="application/rss+xml" title="FundFish Dev Blog" href="/blog/feed.xml" />
+
           {/* Google Analytics 4 */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-90C1JMVYN0" />
           <script
