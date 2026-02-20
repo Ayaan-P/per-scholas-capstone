@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-18
+# Last updated: 2026-02-20
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -170,3 +170,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Fixed Pydantic model ordering crash (2026-02-18): EnsureOrgRequest/UpdateProfileRequest were defined AFTER the endpoints that used them, causing NameError on backend startup. Commit 837f143.
 - [x] Fixed session endpoint temp-org fallback (2026-02-18): Session list/get/add endpoints now handle users without orgs (temp-{user_id} pattern), consistent with chat endpoints. Fixes 400 errors for new users. Commit 290e83a.
 - [x] Dev blog launched (2026-02-19): Created `/blog` route with markdown rendering, blog index, individual post pages. First post: "How We Refactored 3,000 Lines of Code to 600". Added gray-matter for front matter parsing. Updated Header nav + sitemap. Commit 47c7508.
+- [x] RSS feed for blog (2026-02-20): Added `/blog/feed.xml` RSS 2.0 route with autodiscovery link in HTML head and RSS button on blog page. Issue #48 CLOSED. Commit 67b0dc5.
+- [x] Enhanced fundfish-api.sh script (2026-02-20): Added `ensure-org` and `update-profile` commands to agent API script for easier onboarding flow. Part of Issue #46 agent-side integration.
