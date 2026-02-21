@@ -8,6 +8,14 @@ export const metadata = {
     title: 'Blog | FundFish',
     description: 'Technical insights and updates from the FundFish team.',
     type: 'website',
+    url: 'https://fundfish.pro/blog',
+    images: [{ url: 'https://fundfish.pro/opengraph-image', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Blog | FundFish',
+    description: 'Technical insights and updates from the FundFish team.',
+    images: ['https://fundfish.pro/twitter-image'],
   },
 }
 
