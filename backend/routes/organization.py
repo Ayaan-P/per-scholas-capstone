@@ -862,3 +862,61 @@ async def delete_organization_document(
     except Exception as e:
         print(f"[DOC DELETE] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
+
+
+@router.get("/organization/match-profile")
+async def get_organization_match_profile(user_id: str = Depends(get_current_user)):
+    """
+    Return the organization's current matching profile — active search keywords,
+    scoring weights, and excluded keywords. Lets users understand how grant
+    discovery is personalized for their org.
+    """
+    try:
+        from organization_matching_service import OrganizationMatchingService
+        matching_service = OrganizationMatchingService(_supabase)
+        org_profile = await matching_service.get_organization_profile(user_id)
+
+        if not org_profile:
+            return {
+                "status": "no_profile",
+                "message": "Complete your organization profile in Settings to enable personalized grant matching.",
+                "primary_keywords": [],
+                "secondary_keywords": [],
+                "excluded_keywords": [],
+                "scoring_weights": {},
+                "matching_summary": {}
+            }
+
+        primary_keywords, secondary_keywords = matching_service.build_search_keywords(org_profile)
+        scoring_weights = matching_service.get_matching_score_weights(org_profile)
+        matching_summary = matching_service.get_matching_summary(org_profile)
+
+        excluded_keywords = org_profile.get("excluded_keywords") or []
+        if isinstance(excluded_keywords, str):
+            import json
+            try:
+                excluded_keywords = json.loads(excluded_keywords)
+            except Exception:
+                excluded_keywords = []
+
+        return {
+            "status": "active",
+            "organization_name": org_profile.get("name"),
+            "primary_focus": org_profile.get("primary_focus_area"),
+            "primary_keywords": primary_keywords,
+            "secondary_keywords": secondary_keywords[:20],  # Cap for readability
+            "excluded_keywords": excluded_keywords,
+            "scoring_weights": scoring_weights,
+            "preferred_grant_range": {
+                "min": org_profile.get("preferred_grant_size_min"),
+                "max": org_profile.get("preferred_grant_size_max"),
+            },
+            "grant_writing_capacity": org_profile.get("grant_writing_capacity", "moderate"),
+            "target_populations": org_profile.get("target_populations", []),
+            "service_regions": org_profile.get("service_regions", []),
+            "matching_summary": matching_summary
+        }
+
+    except Exception as e:
+        print(f"[MATCH PROFILE] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load match profile: {str(e)}")

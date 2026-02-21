@@ -388,6 +388,27 @@ class OrganizationMatchingService:
         Returns:
             Tuple of (should_filter_out, reason)
         """
+        # Check excluded keywords — filter out grants that match org's exclusion list
+        excluded_keywords = org_profile.get("excluded_keywords") or []
+        if isinstance(excluded_keywords, str):
+            try:
+                import json
+                excluded_keywords = json.loads(excluded_keywords)
+            except Exception:
+                excluded_keywords = []
+
+        if excluded_keywords:
+            grant_title = (grant.get("title", "") or "").lower()
+            grant_desc = (grant.get("description", "") or "").lower()
+            grant_agency = (grant.get("agency_name", "") or "").lower()
+            grant_text = f"{grant_title} {grant_desc} {grant_agency}"
+
+            for keyword in excluded_keywords:
+                if isinstance(keyword, str) and keyword.strip():
+                    kw_lower = keyword.strip().lower()
+                    if kw_lower in grant_text:
+                        return True, f"Grant excluded: contains keyword '{keyword}' from your exclusion list"
+
         # Check donor restrictions
         if org_profile.get("donor_restrictions"):
             restrictions = org_profile["donor_restrictions"].lower()

@@ -104,6 +104,16 @@ async def get_scraped_grants(
                 org_profile = await matching_service.get_organization_profile(user_id)
 
                 if org_profile:
+                    # Filter out grants matching org's excluded keywords before scoring
+                    filtered_grants = []
+                    for grant in grants:
+                        should_exclude, exclude_reason = matching_service.should_filter_grant(org_profile, grant)
+                        if should_exclude:
+                            print(f"[GET SCRAPED GRANTS] Filtering out grant {grant.get('id')}: {exclude_reason}")
+                        else:
+                            filtered_grants.append(grant)
+                    grants = filtered_grants
+
                     # Recalculate match scores based on organization profile
                     for grant in grants:
                         # Calculate base keyword matching score using organization's keywords
@@ -333,6 +343,23 @@ async def get_my_grants(
                 }
                 grants.append(grant)
             
+            # Apply excluded_keywords filter to pre-scored org_grants
+            try:
+                from organization_matching_service import OrganizationMatchingService
+                matching_service = OrganizationMatchingService(_supabase)
+                org_profile = await matching_service.get_organization_profile(user_id)
+                if org_profile:
+                    filtered = []
+                    for grant in grants:
+                        should_exclude, exclude_reason = matching_service.should_filter_grant(org_profile, grant)
+                        if not should_exclude:
+                            filtered.append(grant)
+                        else:
+                            print(f"[MY GRANTS] Excluding grant {grant.get('id')}: {exclude_reason}")
+                    grants = filtered
+            except Exception as exc:
+                print(f"[MY GRANTS] Excluded keyword filter error (non-fatal): {exc}")
+
             return {
                 "grants": grants,
                 "count": len(grants),

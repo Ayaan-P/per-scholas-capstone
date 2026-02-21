@@ -317,5 +317,9 @@ export const api = {
   },
 
   listUploads: () =>
-    authenticatedFetch(`${API_BASE_URL}/api/workspace/uploads`)
+    authenticatedFetch(`${API_BASE_URL}/api/workspace/uploads`),
+
+  // Match Profile — see which keywords are being used for grant discovery
+  getMatchProfile: () =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/match-profile`)
 }
