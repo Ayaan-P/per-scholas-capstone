@@ -259,6 +259,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-6 text-sm text-gray-400">
               <Link href="/about" className="hover:text-gray-600 transition-colors">About</Link>
+              <Link href="/blog" className="hover:text-gray-600 transition-colors">Blog</Link>
               <Link href="/login" className="hover:text-gray-600 transition-colors">Sign In</Link>
               <span>© {new Date().getFullYear()} FundFish</span>
             </div>
