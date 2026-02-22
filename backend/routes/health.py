@@ -25,7 +25,9 @@ def set_brief_scheduler(svc):
 async def health_check():
     return {
         "status": "healthy",
-        "service": "PerScholas Fundraising API",
-        "scheduler_running": scheduler_service is not None,
+        "service": "FundFish API",
+        # Main scraping scheduler intentionally disabled — moved to Hetzner librarian agent
+        "scraper_location": "hetzner",
+        "local_scheduler_running": scheduler_service is not None,
         "brief_scheduler_running": brief_scheduler is not None and brief_scheduler.running
     }

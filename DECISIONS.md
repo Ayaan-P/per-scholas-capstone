@@ -91,6 +91,22 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 
 ## Approved — Do These
 
+### ✅ workspace_files Migration (2026-02-21)
+- **Status:** ✅ DONE
+- **Details:** Ran `005_create_workspace_files.sql` via Supabase Management API. Table now exists. Issue #43 CLOSED.
+
+### ✅ excluded_keywords now active in grant matching (2026-02-21)
+- **Status:** ✅ DONE
+- **Details:** Fixed bug where org's exclusion list was stored but never applied. `should_filter_grant()` now checks excluded_keywords first. Applied in both `get_scraped_grants()` and `get_my_grants()`. Issue #49 CLOSED.
+- **New endpoint:** `GET /api/organization/match-profile` returns active keywords, scoring weights, exclusions so users can see how their org profile affects discovery. Issue #51 created for frontend UI.
+
+### ✅ Blog post #2 (2026-02-21)
+- **Status:** ✅ DONE
+- **Title:** "Why Grant Matching Needs to Know Your Mission (Not Just Your Keywords)"
+- **Target keywords:** grant matching nonprofit, personalized grant discovery, AI grant search
+- **Fixed:** Blog social meta images were pointing to localhost:3000 (Issue #50 CLOSED)
+- **Fixed:** Blog link added to landing page footer
+
 ### ✅ Build Dev Blog (2026-02-19)
 - **Priority:** Medium
 - **Status:** ✅ DONE

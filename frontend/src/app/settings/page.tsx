@@ -201,6 +201,19 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('basic')
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
+  // Match profile state (Issue #51)
+  interface MatchProfile {
+    status?: string
+    message?: string
+    primary_keywords?: string[]
+    secondary_keywords?: string[]
+    excluded_keywords?: string[]
+    scoring_weights?: Record<string, number>
+    matching_summary?: Record<string, string>
+  }
+  const [matchProfile, setMatchProfile] = useState<MatchProfile | null>(null)
+  const [loadingMatchProfile, setLoadingMatchProfile] = useState(false)
+
   // Document import state
   const [existingDocuments, setExistingDocuments] = useState<any[]>([])
   const [uploadedDocIds, setUploadedDocIds] = useState<string[]>([])
@@ -271,6 +284,27 @@ export default function SettingsPage() {
 
     return () => clearTimeout(timer)
   }, [config, loading])
+
+  // Fetch match profile when 'match' tab is opened (Issue #51)
+  useEffect(() => {
+    if (activeTab !== 'match') return
+    if (matchProfile) return // already loaded
+    const fetchMatchProfile = async () => {
+      setLoadingMatchProfile(true)
+      try {
+        const response = await api.getMatchProfile()
+        if (response.ok) {
+          const data = await response.json()
+          setMatchProfile(data)
+        }
+      } catch (error) {
+        // silently fail
+      } finally {
+        setLoadingMatchProfile(false)
+      }
+    }
+    fetchMatchProfile()
+  }, [activeTab])
 
   const handleSave = async () => {
     setSaving(true)
@@ -381,7 +415,7 @@ export default function SettingsPage() {
 
             {/* Tabs */}
             <div className="flex flex-wrap gap-1 mb-8 p-1 bg-gray-100 rounded-xl">
-              {['import', 'basic', 'mission', 'programs', 'funding', 'impact'].map((tab) => (
+              {['import', 'basic', 'mission', 'programs', 'funding', 'impact', 'match'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -391,7 +425,7 @@ export default function SettingsPage() {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  {tab}
+                  {tab === 'match' ? '🎯 Match Profile' : tab}
                 </button>
               ))}
             </div>
@@ -945,6 +979,136 @@ export default function SettingsPage() {
                   Add Grant
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* MATCH PROFILE TAB (Issue #51) */}
+          {activeTab === 'match' && (
+            <div className="space-y-8">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
+                <h3 className="font-semibold text-blue-900 mb-1 flex items-center gap-2">
+                  🎯 Your Grant Matching Profile
+                </h3>
+                <p className="text-sm text-blue-800">
+                  This is exactly how FundFish searches and scores grants for your organization.
+                  Update your organization profile to refine these results.
+                </p>
+              </div>
+
+              {loadingMatchProfile && (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-perscholas-primary"></div>
+                  <span className="ml-3 text-gray-500">Loading match profile...</span>
+                </div>
+              )}
+
+              {!loadingMatchProfile && matchProfile?.status === 'no_profile' && (
+                <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
+                  <p className="text-gray-500 text-sm">Complete your organization profile in the other tabs to enable personalized grant matching.</p>
+                </div>
+              )}
+
+              {!loadingMatchProfile && matchProfile && matchProfile.status !== 'no_profile' && (
+                <div className="space-y-6">
+                  {/* Matching Summary */}
+                  {matchProfile.matching_summary && Object.keys(matchProfile.matching_summary).length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-5">
+                      <h4 className="font-semibold text-gray-900 mb-3">📋 Profile Summary</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {Object.entries(matchProfile.matching_summary).map(([key, value]) => (
+                          <div key={key} className="bg-gray-50 rounded-lg p-3">
+                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                              {key.replace(/_/g, ' ')}
+                            </div>
+                            <div className="text-sm text-gray-900">{String(value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Primary Keywords */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <h4 className="font-semibold text-gray-900 mb-1">🔑 Primary Search Keywords</h4>
+                    <p className="text-xs text-gray-500 mb-4">These high-weight terms drive your grant discovery searches.</p>
+                    {matchProfile.primary_keywords && matchProfile.primary_keywords.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {matchProfile.primary_keywords.map((kw, i) => (
+                          <span key={i} className="px-3 py-1.5 bg-perscholas-primary text-white text-sm font-medium rounded-full">
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No primary keywords configured. Add your focus area and mission to generate keywords.</p>
+                    )}
+                  </div>
+
+                  {/* Secondary Keywords */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <h4 className="font-semibold text-gray-900 mb-1">🔍 Secondary Search Keywords</h4>
+                    <p className="text-xs text-gray-500 mb-4">Supplementary terms that broaden discovery.</p>
+                    {matchProfile.secondary_keywords && matchProfile.secondary_keywords.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {matchProfile.secondary_keywords.map((kw, i) => (
+                          <span key={i} className="px-3 py-1.5 bg-blue-100 text-blue-800 text-sm font-medium rounded-full border border-blue-200">
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No secondary keywords yet.</p>
+                    )}
+                  </div>
+
+                  {/* Excluded Keywords */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <h4 className="font-semibold text-gray-900 mb-1">🚫 Excluded Keywords</h4>
+                    <p className="text-xs text-gray-500 mb-4">Grants containing these terms are filtered out. Edit in the Funding tab.</p>
+                    {matchProfile.excluded_keywords && matchProfile.excluded_keywords.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {matchProfile.excluded_keywords.map((kw, i) => (
+                          <span key={i} className="px-3 py-1.5 bg-red-50 text-red-700 text-sm font-medium rounded-full border border-red-200">
+                            ✕ {kw}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No keywords excluded. Grants containing irrelevant terms? Add exclusions in the Funding tab.</p>
+                    )}
+                  </div>
+
+                  {/* Scoring Weights */}
+                  {matchProfile.scoring_weights && Object.keys(matchProfile.scoring_weights).length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-5">
+                      <h4 className="font-semibold text-gray-900 mb-1">⚖️ Scoring Weights</h4>
+                      <p className="text-xs text-gray-500 mb-4">How FundFish weighs different factors when scoring grants for your org.</p>
+                      <div className="space-y-3">
+                        {Object.entries(matchProfile.scoring_weights)
+                          .sort(([, a], [, b]) => (b as number) - (a as number))
+                          .map(([factor, weight]) => (
+                            <div key={factor} className="flex items-center gap-3">
+                              <div className="w-40 text-sm text-gray-700 capitalize">{factor.replace(/_/g, ' ')}</div>
+                              <div className="flex-1 bg-gray-100 rounded-full h-2">
+                                <div
+                                  className="bg-perscholas-primary rounded-full h-2 transition-all"
+                                  style={{ width: `${Math.min(100, ((weight as number) / 30) * 100)}%` }}
+                                ></div>
+                              </div>
+                              <div className="w-10 text-right text-sm font-semibold text-gray-700">{weight}</div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <p className="text-sm text-amber-800">
+                      💡 <strong>Tip:</strong> To improve grant matching, go to <strong>Funding</strong> to adjust grant size preferences and exclusions, or <strong>Mission</strong> to refine your focus areas.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
