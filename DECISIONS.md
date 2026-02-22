@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-20
+# Last updated: 2026-02-22
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -90,6 +90,23 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
   - **AI state/local scraper will resume** once the fix deploys — the `opportunity_categories` table has 5 categories ready.
 
 ## Approved — Do These
+
+### ✅ Match Profile Transparency UI (2026-02-22)
+- **Status:** ✅ DONE
+- **Details:** Added "🎯 Match Profile" tab to Settings showing primary keywords, secondary keywords, excluded keywords, and scoring weight bars. Lazy-loads via `/api/organization/match-profile`. Issue #51 CLOSED.
+
+### ✅ Critical: Hardcoded org_id=15 in /api/opportunities (2026-02-22)
+- **Status:** ✅ FIXED
+- **Details:** The Per Scholas demo org_id was hardcoded. All users were seeing org 15's opportunities. Fixed with dynamic lookup via users table + organization_config fallback.
+
+### ✅ Backend Pagination for Grants Endpoints (2026-02-22)
+- **Status:** ✅ DONE
+- **Details:** Added limit/offset to `/api/scraped-grants` (default limit=150) and `/api/my-grants`. Response includes `has_more` flag. Issue #52 created for frontend load-more UI.
+
+### ✅ Blog post #3 (2026-02-22)
+- **Status:** ✅ DONE
+- **Title:** "Inside the Black Box: How FundFish Scores Grants for Your Nonprofit"
+- **Angle:** Match profile transparency feature + agentic search research
 
 ### ✅ workspace_files Migration (2026-02-21)
 - **Status:** ✅ DONE
@@ -188,3 +205,7 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Dev blog launched (2026-02-19): Created `/blog` route with markdown rendering, blog index, individual post pages. First post: "How We Refactored 3,000 Lines of Code to 600". Added gray-matter for front matter parsing. Updated Header nav + sitemap. Commit 47c7508.
 - [x] RSS feed for blog (2026-02-20): Added `/blog/feed.xml` RSS 2.0 route with autodiscovery link in HTML head and RSS button on blog page. Issue #48 CLOSED. Commit 67b0dc5.
 - [x] Enhanced fundfish-api.sh script (2026-02-20): Added `ensure-org` and `update-profile` commands to agent API script for easier onboarding flow. Part of Issue #46 agent-side integration.
+- [x] Match Profile UI in Settings (2026-02-22): Added 🎯 Match Profile tab showing active keywords, scoring weights, excluded keywords. Lazy-loads from /api/organization/match-profile. Issue #51 CLOSED. Commit cc32e1d.
+- [x] Fixed hardcoded org_id=15 in /api/opportunities (2026-02-22): All users were seeing Per Scholas demo org's opportunities. Fixed with dynamic lookup. Commit 9cf5fd9.
+- [x] Backend pagination for grants endpoints (2026-02-22): Added limit/offset to /api/scraped-grants and /api/my-grants, default limit=150. Includes has_more flag. Commit 9cf5fd9.
+- [x] Blog post #3 (2026-02-22): "Inside the Black Box: How FundFish Scores Grants for Your Nonprofit" — explains match profile + connects to agentic search research. Commit a3b94e7.
