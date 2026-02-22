@@ -155,10 +155,36 @@ async def get_job_status(job_id: str, user_id: str = Depends(get_current_user)):
 async def get_opportunities(user_id: str = Depends(get_current_user)):
     """Get qualified opportunities from org_grants joined with scraped_grants"""
     try:
-        # For Per Scholas demo, use org_id=15
-        # TODO: Look up org_id from user_id via organization_config.owner_id
-        org_id = 15
-        
+        # Look up org_id from the user's organization_config record
+        org_id = None
+        try:
+            user_result = _supabase_admin.table("users") \
+                .select("organization_id") \
+                .eq("id", user_id) \
+                .limit(1) \
+                .execute()
+            if user_result.data:
+                org_id = user_result.data[0].get("organization_id")
+        except Exception as org_lookup_err:
+            print(f"[OPPORTUNITIES] Org lookup error: {org_lookup_err}")
+
+        if not org_id:
+            # Fall back to org_config owner lookup
+            try:
+                org_result = _supabase_admin.table("organization_config") \
+                    .select("id") \
+                    .eq("owner_id", user_id) \
+                    .limit(1) \
+                    .execute()
+                if org_result.data:
+                    org_id = org_result.data[0].get("id")
+            except Exception as e2:
+                print(f"[OPPORTUNITIES] Org config lookup error: {e2}")
+
+        if not org_id:
+            # No org found for this user
+            return {"opportunities": [], "message": "Complete your organization setup to see personalized opportunities."}
+
         # Query org_grants for this org (qualified grants)
         org_grants_result = _supabase_admin.table("org_grants").select("*").eq("org_id", org_id).eq("status", "active").order("match_score", desc=True).execute()
         

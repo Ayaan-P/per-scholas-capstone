@@ -72,6 +72,8 @@ async def run_llm_enhancement(job_id: str, grant_id: str, user_id: str = None):
 @router.get("/scraped-grants")
 async def get_scraped_grants(
     source: Optional[str] = None,
+    limit: int = 150,
+    offset: int = 0,
     user_id: Optional[str] = Depends(optional_token)
 ):
     """
@@ -79,16 +81,18 @@ async def get_scraped_grants(
 
     Args:
         source: Filter by data source (grants_gov, state, local, etc.)
+        limit: Maximum number of grants to return (default 150)
+        offset: Pagination offset (default 0)
         user_id: Optional authenticated user ID (from JWT token) - if provided, returns personalized scores
     """
     try:
-        # Fetch grants from database
+        # Fetch grants from database with pagination
         query = _supabase.table("scraped_grants").select("*", count="exact")
 
         if source:
             query = query.eq("source", source)
 
-        query = query.order("created_at", desc=True)
+        query = query.order("created_at", desc=True).range(offset, offset + limit - 1)
 
         result = query.execute()
         grants = result.data
@@ -168,10 +172,14 @@ async def get_scraped_grants(
                 print(f"[GET SCRAPED GRANTS] Error calculating personalized scores: {e}")
                 # Continue with generic scores from database
 
+        total = result.count if (hasattr(result, 'count') and result.count is not None) else len(grants)
         return {
             "grants": grants,
             "count": len(grants),
-            "total": result.count if hasattr(result, 'count') else len(grants),
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + len(grants)) < total,
             "source": source,
             "personalized": org_profile is not None
         }
@@ -249,6 +257,8 @@ async def _get_user_org_id(user_id: str) -> Optional[int]:
 async def get_my_grants(
     status: Optional[str] = None,
     min_score: Optional[int] = None,
+    limit: int = 150,
+    offset: int = 0,
     user_id: str = Depends(get_current_user)
 ):
     """
@@ -314,8 +324,8 @@ async def get_my_grants(
         if min_score is not None:
             query = query.gte("match_score", min_score)
         
-        # Order by score descending
-        query = query.order("match_score", desc=True)
+        # Order by score descending with pagination
+        query = query.order("match_score", desc=True).range(offset, offset + limit - 1)
         
         result = query.execute()
         org_grants = result.data or []
@@ -363,6 +373,8 @@ async def get_my_grants(
             return {
                 "grants": grants,
                 "count": len(grants),
+                "limit": limit,
+                "offset": offset,
                 "org_id": org_id,
                 "source": "org_grants",
                 "personalized": True
