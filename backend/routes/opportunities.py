@@ -903,12 +903,10 @@ REQUIREMENTS:
                 search_keywords = criteria.prompt if criteria.prompt and criteria.prompt != "hi" else "technology workforce development"
                 # Clean the search keywords - remove newlines and extra whitespace
                 search_keywords = search_keywords.strip()
-                print(f"[DEBUG] Search keywords: '{search_keywords}'")
 
                 grants_service = _grants_service_class(supabase_client=_supabase)
                 # Pass user_id for organization-aware matching
                 real_grants = grants_service.search_grants(search_keywords, limit=10, user_id=user_id)
-                print(f"[DEBUG] Retrieved {len(real_grants)} real grants")
                 orchestration_result = json.dumps({"opportunities": real_grants})
             else:
                 session_result = _create_gemini_cli_session(
@@ -921,11 +919,6 @@ REQUIREMENTS:
                     raise Exception(f"Gemini CLI session failed: {session_result['error']}")
 
                 orchestration_result = session_result['output']
-
-            # Save raw response for debugging
-            with open('/tmp/last_gemini_response.txt', 'w') as f:
-                f.write(orchestration_result)
-            print(f"[DEBUG] Saved raw Gemini response to /tmp/last_gemini_response.txt")
 
             job["current_task"] = "Processing fundraising session results..."
             job["progress"] = 80
@@ -958,7 +951,6 @@ REQUIREMENTS:
             if not use_api and opportunities:
                 for opp in opportunities:
                     opp['source'] = 'Agent'
-                print(f"[DEBUG] Tagged {len(opportunities)} opportunities with source='Agent'")
 
         except Exception as e:
             print(f"Orchestration failed: {e}")

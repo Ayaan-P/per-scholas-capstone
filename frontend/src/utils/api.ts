@@ -178,10 +178,12 @@ export const api = {
     }),
 
   // My Grants (org-specific scored grants from qualification agent)
-  getMyGrants: async (params?: { status?: string; min_score?: number }) => {
+  getMyGrants: async (params?: { status?: string; min_score?: number; limit?: number; offset?: number }) => {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append('status', params.status)
     if (params?.min_score !== undefined) queryParams.append('min_score', params.min_score.toString())
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
+    if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString())
     return authenticatedFetch(`${API_BASE_URL}/api/my-grants?${queryParams.toString()}`)
   },
 
