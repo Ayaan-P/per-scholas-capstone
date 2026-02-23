@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-22
+# Last updated: 2026-02-23
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -209,3 +209,7 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Fixed hardcoded org_id=15 in /api/opportunities (2026-02-22): All users were seeing Per Scholas demo org's opportunities. Fixed with dynamic lookup. Commit 9cf5fd9.
 - [x] Backend pagination for grants endpoints (2026-02-22): Added limit/offset to /api/scraped-grants and /api/my-grants, default limit=150. Includes has_more flag. Commit 9cf5fd9.
 - [x] Blog post #3 (2026-02-22): "Inside the Black Box: How FundFish Scores Grants for Your Nonprofit" — explains match profile + connects to agentic search research. Commit a3b94e7.
+- [x] Removed DEBUG print statements from opportunities.py (2026-02-23): Cleaned 4 [DEBUG] prints + /tmp file write. Issue #53 CLOSED. Commit 89f01e9.
+- [x] Load-more for Dashboard (2026-02-23): Frontend now tracks has_more flag and shows Load More button when backend has additional grants beyond the initial 150. Both grid + table views. api.ts getMyGrants/getScrapedGrants accept limit/offset. Commit 89f01e9. Issue #52 commented.
+- [x] Blog post #4 (2026-02-23): "The Grant Deadline Problem: Why Most Nonprofits Miss Money They Could Have Won" — sets up case for deadline alerts + pipeline tracking features. Commit f1ec09a.
+- [x] Created Issues #54, #55, #56, #57 (2026-02-23): Deadline alerts, server-side filtering, grant pipeline status tracking, agent-aware retrieval research.
