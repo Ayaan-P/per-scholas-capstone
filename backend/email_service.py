@@ -14,7 +14,7 @@ class EmailService:
     
     def __init__(self):
         self.api_key = os.getenv('RESEND_API_KEY')
-        self.from_email = os.getenv('FROM_EMAIL', 'FundFish <noreply@ayaanpupala.com>')
+        self.from_email = os.getenv('FROM_EMAIL', 'FundFish <noreply@fundfish.pro>')
         self.enabled = bool(self.api_key)
         
         if not self.enabled:
