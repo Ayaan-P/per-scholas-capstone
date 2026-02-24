@@ -259,6 +259,7 @@ async def get_my_grants(
     min_score: Optional[int] = None,
     limit: int = 150,
     offset: int = 0,
+    search: Optional[str] = None,
     user_id: str = Depends(get_current_user)
 ):
     """
@@ -268,8 +269,9 @@ async def get_my_grants(
     Falls back to scraped_grants with on-the-fly scoring if no org_grants exist.
     
     Args:
-        status: Filter by status (active, dismissed, saved, applied, won, lost)
+        status: Filter by status (active, dismissed, saved, applied, won, lost, in_progress, submitted)
         min_score: Minimum match score threshold (0-100)
+        search: Text search across title, funder, description (case-insensitive)
     """
     try:
         org_id = await _get_user_org_id(user_id)
@@ -370,9 +372,25 @@ async def get_my_grants(
             except Exception as exc:
                 print(f"[MY GRANTS] Excluded keyword filter error (non-fatal): {exc}")
 
+            # Apply server-side text search
+            if search:
+                search_lower = search.lower()
+                grants = [
+                    g for g in grants
+                    if search_lower in (g.get("title") or "").lower()
+                    or search_lower in (g.get("funder") or "").lower()
+                    or search_lower in (g.get("description") or "").lower()
+                    or search_lower in (g.get("agency") or "").lower()
+                ]
+
+            # has_more: if DB returned the full limit, there may be more pages
+            # (Python-side filters may reduce the count, but we conservatively signal more)
+            db_returned_full_page = len(org_grants) >= limit
+
             return {
                 "grants": grants,
                 "count": len(grants),
+                "has_more": db_returned_full_page,
                 "limit": limit,
                 "offset": offset,
                 "org_id": org_id,
@@ -437,3 +455,84 @@ async def dismiss_grant(
     except Exception as e:
         print(f"[DISMISS GRANT] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to dismiss grant: {str(e)}")
+
+
+# Valid pipeline statuses
+VALID_GRANT_STATUSES = {"active", "saved", "in_progress", "submitted", "won", "lost", "dismissed"}
+
+
+@router.patch("/my-grants/{grant_id}/status")
+async def update_grant_status(
+    grant_id: str,
+    status: str,
+    notes: Optional[str] = None,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Update the pipeline status of a grant in the user's org.
+    
+    Status values:
+      active     — visible in dashboard (default)
+      saved      — bookmarked / watching
+      in_progress — application being worked on
+      submitted  — application submitted
+      won        — grant awarded 🎉
+      lost       — not awarded
+      dismissed  — hidden from dashboard
+    """
+    if status not in VALID_GRANT_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status '{status}'. Must be one of: {', '.join(sorted(VALID_GRANT_STATUSES))}"
+        )
+
+    try:
+        org_id = await _get_user_org_id(user_id)
+        if not org_id:
+            raise HTTPException(status_code=400, detail="User has no organization")
+
+        update_data: Dict[str, Any] = {
+            "status": status,
+            "updated_at": datetime.now().isoformat(),
+        }
+
+        # Carry over status-specific timestamps
+        if status == "dismissed":
+            update_data["dismissed_at"] = datetime.now().isoformat()
+            update_data["dismissed_by"] = user_id
+            if notes:
+                update_data["dismissed_reason"] = notes
+        elif status == "submitted":
+            update_data["submitted_at"] = datetime.now().isoformat()
+        elif status == "won":
+            update_data["won_at"] = datetime.now().isoformat()
+
+        # Try update first
+        result = _supabase.table("org_grants") \
+            .update(update_data) \
+            .eq("org_id", org_id) \
+            .eq("grant_id", grant_id) \
+            .execute()
+
+        if not result.data:
+            # Grant not yet in org_grants — create a minimal record
+            insert_data = {
+                "org_id": org_id,
+                "grant_id": grant_id,
+                "match_score": 0,
+                **update_data,
+            }
+            _supabase.table("org_grants").insert(insert_data).execute()
+
+        return {
+            "status": status,
+            "grant_id": grant_id,
+            "org_id": org_id,
+            "updated_at": update_data["updated_at"],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[UPDATE GRANT STATUS] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update grant status: {str(e)}")

@@ -20,11 +20,23 @@ interface ScrapedGrant {
   application_url: string
   source: string
   status: string
+  org_status?: string        // Pipeline status in org_grants (active, saved, in_progress, submitted, won, lost)
+  org_grant_id?: string      // org_grants row id
   created_at: string
   updated_at: string
   posted_date?: string
   category_id?: number
 }
+
+// Pipeline status config
+const PIPELINE_STATUSES = [
+  { value: 'active',      label: 'Active',       emoji: '📋', color: 'text-gray-600 bg-gray-100 border-gray-200' },
+  { value: 'saved',       label: 'Saved',        emoji: '🔖', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+  { value: 'in_progress', label: 'In Progress',  emoji: '✍️', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
+  { value: 'submitted',   label: 'Submitted',    emoji: '📤', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+  { value: 'won',         label: 'Won 🎉',       emoji: '🏆', color: 'text-green-700 bg-green-50 border-green-200' },
+  { value: 'lost',        label: 'Lost',         emoji: '❌', color: 'text-red-700 bg-red-50 border-red-200' },
+]
 
 interface Category {
   id: number
@@ -62,6 +74,8 @@ export default function Dashboard() {
   const [selectedCategories, setSelectedCategories] = useState<Set<number>>(new Set())
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [grantStatuses, setGrantStatuses] = useState<Record<string, string>>({})  // grantId -> current pipeline status
+  const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchGrants(isAuthenticated)
@@ -133,10 +147,39 @@ export default function Dashboard() {
         const fetched: ScrapedGrant[] = data.grants || []
         setRawGrants(fetched)
         setHasMore(data.has_more === true)
+        // Initialize pipeline statuses from org_status
+        const statuses: Record<string, string> = {}
+        fetched.forEach(g => {
+          if (g.org_status) statuses[g.id] = g.org_status
+        })
+        setGrantStatuses(statuses)
       }
     } catch (error) {
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdateGrantStatus = async (grantId: string, newStatus: string) => {
+    if (!isAuthenticated) return
+    setUpdatingStatus(prev => new Set(prev).add(grantId))
+    try {
+      const response = await api.updateGrantStatus(grantId, newStatus)
+      if (response.ok) {
+        setGrantStatuses(prev => ({ ...prev, [grantId]: newStatus }))
+        // If dismissing via status, remove from list
+        if (newStatus === 'dismissed') {
+          setRawGrants(prev => prev.filter(g => g.id !== grantId))
+        }
+      }
+    } catch (error) {
+      // silent fail
+    } finally {
+      setUpdatingStatus(prev => {
+        const next = new Set(prev)
+        next.delete(grantId)
+        return next
+      })
     }
   }
 
@@ -896,9 +939,31 @@ export default function Dashboard() {
                         </button>
                       </div>
 
+                      {/* Pipeline Status — Only show when authenticated */}
+                      {isAuthenticated && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-gray-500 shrink-0">Pipeline status:</span>
+                            <select
+                              value={grantStatuses[grant.id] || 'active'}
+                              onChange={e => handleUpdateGrantStatus(grant.id, e.target.value)}
+                              disabled={updatingStatus.has(grant.id)}
+                              className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-perscholas-primary focus:border-transparent disabled:opacity-50 cursor-pointer"
+                            >
+                              {PIPELINE_STATUSES.map(s => (
+                                <option key={s.value} value={s.value}>
+                                  {s.emoji} {s.label}
+                                </option>
+                              ))}
+                              <option value="dismissed">🗑️ Dismiss</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Feedback Section - Only show when authenticated */}
                       {isAuthenticated && (
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                           <div className="flex items-center space-x-2">
                             <span className="text-xs font-medium text-gray-700">Is this a good match?</span>
                           </div>

@@ -178,12 +178,13 @@ export const api = {
     }),
 
   // My Grants (org-specific scored grants from qualification agent)
-  getMyGrants: async (params?: { status?: string; min_score?: number; limit?: number; offset?: number }) => {
+  getMyGrants: async (params?: { status?: string; min_score?: number; limit?: number; offset?: number; search?: string }) => {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append('status', params.status)
     if (params?.min_score !== undefined) queryParams.append('min_score', params.min_score.toString())
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString())
+    if (params?.search) queryParams.append('search', params.search)
     return authenticatedFetch(`${API_BASE_URL}/api/my-grants?${queryParams.toString()}`)
   },
 
@@ -191,6 +192,11 @@ export const api = {
     authenticatedFetch(`${API_BASE_URL}/api/my-grants/${grantId}/dismiss`, {
       method: 'POST',
       body: JSON.stringify({ reason })
+    }),
+
+  updateGrantStatus: (grantId: string, status: string, notes?: string) =>
+    authenticatedFetch(`${API_BASE_URL}/api/my-grants/${grantId}/status?status=${encodeURIComponent(status)}${notes ? `&notes=${encodeURIComponent(notes)}` : ''}`, {
+      method: 'PATCH',
     }),
 
   getSchedulerStatus: () =>

@@ -219,6 +219,145 @@ class EmailService:
         
         return await self.send_email(to, subject, html)
 
+    async def send_deadline_alert(
+        self,
+        to: str,
+        org_name: str,
+        alerts: List[dict]
+    ) -> dict:
+        """
+        Send a deadline alert email with grants expiring soon.
+
+        Args:
+            to: Recipient email
+            org_name: Organization name
+            alerts: List of alert dicts with keys:
+                    urgency ('urgent'|'soon'|'upcoming'), days_left (int),
+                    title, funder, amount, deadline, application_url, match_score
+        """
+        if not alerts:
+            logger.info(f"No deadline alerts for {org_name}")
+            return {"status": "skipped", "reason": "no_alerts"}
+
+        from datetime import datetime
+
+        # Sort by urgency: 2d → 7d → 30d
+        urgency_order = {"urgent": 0, "soon": 1, "upcoming": 2}
+        alerts = sorted(alerts, key=lambda a: urgency_order.get(a.get("urgency", "upcoming"), 2))
+
+        urgency_label = {
+            "urgent": ("🔴 URGENT", "#dc2626"),
+            "soon": ("🟡 DUE SOON", "#d97706"),
+            "upcoming": ("🔵 UPCOMING", "#006fb4"),
+        }
+
+        today = datetime.now().strftime("%A, %b %d")
+        alert_count = len(alerts)
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%;">
+                    <tr>
+                        <td style="background: white; border-radius: 12px; box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.08);">
+                            <!-- Header -->
+                            <div style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td>
+                                            <a href="https://fundfish.pro" style="display: inline-flex; align-items: center; text-decoration: none;">
+                                                <img src="https://fundfish.pro/logo.png" alt="FundFish" width="40" height="40" style="display: block; border-radius: 10px; margin-right: 12px;" />
+                                                <span style="font-size: 24px; font-weight: 700; color: #006fb4;">fundfish</span>
+                                            </a>
+                                        </td>
+                                        <td align="right">
+                                            <span style="font-size: 13px; color: #9ca3af;">{today}</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Body -->
+                            <div style="padding: 32px;">
+                                <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #111827;">⏰ Grant Deadlines Approaching</h1>
+                                <p style="margin: 0 0 24px 0; font-size: 14px; color: #6b7280;">
+                                    {alert_count} grant{'s' if alert_count != 1 else ''} in your pipeline {'have' if alert_count != 1 else 'has'} upcoming deadlines, {org_name}.
+                                    Don't let funding slip through.
+                                </p>
+"""
+
+        for alert in alerts:
+            urgency = alert.get("urgency", "upcoming")
+            label_text, color = urgency_label.get(urgency, ("🔵 UPCOMING", "#006fb4"))
+            days_left = alert.get("days_left", 30)
+            amount = alert.get("amount", 0)
+            amount_str = f"Up to ${amount:,}" if amount else "Amount TBD"
+            app_url = alert.get("application_url", "https://fundfish.pro/dashboard")
+            days_text = f"{days_left} day{'s' if days_left != 1 else ''}"
+
+            html += f"""
+                                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border-left: 4px solid {color}; margin-bottom: 16px;">
+                                    <div style="margin-bottom: 8px;">
+                                        <span style="background: {color}; color: white; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">{label_text} — {days_text} left</span>
+                                    </div>
+                                    <h2 style="margin: 10px 0 4px 0; font-size: 17px; font-weight: 600; color: #111827;">{alert.get('title', 'Untitled')}</h2>
+                                    <p style="margin: 4px 0; font-size: 14px; color: #6b7280;"><strong style="color: #374151;">Funder:</strong> {alert.get('funder', 'Unknown')}</p>
+                                    <p style="margin: 4px 0; font-size: 14px; color: #6b7280;"><strong style="color: #374151;">Amount:</strong> {amount_str}</p>
+                                    <p style="margin: 4px 0; font-size: 14px; color: #6b7280;"><strong style="color: #374151;">Deadline:</strong> {alert.get('deadline', 'TBD')}</p>
+                                    <p style="margin: 4px 0; font-size: 14px; color: #6b7280;"><strong style="color: #374151;">Match Score:</strong> {alert.get('match_score', 0)}%</p>
+                                    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top: 16px;">
+                                        <tr>
+                                            <td style="padding-right: 12px;">
+                                                <a href="{app_url}" style="display: inline-block; padding: 10px 20px; background: {color}; color: white; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">Apply Now →</a>
+                                            </td>
+                                            <td>
+                                                <a href="https://fundfish.pro/dashboard" style="display: inline-block; padding: 10px 20px; background: #f1f5f9; color: #374151; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">View in Dashboard</a>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+"""
+
+        html += """
+                            </div>
+
+                            <!-- Footer -->
+                            <div style="padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center; background: #f8fafc; border-radius: 0 0 12px 12px;">
+                                <p style="margin: 0 0 8px 0; font-size: 13px; color: #6b7280;">You're receiving this because you have grants saved in FundFish.</p>
+                                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                                    <a href="https://fundfish.pro" style="color: #006fb4; text-decoration: none;">fundfish.pro</a> ·
+                                    <a href="https://fundfish.pro/dashboard" style="color: #006fb4; text-decoration: none;">View pipeline</a> ·
+                                    <a href="https://fundfish.pro/settings" style="color: #6b7280; text-decoration: none;">Notification settings</a>
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        urgency_levels = sorted(set(a.get("urgency", "upcoming") for a in alerts),
+                                key=lambda u: urgency_order.get(u, 2))
+        if "urgent" in urgency_levels:
+            subject = f"🔴 URGENT: {alert_count} Grant Deadline{'s' if alert_count != 1 else ''} in 48 Hours — {org_name}"
+        elif "soon" in urgency_levels:
+            subject = f"⏰ {alert_count} Grant Deadline{'s' if alert_count != 1 else ''} in 7 Days — Act Now"
+        else:
+            subject = f"📅 Heads Up: {alert_count} Grant Deadline{'s' if alert_count != 1 else ''} in 30 Days"
+
+        return await self.send_email(to, subject, html)
+
 
 # Singleton
 _email_service: Optional[EmailService] = None

@@ -614,9 +614,42 @@ async def startup_event():
         name='Send Morning Briefs',
         replace_existing=True
     )
+
+    async def run_deadline_alerts():
+        """Check for upcoming grant deadlines and send alerts to orgs"""
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        print(f"[DEADLINE] Starting deadline alert job at {datetime.now()}")
+        script_path = Path(__file__).parent / "jobs" / "deadline_alerts.py"
+
+        try:
+            result = subprocess.run(
+                [sys.executable, str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 min timeout
+                env={**os.environ}
+            )
+            print(f"[DEADLINE] Output: {result.stdout}")
+            if result.stderr:
+                print(f"[DEADLINE] Errors: {result.stderr}")
+        except Exception as e:
+            print(f"[DEADLINE] Failed: {e}")
+
+    brief_scheduler.add_job(
+        run_deadline_alerts,
+        trigger=CronTrigger(hour=8, minute=15),  # 8:15 AM EST (after briefs)
+        id='deadline_alerts_job',
+        name='Send Deadline Alerts',
+        replace_existing=True
+    )
+
     brief_scheduler.start()
     set_health_brief_scheduler(brief_scheduler)
     print("[STARTUP] Morning brief scheduler started (daily at 8 AM EST)")
+    print("[STARTUP] Deadline alert scheduler started (daily at 8:15 AM EST)")
 
 @app.on_event("shutdown")
 async def shutdown_event():
