@@ -1,39 +1,12 @@
-'use client'
-
-export const dynamic = 'force-dynamic'
-
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '../context/AuthContext'
 import Image from 'next/image'
-import { Robot, Broadcast, NotePencil, ChartBar, FileMagnifyingGlass, ShieldCheck } from '@phosphor-icons/react'
+import { Robot, Broadcast, NotePencil, ChartBar, FileMagnifyingGlass, ShieldCheck } from '@phosphor-icons/react/dist/ssr'
+import AuthRedirect from './components/AuthRedirect'
 
 export default function Home() {
-  const router = useRouter()
-  const { isAuthenticated, loading } = useAuth()
-
-  // If already logged in, redirect to dashboard
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      router.push('/dashboard')
-    }
-  }, [isAuthenticated, loading, router])
-
-  // Show landing page for unauthenticated users
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-2 border-perscholas-primary/20 border-t-perscholas-primary rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  if (isAuthenticated) {
-    return null // Will redirect via useEffect
-  }
-
   return (
+    <>
+      <AuthRedirect />
     <div className="min-h-screen bg-gradient-to-b from-white via-blue-50/30 to-white">
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-32">
@@ -267,5 +240,6 @@ export default function Home() {
         </div>
       </footer>
     </div>
+    </>
   )
 }
