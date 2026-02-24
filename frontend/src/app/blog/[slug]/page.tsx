@@ -5,6 +5,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Metadata } from 'next'
 
+export const dynamicParams = true; // allow new posts
+export const revalidate = 3600; // ISR every hour
+
 interface BlogPostPageProps {
   params: {
     slug: string
@@ -63,8 +66,27 @@ export default function BlogPostPage({ params }: BlogPostPageProps) {
     notFound()
   }
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post!.title,
+    description: post!.description,
+    author: { '@type': 'Organization', name: 'FundFish' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'FundFish',
+      url: 'https://fundfish.pro',
+    },
+    datePublished: post!.date,
+    keywords: post!.tags?.join(', '),
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <article className="max-w-3xl mx-auto px-4 py-12 sm:py-16">
         {/* Back Link */}
         <Link

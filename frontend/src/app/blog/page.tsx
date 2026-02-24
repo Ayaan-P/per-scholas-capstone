@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { getAllPosts } from '../../utils/blog'
 
+export const revalidate = 3600;
+
 export const metadata = {
   title: 'Blog | FundFish',
   description: 'Technical insights and updates from the FundFish team. Learn about AI-powered grant discovery, nonprofit tech, and building in public.',
