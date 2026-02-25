@@ -498,6 +498,7 @@ export default function OpportunitiesPage() {
   }
 
   const formatCurrency = (amount: number) => {
+    if (!amount || amount <= 0) return 'Amount TBD'
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
