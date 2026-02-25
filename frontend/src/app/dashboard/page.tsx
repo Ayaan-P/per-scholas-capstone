@@ -5,6 +5,10 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
+import {
+  SquaresFour, CheckCircle, BookmarkSimple, PencilSimple,
+  PaperPlaneRight, Trophy, XCircle
+} from '@phosphor-icons/react'
 
 interface ScrapedGrant {
   id: string
@@ -30,12 +34,12 @@ interface ScrapedGrant {
 
 // Pipeline status config
 const PIPELINE_STATUSES = [
-  { value: 'active',      label: 'Active',       emoji: '📋', color: 'text-gray-600 bg-gray-100 border-gray-200' },
-  { value: 'saved',       label: 'Saved',        emoji: '🔖', color: 'text-blue-700 bg-blue-50 border-blue-200' },
-  { value: 'in_progress', label: 'In Progress',  emoji: '✍️', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
-  { value: 'submitted',   label: 'Submitted',    emoji: '📤', color: 'text-purple-700 bg-purple-50 border-purple-200' },
-  { value: 'won',         label: 'Won',          emoji: '🏆', color: 'text-green-700 bg-green-50 border-green-200' },
-  { value: 'lost',        label: 'Lost',         emoji: '❌', color: 'text-red-700 bg-red-50 border-red-200' },
+  { value: 'active',      label: 'Active',      shortLabel: 'Active', Icon: CheckCircle,    color: 'text-gray-600 bg-gray-100 border-gray-200' },
+  { value: 'saved',       label: 'Saved',       shortLabel: 'Saved',  Icon: BookmarkSimple, color: 'text-blue-700 bg-blue-50 border-blue-200' },
+  { value: 'in_progress', label: 'In Progress', shortLabel: 'In Prog',Icon: PencilSimple,   color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
+  { value: 'submitted',   label: 'Submitted',   shortLabel: 'Sent',   Icon: PaperPlaneRight,color: 'text-purple-700 bg-purple-50 border-purple-200' },
+  { value: 'won',         label: 'Won',         shortLabel: 'Won',    Icon: Trophy,         color: 'text-green-700 bg-green-50 border-green-200' },
+  { value: 'lost',        label: 'Lost',        shortLabel: 'Lost',   Icon: XCircle,        color: 'text-red-700 bg-red-50 border-red-200' },
 ]
 
 interface Category {
@@ -861,44 +865,41 @@ export default function Dashboard() {
           <div className="flex-1 min-w-0">
             {/* Pipeline Status Filter Tabs — authenticated users only */}
             {isAuthenticated && (
-              <div className="mb-4 flex items-center gap-1 flex-wrap bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
-                {[
-                  { value: 'all',         label: 'All',         emoji: '📊' },
-                  { value: 'active',      label: 'Active',      emoji: '📋' },
-                  { value: 'saved',       label: 'Saved',       emoji: '🔖' },
-                  { value: 'in_progress', label: 'In Progress', emoji: '✍️' },
-                  { value: 'submitted',   label: 'Submitted',   emoji: '📤' },
-                  { value: 'won',         label: 'Won',         emoji: '🏆' },
-                  { value: 'lost',        label: 'Lost',        emoji: '❌' },
-                ].map(tab => {
-                  const count = tab.value === 'all'
-                    ? rawGrants.filter(g => g.status !== 'dismissed').length
-                    : rawGrants.filter(g => {
-                        if (g.status === 'dismissed') return false
-                        const ps = grantStatuses[g.id] || g.org_status || 'active'
-                        return ps === tab.value
-                      }).length
-                  return (
-                    <button
-                      key={tab.value}
-                      onClick={() => { setPipelineStatusFilter(tab.value); setCurrentPage(1) }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        pipelineStatusFilter === tab.value
-                          ? 'bg-perscholas-primary text-white shadow-sm'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                      {count > 0 && (
-                        <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                          pipelineStatusFilter === tab.value
-                            ? 'bg-white/20 text-white'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>{count}</span>
-                      )}
-                    </button>
-                  )
-                })}
+              <div className="mb-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm min-w-max sm:min-w-0 sm:flex-wrap">
+                  {[{ value: 'all', label: 'All', shortLabel: 'All', Icon: SquaresFour }, ...PIPELINE_STATUSES].map(tab => {
+                    const count = tab.value === 'all'
+                      ? rawGrants.filter(g => g.status !== 'dismissed').length
+                      : rawGrants.filter(g => {
+                          if (g.status === 'dismissed') return false
+                          const ps = grantStatuses[g.id] || g.org_status || 'active'
+                          return ps === tab.value
+                        }).length
+                    const isActive = pipelineStatusFilter === tab.value
+                    return (
+                      <button
+                        key={tab.value}
+                        onClick={() => { setPipelineStatusFilter(tab.value); setCurrentPage(1) }}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap min-h-[36px] ${
+                          isActive
+                            ? 'bg-perscholas-primary text-white shadow-sm'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {tab.Icon && <tab.Icon size={15} weight={isActive ? 'fill' : 'regular'} />}
+                        <span className="hidden sm:inline">{tab.label}</span>
+                        <span className="sm:hidden">{tab.shortLabel}</span>
+                        {count > 0 && (
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                            isActive
+                              ? 'bg-white/25 text-white'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>{count}</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
 

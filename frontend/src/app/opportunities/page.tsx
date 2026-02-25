@@ -5,15 +5,19 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
 import ScoringAccuracy from '../../components/ScoringAccuracy'
+import {
+  SquaresFour, CheckCircle, BookmarkSimple,
+  PencilSimple, PaperPlaneRight, Trophy, XCircle
+} from '@phosphor-icons/react'
 
 const PIPELINE_STATUSES = [
-  { value: 'all',         label: 'All',         emoji: '📊' },
-  { value: 'active',      label: 'Active',      emoji: '📋' },
-  { value: 'saved',       label: 'Saved',       emoji: '🔖' },
-  { value: 'in_progress', label: 'In Progress', emoji: '✍️' },
-  { value: 'submitted',   label: 'Submitted',   emoji: '📤' },
-  { value: 'won',         label: 'Won',         emoji: '🏆' },
-  { value: 'lost',        label: 'Lost',        emoji: '❌' },
+  { value: 'all',         label: 'All',         shortLabel: 'All',    Icon: SquaresFour },
+  { value: 'active',      label: 'Active',      shortLabel: 'Active', Icon: CheckCircle },
+  { value: 'saved',       label: 'Saved',       shortLabel: 'Saved',  Icon: BookmarkSimple },
+  { value: 'in_progress', label: 'In Progress', shortLabel: 'In Prog',Icon: PencilSimple },
+  { value: 'submitted',   label: 'Submitted',   shortLabel: 'Sent',   Icon: PaperPlaneRight },
+  { value: 'won',         label: 'Won',         shortLabel: 'Won',    Icon: Trophy },
+  { value: 'lost',        label: 'Lost',        shortLabel: 'Lost',   Icon: XCircle },
 ]
 
 const STATUS_LABEL_COLORS: Record<string, string> = {
@@ -894,35 +898,40 @@ export default function OpportunitiesPage() {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {/* Pipeline Status Filter Tabs */}
-            <div className="mb-4 flex items-center gap-1 flex-wrap bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
-              {PIPELINE_STATUSES.map(tab => {
-                const count = tab.value === 'all'
-                  ? rawOpportunities.length
-                  : rawOpportunities.filter(o => {
-                      const ps = opportunityStatuses[o.id] || o.org_status || 'active'
-                      return ps === tab.value
-                    }).length
-                return (
-                  <button
-                    key={tab.value}
-                    onClick={() => setPipelineStatusFilter(tab.value)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      pipelineStatusFilter === tab.value
-                        ? 'bg-perscholas-primary text-white shadow-sm'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    {count > 0 && (
-                      <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                        pipelineStatusFilter === tab.value
-                          ? 'bg-white/20 text-white'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}>{count}</span>
-                    )}
-                  </button>
-                )
-              })}
+            <div className="mb-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm min-w-max sm:min-w-0 sm:flex-wrap">
+                {PIPELINE_STATUSES.map(tab => {
+                  const count = tab.value === 'all'
+                    ? rawOpportunities.length
+                    : rawOpportunities.filter(o => {
+                        const ps = opportunityStatuses[o.id] || o.org_status || 'active'
+                        return ps === tab.value
+                      }).length
+                  const isActive = pipelineStatusFilter === tab.value
+                  return (
+                    <button
+                      key={tab.value}
+                      onClick={() => setPipelineStatusFilter(tab.value)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap min-h-[36px] ${
+                        isActive
+                          ? 'bg-perscholas-primary text-white shadow-sm'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <tab.Icon size={15} weight={isActive ? 'fill' : 'regular'} />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                      <span className="sm:hidden">{tab.shortLabel}</span>
+                      {count > 0 && (
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                          isActive
+                            ? 'bg-white/25 text-white'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>{count}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {filteredOpportunities.length === 0 ? (
