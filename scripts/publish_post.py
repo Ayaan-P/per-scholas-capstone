@@ -42,7 +42,7 @@ tags: [{', '.join(f'"{t}"' for t in tags)}]
 
 """
 
-blog_dir = os.path.expanduser('~/projects/perscholas-fundraising-demo/blog')
+blog_dir = os.path.expanduser('~/projects/perscholas-fundraising-demo/frontend/content')
 filename = f"{today}-{slug}.md"
 filepath = os.path.join(blog_dir, filename)
 
@@ -54,7 +54,7 @@ print(f"Written: {filepath}")
 
 # Git add + commit + push
 repo_dir = os.path.expanduser('~/projects/perscholas-fundraising-demo')
-subprocess.run(['git', 'add', f'blog/{filename}'], cwd=repo_dir, check=True)
+subprocess.run(['git', 'add', f'frontend/content/{filename}'], cwd=repo_dir, check=True)
 subprocess.run(['git', 'commit', '-m', f'feat(blog): add "{title}"'], cwd=repo_dir, check=True)
 subprocess.run(['git', 'push'], cwd=repo_dir, check=True)
 print("Pushed to git — Netlify will rebuild automatically")

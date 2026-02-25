@@ -19,7 +19,7 @@ export interface BlogPostMeta {
   tags: string[]
 }
 
-const BLOG_DIR = path.join(process.cwd(), '..', 'blog')
+const BLOG_DIR = path.join(process.cwd(), 'content')
 
 export function getAllPosts(): BlogPostMeta[] {
   // Check if blog directory exists
