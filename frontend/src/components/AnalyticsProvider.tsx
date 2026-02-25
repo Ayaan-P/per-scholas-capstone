@@ -55,7 +55,9 @@ function getPageName(pathname: string): string {
     '/onboarding': 'Onboarding',
     '/settings': 'Settings',
     '/about': 'About',
-    '/analytics': 'Analytics'
+    '/analytics': 'Analytics',
+    '/blog': 'Blog',
   }
+  if (pathname.startsWith('/blog/')) return `Blog Post: ${pathname.replace('/blog/', '')}`
   return routes[pathname] || pathname
 }

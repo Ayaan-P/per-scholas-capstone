@@ -1,6 +1,6 @@
 import mixpanel from 'mixpanel-browser'
 
-const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || ''
+const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || 'a15e150aa4fe879ffb226695b5f0a567'
 let initialized = false
 
 export function initAnalytics(projectName: string = 'fundfish') {
