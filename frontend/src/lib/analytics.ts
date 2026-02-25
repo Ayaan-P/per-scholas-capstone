@@ -12,6 +12,7 @@ export function initAnalytics(projectName: string = 'fundfish') {
       track_pageview: false, // We handle this manually
       persistence: 'localStorage',
     })
+    mixpanel.register({ app: projectName })
     initialized = true
   }
 }
