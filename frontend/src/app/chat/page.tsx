@@ -363,10 +363,13 @@ export default function ChatPage() {
                   <div className="w-8 h-8 rounded-lg bg-perscholas-primary flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
                     <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain rounded" />
                   </div>
-                  <div className="flex items-center gap-1.5 py-3">
-                    <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" />
-                    <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-gray-300 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+                  <div className="flex flex-col gap-1 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 bg-perscholas-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-perscholas-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-perscholas-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-xs text-gray-400">Researching your grants… usually takes 20–30s</span>
                   </div>
                 </div>
               )}
