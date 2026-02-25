@@ -3,7 +3,10 @@ import mixpanel from 'mixpanel-browser'
 const MIXPANEL_TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || 'a15e150aa4fe879ffb226695b5f0a567'
 let initialized = false
 
+const BOT_PATTERN = /bot|crawler|spider|googlebot|bingbot|semrush|ahrefs/i
+
 export function initAnalytics(projectName: string = 'fundfish') {
+  if (BOT_PATTERN.test(navigator.userAgent)) return // Bot filter
   if (initialized || typeof window === 'undefined') return
   
   if (MIXPANEL_TOKEN) {
