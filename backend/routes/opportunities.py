@@ -185,8 +185,8 @@ async def get_opportunities(user_id: str = Depends(get_current_user)):
             # No org found for this user
             return {"opportunities": [], "message": "Complete your organization setup to see personalized opportunities."}
 
-        # Query org_grants for this org (qualified grants)
-        org_grants_result = _supabase_admin.table("org_grants").select("*").eq("org_id", org_id).eq("status", "active").order("match_score", desc=True).execute()
+        # Query org_grants for this org — exclude dismissed, show all pipeline stages
+        org_grants_result = _supabase_admin.table("org_grants").select("*").eq("org_id", org_id).neq("status", "dismissed").order("match_score", desc=True).execute()
         
         if not org_grants_result.data:
             return {"opportunities": []}
@@ -220,6 +220,8 @@ async def get_opportunities(user_id: str = Depends(get_current_user)):
                     "llm_summary": og.get("llm_summary"),
                     "created_at": og.get("created_at"),
                     "scored_at": og.get("scored_at"),
+                    "org_status": og.get("status", "active"),   # pipeline stage: active/saved/in_progress/submitted/won/lost
+                    "org_grant_id": og.get("id"),               # org_grants row id (for status updates)
                     # Additional grant fields
                     "contact_name": grant.get("contact_name"),
                     "contact_phone": grant.get("contact_phone"),

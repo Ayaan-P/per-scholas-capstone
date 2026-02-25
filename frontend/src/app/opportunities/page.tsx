@@ -6,6 +6,25 @@ import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../utils/api'
 import ScoringAccuracy from '../../components/ScoringAccuracy'
 
+const PIPELINE_STATUSES = [
+  { value: 'all',         label: 'All',         emoji: '📊' },
+  { value: 'active',      label: 'Active',      emoji: '📋' },
+  { value: 'saved',       label: 'Saved',       emoji: '🔖' },
+  { value: 'in_progress', label: 'In Progress', emoji: '✍️' },
+  { value: 'submitted',   label: 'Submitted',   emoji: '📤' },
+  { value: 'won',         label: 'Won',         emoji: '🏆' },
+  { value: 'lost',        label: 'Lost',        emoji: '❌' },
+]
+
+const STATUS_LABEL_COLORS: Record<string, string> = {
+  active:      'text-gray-600 bg-gray-100 border-gray-200',
+  saved:       'text-blue-700 bg-blue-50 border-blue-200',
+  in_progress: 'text-yellow-700 bg-yellow-50 border-yellow-200',
+  submitted:   'text-purple-700 bg-purple-50 border-purple-200',
+  won:         'text-green-700 bg-green-50 border-green-200',
+  lost:        'text-red-700 bg-red-50 border-red-200',
+}
+
 interface SimilarPastProposal {
   title?: string
   file_path?: string
@@ -45,6 +64,8 @@ interface Opportunity {
   similar_past_proposals?: SimilarPastProposal[]
   llm_enhanced_at?: string
   notes?: string
+  org_status?: string    // pipeline stage: active/saved/in_progress/submitted/won/lost
+  org_grant_id?: string  // org_grants row id
 
   // UNIVERSAL COMPREHENSIVE FIELDS (work across all grant sources)
   contact_name?: string
@@ -105,6 +126,9 @@ export default function OpportunitiesPage() {
   const [notesDraft, setNotesDraft] = useState<{ [key: string]: string }>({})
   const [savingNotes, setSavingNotes] = useState<Set<string>>(new Set())
   const [notesError, setNotesError] = useState<{ [key: string]: string | null }>({})
+  const [pipelineStatusFilter, setPipelineStatusFilter] = useState<string>('all')
+  const [opportunityStatuses, setOpportunityStatuses] = useState<Record<string, string>>({})
+  const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchOpportunities()
@@ -112,7 +136,7 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
+  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy, pipelineStatusFilter])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -191,7 +215,14 @@ export default function OpportunitiesPage() {
       }
 
       const data = await response.json()
-      setRawOpportunities(data.opportunities || [])
+      const fetched = data.opportunities || []
+      setRawOpportunities(fetched)
+      // Seed pipeline status map from org_status field
+      const statuses: Record<string, string> = {}
+      fetched.forEach((o: Opportunity) => {
+        if (o.org_status) statuses[o.id] = o.org_status
+      })
+      setOpportunityStatuses(statuses)
     } catch (error) {
       setRawOpportunities([])
     } finally {
@@ -199,8 +230,34 @@ export default function OpportunitiesPage() {
     }
   }
 
+  const handleUpdateOpportunityStatus = async (opportunityId: string, newStatus: string) => {
+    setUpdatingStatus(prev => new Set(prev).add(opportunityId))
+    try {
+      const response = await api.updateGrantStatus(opportunityId, newStatus)
+      if (response.ok) {
+        setOpportunityStatuses(prev => ({ ...prev, [opportunityId]: newStatus }))
+      }
+    } catch (error) {
+      // silent fail
+    } finally {
+      setUpdatingStatus(prev => {
+        const next = new Set(prev)
+        next.delete(opportunityId)
+        return next
+      })
+    }
+  }
+
   const filteredOpportunities = useMemo(() => {
     let list = [...rawOpportunities]
+
+    // Pipeline status tab filter
+    if (pipelineStatusFilter !== 'all') {
+      list = list.filter(o => {
+        const ps = opportunityStatuses[o.id] || o.org_status || 'active'
+        return ps === pipelineStatusFilter
+      })
+    }
 
     if (keywordSearch.trim()) {
       const keywords = keywordSearch.toLowerCase().trim()
@@ -248,7 +305,7 @@ export default function OpportunitiesPage() {
     }
 
     return list
-  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy])
+  }, [rawOpportunities, highMatchOnly, recentPostsOnly, fundingMin, fundingMax, dueInDays, keywordSearch, sortBy, pipelineStatusFilter, opportunityStatuses])
 
   const handleDismiss = async (opportunityId: string) => {
     if (!confirm('Are you sure you want to dismiss this opportunity? This action cannot be undone.')) {
@@ -834,6 +891,39 @@ export default function OpportunitiesPage() {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
+            {/* Pipeline Status Filter Tabs */}
+            <div className="mb-4 flex items-center gap-1 flex-wrap bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+              {PIPELINE_STATUSES.map(tab => {
+                const count = tab.value === 'all'
+                  ? rawOpportunities.length
+                  : rawOpportunities.filter(o => {
+                      const ps = opportunityStatuses[o.id] || o.org_status || 'active'
+                      return ps === tab.value
+                    }).length
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => setPipelineStatusFilter(tab.value)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      pipelineStatusFilter === tab.value
+                        ? 'bg-perscholas-primary text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>{tab.emoji}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    {count > 0 && (
+                      <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                        pipelineStatusFilter === tab.value
+                          ? 'bg-white/20 text-white'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>{count}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
             {filteredOpportunities.length === 0 ? (
               <div className="card-elevated p-12 sm:p-20 text-center animate-fade-in">
                 <div className="w-20 h-20 mx-auto mb-6 bg-perscholas-primary/10 rounded-2xl flex items-center justify-center">
@@ -948,6 +1038,27 @@ export default function OpportunitiesPage() {
                                 )}
                               </div>
                             </div>
+                          </div>
+
+                          {/* Pipeline Status Selector */}
+                          <div className="mb-4 flex items-center gap-2">
+                            <span className="text-xs font-semibold text-gray-500 shrink-0">Pipeline:</span>
+                            <select
+                              value={opportunityStatuses[opportunity.id] || opportunity.org_status || 'active'}
+                              onChange={e => handleUpdateOpportunityStatus(opportunity.id, e.target.value)}
+                              disabled={updatingStatus.has(opportunity.id)}
+                              className={`text-xs border rounded-lg px-2 py-1.5 font-medium focus:outline-none focus:ring-2 focus:ring-perscholas-primary focus:border-transparent disabled:opacity-50 cursor-pointer ${STATUS_LABEL_COLORS[opportunityStatuses[opportunity.id] || opportunity.org_status || 'active'] || 'text-gray-600 bg-gray-100 border-gray-200'}`}
+                            >
+                              {PIPELINE_STATUSES.filter(s => s.value !== 'all').map(s => (
+                                <option key={s.value} value={s.value}>{s.emoji} {s.label}</option>
+                              ))}
+                            </select>
+                            {updatingStatus.has(opportunity.id) && (
+                              <svg className="animate-spin h-3 w-3 text-perscholas-primary" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            )}
                           </div>
 
                           {/* Source Badge */}
