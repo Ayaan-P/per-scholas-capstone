@@ -230,19 +230,21 @@ export default function OpportunitiesPage() {
     }
   }
 
-  const handleUpdateOpportunityStatus = async (opportunityId: string, newStatus: string) => {
-    setUpdatingStatus(prev => new Set(prev).add(opportunityId))
+  // opportunityRowId = org_grants row id (for local state keying)
+  // grantId = scraped_grants id (for API call, which matches on grant_id col)
+  const handleUpdateOpportunityStatus = async (opportunityRowId: string, grantId: string, newStatus: string) => {
+    setUpdatingStatus(prev => new Set(prev).add(opportunityRowId))
     try {
-      const response = await api.updateGrantStatus(opportunityId, newStatus)
+      const response = await api.updateGrantStatus(grantId, newStatus)
       if (response.ok) {
-        setOpportunityStatuses(prev => ({ ...prev, [opportunityId]: newStatus }))
+        setOpportunityStatuses(prev => ({ ...prev, [opportunityRowId]: newStatus }))
       }
     } catch (error) {
       // silent fail
     } finally {
       setUpdatingStatus(prev => {
         const next = new Set(prev)
-        next.delete(opportunityId)
+        next.delete(opportunityRowId)
         return next
       })
     }
@@ -910,8 +912,7 @@ export default function OpportunitiesPage() {
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    <span>{tab.emoji}</span>
-                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span>{tab.label}</span>
                     {count > 0 && (
                       <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                         pipelineStatusFilter === tab.value
@@ -1045,7 +1046,7 @@ export default function OpportunitiesPage() {
                             <span className="text-xs font-semibold text-gray-500 shrink-0">Pipeline:</span>
                             <select
                               value={opportunityStatuses[opportunity.id] || opportunity.org_status || 'active'}
-                              onChange={e => handleUpdateOpportunityStatus(opportunity.id, e.target.value)}
+                              onChange={e => handleUpdateOpportunityStatus(opportunity.id, opportunity.opportunity_id || opportunity.id, e.target.value)}
                               disabled={updatingStatus.has(opportunity.id)}
                               className={`text-xs border rounded-lg px-2 py-1.5 font-medium focus:outline-none focus:ring-2 focus:ring-perscholas-primary focus:border-transparent disabled:opacity-50 cursor-pointer ${STATUS_LABEL_COLORS[opportunityStatuses[opportunity.id] || opportunity.org_status || 'active'] || 'text-gray-600 bg-gray-100 border-gray-200'}`}
                             >

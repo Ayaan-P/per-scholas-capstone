@@ -34,7 +34,7 @@ const PIPELINE_STATUSES = [
   { value: 'saved',       label: 'Saved',        emoji: '🔖', color: 'text-blue-700 bg-blue-50 border-blue-200' },
   { value: 'in_progress', label: 'In Progress',  emoji: '✍️', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
   { value: 'submitted',   label: 'Submitted',    emoji: '📤', color: 'text-purple-700 bg-purple-50 border-purple-200' },
-  { value: 'won',         label: 'Won 🎉',       emoji: '🏆', color: 'text-green-700 bg-green-50 border-green-200' },
+  { value: 'won',         label: 'Won',          emoji: '🏆', color: 'text-green-700 bg-green-50 border-green-200' },
   { value: 'lost',        label: 'Lost',         emoji: '❌', color: 'text-red-700 bg-red-50 border-red-200' },
 ]
 
@@ -888,8 +888,7 @@ export default function Dashboard() {
                           : 'text-gray-600 hover:bg-gray-100'
                       }`}
                     >
-                      <span>{tab.emoji}</span>
-                      <span className="hidden sm:inline">{tab.label}</span>
+                      <span>{tab.label}</span>
                       {count > 0 && (
                         <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                           pipelineStatusFilter === tab.value
@@ -1005,10 +1004,10 @@ export default function Dashboard() {
                             >
                               {PIPELINE_STATUSES.map(s => (
                                 <option key={s.value} value={s.value}>
-                                  {s.emoji} {s.label}
+                                  {s.label}
                                 </option>
                               ))}
-                              <option value="dismissed">🗑️ Dismiss</option>
+                              <option value="dismissed">Dismiss</option>
                             </select>
                           </div>
                         </div>

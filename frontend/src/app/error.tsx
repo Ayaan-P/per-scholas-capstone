@@ -16,7 +16,7 @@ export default function Error({
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="text-center max-w-md">
-        <div className="text-6xl mb-4">🐟</div>
+        <div className="text-6xl mb-4">⚠️</div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h2>
         <p className="text-gray-600 mb-6">
           We hit a snag. This has been noted and we&apos;re working on it.
