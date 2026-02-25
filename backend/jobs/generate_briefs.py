@@ -40,7 +40,7 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
     try:
         result = supabase.table("org_grants") \
             .select(
-                "grant_id, match_score, llm_summary, scraped_grants(title, funder, amount, deadline)"
+                "grant_id, match_score, llm_summary, scraped_grants(title, funder, amount, deadline, description)"
             ) \
             .eq("org_id", org_id) \
             .eq("status", "active") \
@@ -75,7 +75,7 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
                 "amount": grant_info.get("amount", 0),
                 "deadline": deadline or "TBD",
                 "match_score": item.get("match_score", 0),
-                "summary": item.get("llm_summary", "No summary available")
+                "summary": item.get("llm_summary") or grant_info.get("description", "")[:300] or "No summary available"
             })
         
         if not grants:
