@@ -201,7 +201,7 @@ class GrantProcessingJob:
                 
                 # Save to org_grants
                 if not self.config.dry_run:
-                    await self._save_org_grant(org_id, result)
+                    await self._save_org_grant(org_id, result, grant)
                     self.stats["grants_saved"] += 1
                 else:
                     logger.info(f"[ProcessGrants] DRY RUN: Would save grant {result.grant_id} with score {result.match_score}")
@@ -211,20 +211,23 @@ class GrantProcessingJob:
                 logger.error(f"[ProcessGrants] Error processing grant {grant.get('id', 'unknown')}: {e}")
                 self.stats["errors"] += 1
     
-    async def _save_org_grant(self, org_id: str, result: ScoringResult):
+    async def _save_org_grant(self, org_id: str, result: ScoringResult, grant: Dict[str, Any] = None):
         """Save scored grant to org_grants table"""
+        
+        # Ensure summary is never null — fall back to raw description
+        summary = result.summary or (grant or {}).get("description", "")[:300] or ""
         
         record = {
             "org_id": org_id,
             "grant_id": result.grant_id,
             "status": "active",
             "match_score": result.match_score,
-            "llm_summary": result.summary,
+            "llm_summary": summary,
             "match_reasoning": result.reasoning,
             "key_tags": result.key_tags,
             "effort_estimate": result.effort_estimate,
             "winning_strategies": result.winning_strategies,
-            "tagged_at": datetime.now().isoformat(),
+            "saved_at": datetime.now().isoformat(),
         }
         
         try:
