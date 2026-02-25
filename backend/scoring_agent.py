@@ -74,6 +74,9 @@ class ScoringResult:
     key_tags: List[str]           # Extracted tags
     effort_estimate: str          # low/medium/high
     winning_strategies: List[str] # Tips for application
+    key_themes: List[str]         # Thematic keywords for filtering
+    considerations: List[str]     # Risks or caveats to flag
+    recommended_metrics: List[str] # Metrics to track for reporting
     processing_time_ms: int
     model_tokens_used: int
     
@@ -87,6 +90,9 @@ class ScoringResult:
             "key_tags": self.key_tags,
             "effort_estimate": self.effort_estimate,
             "winning_strategies": self.winning_strategies,
+            "key_themes": self.key_themes,
+            "considerations": self.considerations,
+            "recommended_metrics": self.recommended_metrics,
             "processing_time_ms": self.processing_time_ms,
             "model_tokens_used": self.model_tokens_used,
         }
@@ -382,6 +388,9 @@ class ScoringAgent:
                 key_tags=[],
                 effort_estimate="n/a",
                 winning_strategies=[],
+                key_themes=[],
+                considerations=[],
+                recommended_metrics=[],
                 processing_time_ms=int((time.time() - start_time) * 1000),
                 model_tokens_used=0,
             )
@@ -434,7 +443,10 @@ Always respond with valid JSON matching this schema:
     "summary": "<Brief 2-sentence summary of what the grant funds>",
     "key_tags": ["<tag1>", "<tag2>", ...],
     "effort_estimate": "<low|medium|high>",
-    "winning_strategies": ["<tip1>", "<tip2>"]
+    "winning_strategies": ["<tip1>", "<tip2>", "<tip3>"],
+    "key_themes": ["<theme1>", "<theme2>"],
+    "considerations": ["<risk or caveat 1>", "<risk or caveat 2>"],
+    "recommended_metrics": ["<metric to track for reporting 1>", "<metric2>"]
 }"""
             )
             
@@ -466,9 +478,12 @@ Always respond with valid JSON matching this schema:
                 score_breakdown=breakdown,
                 reasoning=data.get("reasoning", ""),
                 summary=data.get("summary", ""),
-                key_tags=data.get("key_tags", [])[:5],  # Limit tags
+                key_tags=data.get("key_tags", [])[:5],
                 effort_estimate=data.get("effort_estimate", "medium"),
                 winning_strategies=data.get("winning_strategies", [])[:3],
+                key_themes=data.get("key_themes", [])[:5],
+                considerations=data.get("considerations", [])[:3],
+                recommended_metrics=data.get("recommended_metrics", [])[:3],
                 processing_time_ms=0,  # Set later
                 model_tokens_used=tokens_used,
             )
@@ -632,6 +647,9 @@ Respond with JSON only."""
             key_tags=self._extract_tags(full_text),
             effort_estimate=self._estimate_effort(grant),
             winning_strategies=[],
+            key_themes=[],
+            considerations=[],
+            recommended_metrics=[],
             processing_time_ms=0,
             model_tokens_used=0,
         )

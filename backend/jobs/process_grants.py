@@ -227,6 +227,9 @@ class GrantProcessingJob:
             "key_tags": result.key_tags,
             "effort_estimate": result.effort_estimate,
             "winning_strategies": result.winning_strategies,
+            "key_themes": result.key_themes,
+            "considerations": result.considerations,
+            "recommended_metrics": result.recommended_metrics,
             "saved_at": datetime.now().isoformat(),
         }
         
