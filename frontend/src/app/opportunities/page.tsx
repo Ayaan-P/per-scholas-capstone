@@ -656,13 +656,13 @@ export default function OpportunitiesPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                   </svg>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-perscholas-primary">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-perscholas-primary">
                   Saved Opportunities
                 </h2>
               </div>
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="btn-primary flex items-center gap-2 px-4 py-2.5"
+                className="btn-primary flex items-center gap-2 px-4"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -1060,7 +1060,7 @@ export default function OpportunitiesPage() {
                               className={`text-xs border rounded-lg px-2 py-1.5 font-medium focus:outline-none focus:ring-2 focus:ring-perscholas-primary focus:border-transparent disabled:opacity-50 cursor-pointer ${STATUS_LABEL_COLORS[opportunityStatuses[opportunity.id] || opportunity.org_status || 'active'] || 'text-gray-600 bg-gray-100 border-gray-200'}`}
                             >
                               {PIPELINE_STATUSES.filter(s => s.value !== 'all').map(s => (
-                                <option key={s.value} value={s.value}>{s.emoji} {s.label}</option>
+                                <option key={s.value} value={s.value}>{s.label}</option>
                               ))}
                             </select>
                             {updatingStatus.has(opportunity.id) && (
@@ -1721,7 +1721,8 @@ export default function OpportunitiesPage() {
                   setShowUploadModal(false)
                   setUploadResult(null)
                 }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Close"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1960,7 +1961,7 @@ export default function OpportunitiesPage() {
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 bg-perscholas-secondary text-white p-4 rounded-full shadow-2xl hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
+          className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 bg-perscholas-secondary text-white p-3 sm:p-4 rounded-full shadow-2xl hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Back to top"
         >
           <svg className="w-5 h-5 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">

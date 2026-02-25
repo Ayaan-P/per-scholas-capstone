@@ -33,6 +33,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [loadingElapsed, setLoadingElapsed] = useState(0)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -72,6 +73,19 @@ export default function ChatPage() {
       inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`
     }
   }, [input])
+
+  // Elapsed timer while agent is thinking
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingElapsed(0)
+      return
+    }
+    setLoadingElapsed(0)
+    const interval = setInterval(() => {
+      setLoadingElapsed(prev => prev + 1)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [isLoading])
 
   // Load uploaded files when authenticated
   useEffect(() => {
@@ -363,13 +377,33 @@ export default function ChatPage() {
                   <div className="w-8 h-8 rounded-lg bg-perscholas-primary flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
                     <img src="/logo.png" alt="FundFish" className="w-5 h-5 object-contain rounded" />
                   </div>
-                  <div className="flex flex-col gap-1 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 bg-perscholas-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 bg-perscholas-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 bg-perscholas-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="flex flex-col gap-2 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 bg-perscholas-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 bg-perscholas-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 bg-perscholas-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-600">
+                        {loadingElapsed < 5
+                          ? 'Agent is thinking…'
+                          : loadingElapsed < 20
+                            ? `Searching grant databases… (${loadingElapsed}s)`
+                            : `Still working — nearly done (${loadingElapsed}s)`
+                        }
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-400">Researching your grants… usually takes 20–30s</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 max-w-[200px] bg-gray-100 rounded-full h-1 overflow-hidden">
+                        <div
+                          className="h-full bg-perscholas-primary/50 rounded-full transition-all duration-1000"
+                          style={{ width: `${Math.min((loadingElapsed / 35) * 100, 95)}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {loadingElapsed < 10 ? 'Usually 25–30s' : 'Almost there…'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -458,7 +492,7 @@ export default function ChatPage() {
             <button
               onClick={() => sendMessage()}
               disabled={!input.trim() || isLoading}
-              className="m-2 p-2.5 bg-perscholas-primary text-white rounded-xl hover:bg-perscholas-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 disabled:hover:bg-perscholas-primary"
+              className="m-2 p-3 bg-perscholas-primary text-white rounded-xl hover:bg-perscholas-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 disabled:hover:bg-perscholas-primary min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />

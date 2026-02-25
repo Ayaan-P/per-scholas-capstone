@@ -120,7 +120,7 @@ export function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="md:hidden p-3 rounded-lg hover:bg-gray-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? (
@@ -137,12 +137,12 @@ export function Header() {
 
         {/* Mobile Navigation Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-4 animate-slide-up">
-            <nav className="flex flex-col space-y-2">
+          <div className="md:hidden border-t border-gray-200 py-3 animate-slide-up">
+            <nav className="flex flex-col space-y-1">
               <Link
                 href={isAuthenticated ? "/opportunities" : "/dashboard"}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                className={`font-medium transition-colors px-4 py-3 rounded-lg min-h-[44px] flex items-center ${
                   isActive('/opportunities') || isActive('/dashboard')
                     ? 'text-blue-600 font-bold bg-blue-50'
                     : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
@@ -155,7 +155,7 @@ export function Header() {
                   <Link
                     href="/chat"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                    className={`font-medium transition-colors px-4 py-3 rounded-lg min-h-[44px] flex items-center ${
                       isActive('/chat')
                         ? 'text-blue-600 font-bold bg-blue-50'
                         : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
@@ -166,7 +166,7 @@ export function Header() {
                   <Link
                     href="/settings"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                    className={`font-medium transition-colors px-4 py-3 rounded-lg min-h-[44px] flex items-center ${
                       isActive('/settings')
                         ? 'text-blue-600 font-bold bg-blue-50'
                         : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
@@ -179,7 +179,7 @@ export function Header() {
               <Link
                 href="/blog"
                 onClick={() => setMobileMenuOpen(false)}
-                className={`font-medium transition-colors px-4 py-2 rounded-lg ${
+                className={`font-medium transition-colors px-4 py-3 rounded-lg min-h-[44px] flex items-center ${
                   isActive('/blog')
                     ? 'text-blue-600 font-bold bg-blue-50'
                     : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
@@ -187,35 +187,35 @@ export function Header() {
               >
                 Blog
               </Link>
-            {isAuthenticated ? (
+              {isAuthenticated ? (
                 <>
-                  <div className="px-4 py-2 text-sm text-gray-600 border-t border-gray-200 mt-2">
+                  <div className="px-4 py-3 text-sm text-gray-600 border-t border-gray-200 mt-1 truncate">
                     {user?.email}
                   </div>
                   <button
                     onClick={handleSignOut}
-                    className="mx-2 px-4 py-2 text-left text-red-600 hover:text-red-700 font-semibold rounded-xl hover:bg-red-50 transition-all duration-200"
+                    className="mx-2 px-4 py-3 min-h-[44px] text-left text-red-600 hover:text-red-700 font-semibold rounded-xl hover:bg-red-50 transition-all duration-200"
                   >
                     Sign Out
                   </button>
                 </>
               ) : (
-                <>
+                <div className="flex flex-col gap-2 pt-2 border-t border-gray-200 mt-1 px-2">
                   <Link
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="mx-2 btn-ghost"
+                    className="btn-ghost w-full text-center"
                   >
                     Sign In
                   </Link>
                   <Link
                     href="/signup"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="mx-2 btn-primary"
+                    className="btn-primary w-full text-center"
                   >
                     Get Started
                   </Link>
-                </>
+                </div>
               )}
             </nav>
           </div>

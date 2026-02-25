@@ -230,7 +230,7 @@ export default function Home() {
               <span className="font-bold text-perscholas-primary">fundfish</span>
               <span className="text-gray-400 text-sm ml-2">· AI fundraising for nonprofits</span>
             </div>
-            <div className="flex items-center gap-6 text-sm text-gray-400">
+            <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-6 gap-y-2 text-sm text-gray-400">
               <Link href="/about" className="hover:text-gray-600 transition-colors">About</Link>
               <Link href="/blog" className="hover:text-gray-600 transition-colors">Blog</Link>
               <Link href="/login" className="hover:text-gray-600 transition-colors">Sign In</Link>

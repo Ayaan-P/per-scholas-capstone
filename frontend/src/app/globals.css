@@ -19,9 +19,10 @@
 @layer components {
   /* Premium Button Styles */
   .btn-premium {
-    @apply px-6 py-2.5 rounded-xl font-semibold text-sm
+    @apply px-6 py-3 rounded-xl font-semibold text-sm
            transition-all duration-300 ease-smooth
            shadow-md hover:shadow-premium
+           min-h-[44px]
            active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
@@ -36,8 +37,9 @@
   }
 
   .btn-ghost {
-    @apply px-4 py-2 rounded-lg font-medium text-sm text-gray-700
+    @apply px-4 py-3 rounded-lg font-medium text-sm text-gray-700
            hover:bg-gray-100 hover:text-perscholas-primary
+           min-h-[44px] inline-flex items-center justify-center
            transition-all duration-200 active:scale-95;
   }
 

@@ -574,7 +574,7 @@ export default function Dashboard() {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-3xl sm:text-4xl font-bold text-perscholas-primary">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-perscholas-primary">
                     Comprehensive Grants Database
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">Updated daily</p>
@@ -904,7 +904,7 @@ export default function Dashboard() {
             )}
 
             {filteredGrants.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-20 text-center">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 sm:p-20 text-center">
                 <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-2xl flex items-center justify-center">
                   <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1399,7 +1399,7 @@ export default function Dashboard() {
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-8 right-8 bg-perscholas-primary text-white p-4 rounded-full shadow-2xl hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group"
+          className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 bg-perscholas-primary text-white p-3 sm:p-4 rounded-full shadow-2xl hover:shadow-xl hover:scale-110 transition-all duration-300 z-40 group min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Back to top"
         >
           <svg className="w-5 h-5 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
