@@ -29,23 +29,65 @@ from supabase import create_client
 from email_service import get_email_service
 
 
-# Deadline windows: (urgency_label, days_from_today, window_days)
+# Default deadline windows: (urgency_label, days_from_today, window_days)
 # We check: deadline is within [today + days, today + days + window)
-ALERT_WINDOWS = [
+DEFAULT_ALERT_WINDOWS = [
     ("urgent",   2,  1),   # deadline is 2 days from now
     ("soon",     7,  1),   # deadline is 7 days from now
     ("upcoming", 30, 1),   # deadline is 30 days from now
 ]
 
+# Map from days to urgency label
+DAYS_TO_URGENCY = {
+    2: "urgent",
+    7: "soon",
+    14: "upcoming",
+    30: "upcoming",
+}
 
-def _build_alert_date_ranges():
+
+def _get_org_notification_prefs(org_id: int, supabase) -> dict:
+    """Get notification preferences for an org, with defaults."""
+    default_prefs = {
+        "deadline_alerts_enabled": True,
+        "deadline_alert_days": [2, 7, 30],
+        "morning_briefs_enabled": True,
+        "email_notifications_enabled": True
+    }
+    try:
+        result = supabase.table("organization_config") \
+            .select("notification_preferences") \
+            .eq("id", org_id) \
+            .limit(1) \
+            .execute()
+        
+        if result.data and result.data[0].get("notification_preferences"):
+            prefs = result.data[0]["notification_preferences"]
+            return {**default_prefs, **prefs}
+    except Exception as e:
+        print(f"[DEADLINE] Error fetching prefs for org {org_id}: {e}")
+    
+    return default_prefs
+
+
+def _build_alert_windows(deadline_alert_days: list) -> list:
+    """Build alert windows from org's preferred days."""
+    windows = []
+    for days in sorted(deadline_alert_days):
+        urgency = DAYS_TO_URGENCY.get(days, "upcoming")
+        windows.append((urgency, days, 1))
+    return windows
+
+
+def _build_alert_date_ranges(alert_windows: list = None):
     """
     Return dict of urgency → (start_date_str, end_date_str) for query ranges.
     We use an inclusive 2-day window to tolerate slight date drift.
     """
+    windows = alert_windows or DEFAULT_ALERT_WINDOWS
     today = date.today()
     ranges = {}
-    for urgency, days, _ in ALERT_WINDOWS:
+    for urgency, days, _ in windows:
         target = today + timedelta(days=days)
         # Allow ±1 day window to catch edge cases (grants posted with time components)
         start = (target - timedelta(days=1)).isoformat()
@@ -54,12 +96,12 @@ def _build_alert_date_ranges():
     return ranges
 
 
-async def get_deadline_alerts_for_org(org_id: int, supabase) -> list:
+async def get_deadline_alerts_for_org(org_id: int, supabase, alert_windows: list = None) -> list:
     """
     For a given org, find saved/active grants with deadlines in the alert windows.
     Returns list of alert dicts (one per grant per urgency level).
     """
-    date_ranges = _build_alert_date_ranges()
+    date_ranges = _build_alert_date_ranges(alert_windows)
     alerts = []
 
     for urgency, (start_date, end_date, days_left) in date_ranges.items():
@@ -125,7 +167,22 @@ async def process_org_deadline_alerts(org_id: int, org_name: str, org_email: str
     email_service = get_email_service()
     print(f"\n[DEADLINE] Processing org {org_id} ({org_name})")
 
-    alerts = await get_deadline_alerts_for_org(org_id, supabase)
+    # Check notification preferences (Issue #59)
+    prefs = _get_org_notification_prefs(org_id, supabase)
+    
+    if not prefs.get("email_notifications_enabled", True):
+        print(f"[DEADLINE] Org {org_id} has email notifications disabled, skipping")
+        return {"status": "skipped", "reason": "email_disabled", "alert_count": 0}
+    
+    if not prefs.get("deadline_alerts_enabled", True):
+        print(f"[DEADLINE] Org {org_id} has deadline alerts disabled, skipping")
+        return {"status": "skipped", "reason": "alerts_disabled", "alert_count": 0}
+    
+    # Build custom alert windows from org preferences
+    deadline_alert_days = prefs.get("deadline_alert_days", [2, 7, 30])
+    alert_windows = _build_alert_windows(deadline_alert_days)
+    
+    alerts = await get_deadline_alerts_for_org(org_id, supabase, alert_windows)
 
     if not alerts:
         print(f"[DEADLINE] No upcoming deadlines for org {org_id}")

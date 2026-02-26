@@ -23,6 +23,30 @@ from supabase import create_client
 from email_service import get_email_service
 
 
+def _get_org_notification_prefs(org_id: int, supabase) -> dict:
+    """Get notification preferences for an org, with defaults."""
+    default_prefs = {
+        "deadline_alerts_enabled": True,
+        "deadline_alert_days": [2, 7, 30],
+        "morning_briefs_enabled": True,
+        "email_notifications_enabled": True
+    }
+    try:
+        result = supabase.table("organization_config") \
+            .select("notification_preferences") \
+            .eq("id", org_id) \
+            .limit(1) \
+            .execute()
+        
+        if result.data and result.data[0].get("notification_preferences"):
+            prefs = result.data[0]["notification_preferences"]
+            return {**default_prefs, **prefs}
+    except Exception as e:
+        print(f"[BRIEF] Error fetching prefs for org {org_id}: {e}")
+    
+    return default_prefs
+
+
 async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, supabase):
     """
     Generate and send morning brief for one organization.
@@ -32,6 +56,17 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
     email_service = get_email_service()
     
     print(f"\n[BRIEF] Processing org {org_id} ({org_name})")
+    
+    # Check notification preferences (Issue #59)
+    prefs = _get_org_notification_prefs(org_id, supabase)
+    
+    if not prefs.get("email_notifications_enabled", True):
+        print(f"[BRIEF] Org {org_id} has email notifications disabled, skipping")
+        return {"status": "skipped", "reason": "email_disabled", "grant_count": 0}
+    
+    if not prefs.get("morning_briefs_enabled", True):
+        print(f"[BRIEF] Org {org_id} has morning briefs disabled, skipping")
+        return {"status": "skipped", "reason": "briefs_disabled", "grant_count": 0}
     
     # Get top grants for this org
     # Filter: match_score > 70, status = active, deadline in future

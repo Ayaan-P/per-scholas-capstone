@@ -222,6 +222,23 @@ export default function SettingsPage() {
   const [applying, setApplying] = useState(false)
   const [docError, setDocError] = useState('')
 
+  // Notification preferences state (Issue #59)
+  interface NotificationPreferences {
+    deadline_alerts_enabled: boolean
+    deadline_alert_days: number[]
+    morning_briefs_enabled: boolean
+    email_notifications_enabled: boolean
+  }
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>({
+    deadline_alerts_enabled: true,
+    deadline_alert_days: [2, 7, 30],
+    morning_briefs_enabled: true,
+    email_notifications_enabled: true
+  })
+  const [loadingNotifPrefs, setLoadingNotifPrefs] = useState(false)
+  const [savingNotifPrefs, setSavingNotifPrefs] = useState(false)
+  const [notifMessage, setNotifMessage] = useState('')
+
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -305,6 +322,51 @@ export default function SettingsPage() {
     }
     fetchMatchProfile()
   }, [activeTab])
+
+  // Fetch notification preferences when 'notifications' tab is opened (Issue #59)
+  useEffect(() => {
+    if (activeTab !== 'notifications') return
+    const fetchNotifPrefs = async () => {
+      setLoadingNotifPrefs(true)
+      try {
+        const response = await api.getNotificationPreferences()
+        if (response.ok) {
+          const data = await response.json()
+          if (data.preferences) {
+            setNotifPrefs(data.preferences)
+          }
+        }
+      } catch (error) {
+        // silently fail, use defaults
+      } finally {
+        setLoadingNotifPrefs(false)
+      }
+    }
+    fetchNotifPrefs()
+  }, [activeTab])
+
+  // Save notification preferences
+  const saveNotifPrefs = async (updates: Partial<NotificationPreferences>) => {
+    setSavingNotifPrefs(true)
+    setNotifMessage('')
+    try {
+      const response = await api.updateNotificationPreferences(updates)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.preferences) {
+          setNotifPrefs(data.preferences)
+        }
+        setNotifMessage('Notification preferences saved!')
+        setTimeout(() => setNotifMessage(''), 3000)
+      } else {
+        setNotifMessage('Failed to save notification preferences')
+      }
+    } catch (error) {
+      setNotifMessage('Error saving notification preferences')
+    } finally {
+      setSavingNotifPrefs(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -415,7 +477,7 @@ export default function SettingsPage() {
 
             {/* Tabs */}
             <div className="flex flex-wrap gap-1 mb-8 p-1 bg-gray-100 rounded-xl">
-              {['import', 'basic', 'mission', 'programs', 'funding', 'impact', 'match'].map((tab) => (
+              {['import', 'basic', 'mission', 'programs', 'funding', 'impact', 'match', 'notifications'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -425,7 +487,7 @@ export default function SettingsPage() {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  {tab === 'match' ? '🎯 Match Profile' : tab}
+                  {tab === 'match' ? '🎯 Match Profile' : tab === 'notifications' ? '🔔 Notifications' : tab}
                 </button>
               ))}
             </div>
@@ -1105,6 +1167,167 @@ export default function SettingsPage() {
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <p className="text-sm text-amber-800">
                       💡 <strong>Tip:</strong> To improve grant matching, go to <strong>Funding</strong> to adjust grant size preferences and exclusions, or <strong>Mission</strong> to refine your focus areas.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* NOTIFICATIONS TAB (Issue #59) */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5">
+                <h3 className="font-semibold text-amber-900 mb-1 flex items-center gap-2">
+                  🔔 Notification Preferences
+                </h3>
+                <p className="text-sm text-amber-800">
+                  Control how and when FundFish notifies you about grant opportunities and deadlines.
+                </p>
+              </div>
+
+              {loadingNotifPrefs && (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-perscholas-primary"></div>
+                  <span className="ml-3 text-gray-500">Loading notification preferences...</span>
+                </div>
+              )}
+
+              {notifMessage && (
+                <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 flex items-center gap-3">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium">{notifMessage}</span>
+                </div>
+              )}
+
+              {!loadingNotifPrefs && (
+                <div className="space-y-6">
+                  {/* Master Email Toggle */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">Email Notifications</h4>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Master toggle for all email notifications from FundFish
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => saveNotifPrefs({ email_notifications_enabled: !notifPrefs.email_notifications_enabled })}
+                        disabled={savingNotifPrefs}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-perscholas-primary focus:ring-offset-2 ${
+                          notifPrefs.email_notifications_enabled ? 'bg-perscholas-primary' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          notifPrefs.email_notifications_enabled ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Morning Briefs */}
+                  <div className={`bg-white border border-gray-200 rounded-xl p-5 ${!notifPrefs.email_notifications_enabled ? 'opacity-50' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                          ☀️ Morning Briefs
+                        </h4>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Daily email with your top 3 grant matches (8:00 AM EST)
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => saveNotifPrefs({ morning_briefs_enabled: !notifPrefs.morning_briefs_enabled })}
+                        disabled={savingNotifPrefs || !notifPrefs.email_notifications_enabled}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-perscholas-primary focus:ring-offset-2 ${
+                          notifPrefs.morning_briefs_enabled && notifPrefs.email_notifications_enabled ? 'bg-perscholas-primary' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          notifPrefs.morning_briefs_enabled && notifPrefs.email_notifications_enabled ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Deadline Alerts */}
+                  <div className={`bg-white border border-gray-200 rounded-xl p-5 ${!notifPrefs.email_notifications_enabled ? 'opacity-50' : ''}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                          ⏰ Deadline Alerts
+                        </h4>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Get reminded when grants you&apos;re tracking are approaching deadlines
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => saveNotifPrefs({ deadline_alerts_enabled: !notifPrefs.deadline_alerts_enabled })}
+                        disabled={savingNotifPrefs || !notifPrefs.email_notifications_enabled}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-perscholas-primary focus:ring-offset-2 ${
+                          notifPrefs.deadline_alerts_enabled && notifPrefs.email_notifications_enabled ? 'bg-perscholas-primary' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          notifPrefs.deadline_alerts_enabled && notifPrefs.email_notifications_enabled ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Deadline Alert Windows */}
+                    {notifPrefs.deadline_alerts_enabled && notifPrefs.email_notifications_enabled && (
+                      <div className="border-t border-gray-100 pt-4 mt-4">
+                        <p className="text-sm font-medium text-gray-700 mb-3">Send alerts when deadlines are:</p>
+                        <div className="flex flex-wrap gap-3">
+                          {[
+                            { days: 2, label: '2 days away', emoji: '🔴', color: 'red' },
+                            { days: 7, label: '7 days away', emoji: '🟡', color: 'yellow' },
+                            { days: 14, label: '14 days away', emoji: '🟠', color: 'orange' },
+                            { days: 30, label: '30 days away', emoji: '🔵', color: 'blue' },
+                          ].map(({ days, label, emoji, color }) => {
+                            const isActive = notifPrefs.deadline_alert_days.includes(days)
+                            return (
+                              <button
+                                key={days}
+                                onClick={() => {
+                                  const newDays = isActive
+                                    ? notifPrefs.deadline_alert_days.filter(d => d !== days)
+                                    : [...notifPrefs.deadline_alert_days, days].sort((a, b) => a - b)
+                                  if (newDays.length > 0) { // Must have at least one alert window
+                                    saveNotifPrefs({ deadline_alert_days: newDays })
+                                  }
+                                }}
+                                disabled={savingNotifPrefs || (isActive && notifPrefs.deadline_alert_days.length === 1)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                                  isActive
+                                    ? `bg-${color}-50 border-${color}-300 text-${color}-800`
+                                    : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+                                }`}
+                                style={isActive ? {
+                                  backgroundColor: color === 'red' ? '#fef2f2' : color === 'yellow' ? '#fefce8' : color === 'orange' ? '#fff7ed' : '#eff6ff',
+                                  borderColor: color === 'red' ? '#fca5a5' : color === 'yellow' ? '#fde047' : color === 'orange' ? '#fdba74' : '#93c5fd',
+                                  color: color === 'red' ? '#991b1b' : color === 'yellow' ? '#854d0e' : color === 'orange' ? '#9a3412' : '#1e40af'
+                                } : {}}
+                              >
+                                {emoji} {label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-3">
+                          Click to toggle each alert window. At least one must remain active.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <p className="text-sm text-blue-800">
+                      💡 <strong>Tip:</strong> Deadline alerts are only sent for grants in your pipeline (Active, Saved, or In Progress status).
+                      Add grants to your pipeline from the Dashboard to start receiving alerts.
                     </p>
                   </div>
                 </div>

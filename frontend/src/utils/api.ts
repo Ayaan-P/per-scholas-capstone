@@ -347,5 +347,20 @@ export const api = {
 
   // Match Profile — see which keywords are being used for grant discovery
   getMatchProfile: () =>
-    authenticatedFetch(`${API_BASE_URL}/api/organization/match-profile`)
+    authenticatedFetch(`${API_BASE_URL}/api/organization/match-profile`),
+
+  // Notification Preferences (Issue #59)
+  getNotificationPreferences: () =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/notification-preferences`),
+
+  updateNotificationPreferences: (updates: {
+    deadline_alerts_enabled?: boolean
+    deadline_alert_days?: number[]
+    morning_briefs_enabled?: boolean
+    email_notifications_enabled?: boolean
+  }) =>
+    authenticatedFetch(`${API_BASE_URL}/api/organization/notification-preferences`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates)
+    })
 }

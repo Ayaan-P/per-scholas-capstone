@@ -920,3 +920,148 @@ async def get_organization_match_profile(user_id: str = Depends(get_current_user
     except Exception as e:
         print(f"[MATCH PROFILE] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load match profile: {str(e)}")
+
+
+# ============================================
+# Notification Preferences
+# ============================================
+
+class NotificationPreferencesUpdate(BaseModel):
+    deadline_alerts_enabled: Optional[bool] = None
+    deadline_alert_days: Optional[List[int]] = None
+    morning_briefs_enabled: Optional[bool] = None
+    email_notifications_enabled: Optional[bool] = None
+
+
+DEFAULT_NOTIFICATION_PREFERENCES = {
+    "deadline_alerts_enabled": True,
+    "deadline_alert_days": [2, 7, 30],
+    "morning_briefs_enabled": True,
+    "email_notifications_enabled": True
+}
+
+
+async def _get_org_id_for_user(user_id: str) -> Optional[int]:
+    """Get org ID for the authenticated user"""
+    try:
+        result = _supabase.table("users").select("organization_id").eq("id", user_id).limit(1).execute()
+        if result.data and result.data[0].get("organization_id"):
+            return int(result.data[0]["organization_id"])
+    except Exception as e:
+        print(f"[NOTIF PREFS] Error getting org_id: {e}")
+    return None
+
+
+@router.get("/organization/notification-preferences")
+async def get_notification_preferences(user_id: str = Depends(get_current_user)):
+    """
+    Get the organization's notification preferences.
+    Returns default preferences if none are set.
+    """
+    try:
+        org_id = await _get_org_id_for_user(user_id)
+        if not org_id:
+            return {
+                "status": "no_org",
+                "preferences": DEFAULT_NOTIFICATION_PREFERENCES,
+                "message": "Using default preferences (no organization found)"
+            }
+
+        result = _supabase.table("organization_config") \
+            .select("notification_preferences") \
+            .eq("id", org_id) \
+            .limit(1) \
+            .execute()
+
+        if result.data and result.data[0].get("notification_preferences"):
+            prefs = result.data[0]["notification_preferences"]
+            # Merge with defaults for any missing keys
+            merged = {**DEFAULT_NOTIFICATION_PREFERENCES, **prefs}
+            return {
+                "status": "ok",
+                "org_id": org_id,
+                "preferences": merged
+            }
+        else:
+            return {
+                "status": "defaults",
+                "org_id": org_id,
+                "preferences": DEFAULT_NOTIFICATION_PREFERENCES,
+                "message": "Using default preferences"
+            }
+
+    except Exception as e:
+        print(f"[NOTIF PREFS] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load notification preferences: {str(e)}")
+
+
+@router.patch("/organization/notification-preferences")
+async def update_notification_preferences(
+    updates: NotificationPreferencesUpdate,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Update the organization's notification preferences.
+    Partial updates supported — only provided fields are changed.
+    
+    Fields:
+      - deadline_alerts_enabled: bool — enable/disable deadline alert emails
+      - deadline_alert_days: list[int] — which days to alert (e.g., [2, 7, 30])
+      - morning_briefs_enabled: bool — enable/disable morning brief emails
+      - email_notifications_enabled: bool — master toggle for all email notifications
+    """
+    try:
+        org_id = await _get_org_id_for_user(user_id)
+        if not org_id:
+            raise HTTPException(status_code=400, detail="User has no organization")
+
+        # Get current preferences
+        result = _supabase.table("organization_config") \
+            .select("notification_preferences") \
+            .eq("id", org_id) \
+            .limit(1) \
+            .execute()
+
+        current_prefs = DEFAULT_NOTIFICATION_PREFERENCES.copy()
+        if result.data and result.data[0].get("notification_preferences"):
+            current_prefs.update(result.data[0]["notification_preferences"])
+
+        # Apply updates
+        update_dict = updates.model_dump(exclude_unset=True)
+        for key, value in update_dict.items():
+            if value is not None:
+                current_prefs[key] = value
+
+        # Validate deadline_alert_days
+        if "deadline_alert_days" in update_dict:
+            days = update_dict["deadline_alert_days"]
+            if not isinstance(days, list) or not all(isinstance(d, int) and d > 0 for d in days):
+                raise HTTPException(
+                    status_code=400,
+                    detail="deadline_alert_days must be a list of positive integers"
+                )
+            # Sort and dedupe
+            current_prefs["deadline_alert_days"] = sorted(set(days))
+
+        # Save
+        update_result = _supabase.table("organization_config") \
+            .update({"notification_preferences": current_prefs}) \
+            .eq("id", org_id) \
+            .execute()
+
+        if not update_result.data:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        print(f"[NOTIF PREFS] Updated preferences for org {org_id}: {current_prefs}")
+
+        return {
+            "status": "updated",
+            "org_id": org_id,
+            "preferences": current_prefs
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[NOTIF PREFS] Update error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update notification preferences: {str(e)}")
