@@ -178,13 +178,31 @@ export const api = {
     }),
 
   // My Grants (org-specific scored grants from qualification agent)
-  getMyGrants: async (params?: { status?: string; min_score?: number; limit?: number; offset?: number; search?: string }) => {
+  getMyGrants: async (params?: { 
+    status?: string
+    min_score?: number
+    limit?: number
+    offset?: number
+    search?: string
+    category_id?: number
+    min_amount?: number
+    max_amount?: number
+    due_within_days?: number
+    sort_by?: 'match' | 'deadline' | 'amount'
+    sort_dir?: 'asc' | 'desc'
+  }) => {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append('status', params.status)
     if (params?.min_score !== undefined) queryParams.append('min_score', params.min_score.toString())
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString())
     if (params?.search) queryParams.append('search', params.search)
+    if (params?.category_id !== undefined) queryParams.append('category_id', params.category_id.toString())
+    if (params?.min_amount !== undefined) queryParams.append('min_amount', params.min_amount.toString())
+    if (params?.max_amount !== undefined) queryParams.append('max_amount', params.max_amount.toString())
+    if (params?.due_within_days !== undefined) queryParams.append('due_within_days', params.due_within_days.toString())
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by)
+    if (params?.sort_dir) queryParams.append('sort_dir', params.sort_dir)
     return authenticatedFetch(`${API_BASE_URL}/api/my-grants?${queryParams.toString()}`)
   },
 

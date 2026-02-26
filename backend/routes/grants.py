@@ -260,6 +260,12 @@ async def get_my_grants(
     limit: int = 150,
     offset: int = 0,
     search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    min_amount: Optional[int] = None,
+    max_amount: Optional[int] = None,
+    due_within_days: Optional[int] = None,
+    sort_by: Optional[str] = "match",  # match, deadline, amount
+    sort_dir: Optional[str] = "desc",  # asc, desc
     user_id: str = Depends(get_current_user)
 ):
     """
@@ -271,7 +277,13 @@ async def get_my_grants(
     Args:
         status: Filter by status (active, dismissed, saved, applied, won, lost, in_progress, submitted)
         min_score: Minimum match score threshold (0-100)
-        search: Text search across title, funder, description (case-insensitive)
+        search: Text search across title, funder, description, agency (case-insensitive)
+        category_id: Filter by grant category
+        min_amount: Minimum grant amount
+        max_amount: Maximum grant amount
+        due_within_days: Only show grants with deadline within N days
+        sort_by: Sort field (match, deadline, amount) - default: match
+        sort_dir: Sort direction (asc, desc) - default: desc
     """
     try:
         org_id = await _get_user_org_id(user_id)
@@ -382,6 +394,49 @@ async def get_my_grants(
                     or search_lower in (g.get("description") or "").lower()
                     or search_lower in (g.get("agency") or "").lower()
                 ]
+
+            # Apply category filter
+            if category_id is not None:
+                grants = [g for g in grants if g.get("category_id") == category_id]
+
+            # Apply amount filters
+            if min_amount is not None:
+                grants = [
+                    g for g in grants
+                    if (g.get("amount") or g.get("amount_max") or 0) >= min_amount
+                ]
+            if max_amount is not None:
+                grants = [
+                    g for g in grants
+                    if (g.get("amount") or g.get("amount_min") or 0) <= max_amount
+                ]
+
+            # Apply deadline filter (due_within_days)
+            if due_within_days is not None:
+                from datetime import date, timedelta
+                cutoff_date = (date.today() + timedelta(days=due_within_days)).isoformat()
+                today_str = date.today().isoformat()
+                grants = [
+                    g for g in grants
+                    if g.get("deadline") and today_str <= g["deadline"] <= cutoff_date
+                ]
+
+            # Apply sorting
+            if sort_by == "deadline":
+                grants.sort(
+                    key=lambda g: g.get("deadline") or "9999-12-31",
+                    reverse=(sort_dir == "desc")
+                )
+            elif sort_by == "amount":
+                grants.sort(
+                    key=lambda g: g.get("amount") or g.get("amount_max") or 0,
+                    reverse=(sort_dir == "desc")
+                )
+            else:  # default: match
+                grants.sort(
+                    key=lambda g: g.get("match_score") or 0,
+                    reverse=(sort_dir == "desc")
+                )
 
             # has_more: if DB returned the full limit, there may be more pages
             # (Python-side filters may reduce the count, but we conservatively signal more)
