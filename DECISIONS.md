@@ -217,3 +217,6 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Grant pipeline status tracking (2026-02-24): Issue #56 CLOSED. PATCH /api/my-grants/{grant_id}/status endpoint (active/saved/in_progress/submitted/won/lost/dismissed). Frontend: pipeline status dropdown on each grant card for authenticated users, optimistic UI, initializes from org_status. Commit 18c45c4.
 - [x] Server-side search (2026-02-24): Issue #55 partial. GET /api/my-grants now accepts ?search= param. Case-insensitive match across title, funder, description, agency. api.ts updated. Commit 18c45c4.
 - [x] Created Issues #58, #59, #60 (2026-02-24): Pipeline status filter tabs, notification preferences, EXACT paper inference-time personalization research.
+- [x] Fixed org_briefs content null bug (2026-02-26): generate_briefs.py now populates content, grant_summaries, delivery_address. Issue #61 CLOSED. Commit d9cf0d2.
+- [x] Server-side filtering backend (2026-02-26): /api/my-grants now supports category_id, min_amount, max_amount, due_within_days, sort_by, sort_dir. Issue #55 partially done (frontend migration pending). Commit 6a6a523.
+- [x] Notification preferences (2026-02-26): New Settings tab for email/brief/deadline prefs. Backend respects prefs in deadline_alerts.py + generate_briefs.py. Issue #59 CLOSED. Commit 1b8e0ed.
