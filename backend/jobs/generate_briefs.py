@@ -116,11 +116,54 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
             try:
                 grant_ids = [g["grant_id"] for g in top_grants]
                 
+                # Generate markdown content for storage
+                content_lines = [
+                    f"# Daily Grant Brief for {org_name}",
+                    f"*{len(top_grants)} Top Opportunities for {date.today().strftime('%B %d, %Y')}*",
+                    ""
+                ]
+                
+                for i, grant in enumerate(top_grants, 1):
+                    amount = grant.get("amount") or 0
+                    deadline = grant.get("deadline", "TBD")
+                    content_lines.extend([
+                        f"## {i}. {grant['title']}",
+                        f"**Funder:** {grant['funder']}",
+                        f"**Amount:** ${amount:,}" if amount else "**Amount:** Not specified",
+                        f"**Deadline:** {deadline}",
+                        f"**Match Score:** {grant['match_score']}%",
+                        "",
+                        grant.get("summary", "No summary available"),
+                        "",
+                        "---",
+                        ""
+                    ])
+                
+                brief_content = "\n".join(content_lines)
+                
+                # Snapshot of grant info at send time
+                grant_summaries = [
+                    {
+                        "grant_id": g["grant_id"],
+                        "title": g["title"],
+                        "funder": g["funder"],
+                        "amount": g.get("amount"),
+                        "deadline": g.get("deadline"),
+                        "match_score": g.get("match_score")
+                    }
+                    for g in top_grants
+                ]
+                
                 supabase.table("org_briefs").insert({
                     "org_id": org_id,
                     "subject": f"☀️ Your Daily Grant Brief - {len(top_grants)} Top Opportunities",
+                    "content": brief_content,
+                    "content_format": "markdown",
                     "grant_ids": grant_ids,
+                    "grant_summaries": grant_summaries,
+                    "total_candidates": len(grants),
                     "delivery_channel": "email",
+                    "delivery_address": org_email,
                     "delivered": True,
                     "sent_at": datetime.now().isoformat()
                 }).execute()
