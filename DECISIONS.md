@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-23
+# Last updated: 2026-02-27
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -220,3 +220,6 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Fixed org_briefs content null bug (2026-02-26): generate_briefs.py now populates content, grant_summaries, delivery_address. Issue #61 CLOSED. Commit d9cf0d2.
 - [x] Server-side filtering backend (2026-02-26): /api/my-grants now supports category_id, min_amount, max_amount, due_within_days, sort_by, sort_dir. Issue #55 partially done (frontend migration pending). Commit 6a6a523.
 - [x] Notification preferences (2026-02-26): New Settings tab for email/brief/deadline prefs. Backend respects prefs in deadline_alerts.py + generate_briefs.py. Issue #59 CLOSED. Commit 1b8e0ed.
+- [x] Server-side filtering frontend (2026-02-27): Dashboard now passes filter params to API (search, category, amount range, deadline, sort). Debounced keyword search (300ms). Load More respects filters. Issue #55 CLOSED. Commit 40896a8.
+- [x] Blog post #5 (2026-02-27): "From Chaos to Pipeline: How to Track Every Grant Application Without Losing Your Mind" — explains pipeline tracking + deadline alerts. Commit 0f1bb7b.
+- [x] Updated sitemap (2026-02-27): Added all blog posts to sitemap.xml. Commit b2b0a72.
