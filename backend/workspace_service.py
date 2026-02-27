@@ -62,7 +62,7 @@ class WorkspaceService:
 
     def _org_path(self, org_id: str) -> Path:
         """Get the workspace path for an organization"""
-        return self.root / org_id
+        return self.root / str(org_id)
 
     def _ensure_workspace(self, org_id: str) -> Path:
         """Ensure workspace exists with proper structure"""
