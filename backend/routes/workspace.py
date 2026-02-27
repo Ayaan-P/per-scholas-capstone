@@ -105,7 +105,7 @@ async def get_user_org_id(user_id: str) -> str:
     if not data or not data[0].get("organization_id"):
         raise HTTPException(status_code=400, detail="User has no organization")
     
-    return data[0]["organization_id"]
+    return str(data[0]["organization_id"])
 
 
 # ============================================
