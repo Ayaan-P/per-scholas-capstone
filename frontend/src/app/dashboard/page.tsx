@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { api } from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -138,14 +138,47 @@ export default function Dashboard() {
     return value ? formatDate(value) : '—'
   }
 
-  const fetchGrants = async (authenticated: boolean) => {
+  // Build filter params for server-side filtering
+  const buildFilterParams = useCallback(() => {
+    const params: {
+      limit: number
+      offset: number
+      search?: string
+      category_id?: number
+      min_amount?: number
+      max_amount?: number
+      due_within_days?: number
+      sort_by?: 'match' | 'deadline' | 'amount'
+      sort_dir?: 'asc' | 'desc'
+    } = { limit: 150, offset: 0 }
+
+    if (keywordSearch.trim()) params.search = keywordSearch.trim()
+    if (selectedCategories.size === 1) params.category_id = Array.from(selectedCategories)[0]
+    if (fundingMin !== undefined) params.min_amount = fundingMin
+    if (fundingMax !== undefined) params.max_amount = fundingMax
+    if (dueInDays !== undefined) params.due_within_days = dueInDays
+    if (viewMode === 'table') {
+      params.sort_by = tableSortBy === 'match' ? 'match' : tableSortBy === 'amount' ? 'amount' : 'deadline'
+      params.sort_dir = tableSortOrder
+    } else {
+      params.sort_by = sortBy
+      params.sort_dir = 'desc'
+    }
+
+    return params
+  }, [keywordSearch, selectedCategories, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder])
+
+  const fetchGrants = async (authenticated: boolean, filterParams?: ReturnType<typeof buildFilterParams>) => {
     try {
       setLoading(true)
       setHasMore(false)
+      
+      const params = filterParams || { limit: 150, offset: 0 }
+      
       // Use org-specific scored grants for authenticated users, global pool for anonymous
       const response = authenticated 
-        ? await api.getMyGrants({ limit: 150, offset: 0 })
-        : await api.getScrapedGrants({ limit: 150, offset: 0 })
+        ? await api.getMyGrants(params)
+        : await api.getScrapedGrants(params)
 
       if (response.ok) {
         const data = await response.json()
@@ -164,6 +197,31 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
+
+  // Debounced effect for server-side filtering
+  const filterTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    // Skip on initial mount (handled by isAuthenticated effect)
+    if (loading && rawGrants.length === 0) return
+
+    // Debounce filter changes (300ms for keyword, immediate for others)
+    const debounceMs = keywordSearch.trim() ? 300 : 50
+    
+    if (filterTimeoutRef.current) {
+      clearTimeout(filterTimeoutRef.current)
+    }
+
+    filterTimeoutRef.current = setTimeout(() => {
+      const params = buildFilterParams()
+      fetchGrants(isAuthenticated, params)
+    }, debounceMs)
+
+    return () => {
+      if (filterTimeoutRef.current) {
+        clearTimeout(filterTimeoutRef.current)
+      }
+    }
+  }, [keywordSearch, selectedCategories, fundingMin, fundingMax, dueInDays, sortBy, viewMode, tableSortBy, tableSortOrder])
 
   const handleUpdateGrantStatus = async (grantId: string, newStatus: string) => {
     if (!isAuthenticated) return
@@ -193,9 +251,12 @@ export default function Dashboard() {
     try {
       setLoadingMore(true)
       const offset = rawGrants.length
+      // Build params with current filters + new offset
+      const params = { ...buildFilterParams(), offset }
+      
       const response = isAuthenticated
-        ? await api.getMyGrants({ limit: 150, offset })
-        : await api.getScrapedGrants({ limit: 150, offset })
+        ? await api.getMyGrants(params)
+        : await api.getScrapedGrants(params)
 
       if (response.ok) {
         const data = await response.json()
