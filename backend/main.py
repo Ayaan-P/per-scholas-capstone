@@ -357,7 +357,12 @@ brief_scheduler = None  # Lightweight scheduler for morning briefs only
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now - can restrict later
+    allow_origins=[
+        "https://fundfish.pro",
+        "https://www.fundfish.pro",
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
