@@ -8,13 +8,31 @@
   </url>
   <url>
     <loc>https://fundfish.pro/blog</loc>
-    <lastmod>2026-02-27</lastmod>
+    <lastmod>2026-02-28</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-02-27-grant-writing-tips-for-small-nonprofits-15-strategies-to-win-more-funding-withou</loc>
+    <lastmod>2026-02-28</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://fundfish.pro/blog/2026-02-27-grant-pipeline-management</loc>
     <lastmod>2026-02-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-02-26-government-grants-for-nonprofits-2026-the-complete-guide-to-federal-funding</loc>
+    <lastmod>2026-02-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-02-25-grant-pipeline-tracking</loc>
+    <lastmod>2026-02-25</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
