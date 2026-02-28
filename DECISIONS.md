@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-27
+# Last updated: 2026-02-28
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -223,3 +223,6 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Server-side filtering frontend (2026-02-27): Dashboard now passes filter params to API (search, category, amount range, deadline, sort). Debounced keyword search (300ms). Load More respects filters. Issue #55 CLOSED. Commit 40896a8.
 - [x] Blog post #5 (2026-02-27): "From Chaos to Pipeline: How to Track Every Grant Application Without Losing Your Mind" — explains pipeline tracking + deadline alerts. Commit 0f1bb7b.
 - [x] Updated sitemap (2026-02-27): Added all blog posts to sitemap.xml. Commit b2b0a72.
+- [x] Blog content consolidation (2026-02-28): Recovered orphaned post from frontend/content/blog/ subdirectory, copied missing grant-pipeline-management post, removed legacy root blog/ directory. Now 10 blog posts active in frontend/content/. Commits fbd9646, 0dc0d92, 42d4ea2.
+- [x] Updated sitemap with 3 missing posts (2026-02-28): Added grant-writing-tips, government-grants-guide, grant-pipeline-tracking to sitemap.xml. Commit fbd9646.
+- [x] Research context for Issue #47 (2026-02-28): Added notes on DySCO (retrieval-head-guided attention, arXiv 2602.22175) and "Tell Me What To Learn" (natural language memory updates, arXiv 2602.23201) papers — both relevant to context window optimization.
