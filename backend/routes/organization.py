@@ -957,6 +957,9 @@ async def get_notification_preferences(user_id: str = Depends(get_current_user))
     """
     Get the organization's notification preferences.
     Returns default preferences if none are set.
+    
+    Gracefully handles missing notification_preferences column — returns defaults
+    if migration 006_notification_preferences.sql hasn't been run yet.
     """
     try:
         org_id = await _get_org_id_for_user(user_id)
@@ -967,28 +970,40 @@ async def get_notification_preferences(user_id: str = Depends(get_current_user))
                 "message": "Using default preferences (no organization found)"
             }
 
-        result = _supabase.table("organization_config") \
-            .select("notification_preferences") \
-            .eq("id", org_id) \
-            .limit(1) \
-            .execute()
+        try:
+            result = _supabase.table("organization_config") \
+                .select("notification_preferences") \
+                .eq("id", org_id) \
+                .limit(1) \
+                .execute()
 
-        if result.data and result.data[0].get("notification_preferences"):
-            prefs = result.data[0]["notification_preferences"]
-            # Merge with defaults for any missing keys
-            merged = {**DEFAULT_NOTIFICATION_PREFERENCES, **prefs}
-            return {
-                "status": "ok",
-                "org_id": org_id,
-                "preferences": merged
-            }
-        else:
-            return {
-                "status": "defaults",
-                "org_id": org_id,
-                "preferences": DEFAULT_NOTIFICATION_PREFERENCES,
-                "message": "Using default preferences"
-            }
+            if result.data and result.data[0].get("notification_preferences"):
+                prefs = result.data[0]["notification_preferences"]
+                # Merge with defaults for any missing keys
+                merged = {**DEFAULT_NOTIFICATION_PREFERENCES, **prefs}
+                return {
+                    "status": "ok",
+                    "org_id": org_id,
+                    "preferences": merged
+                }
+            else:
+                return {
+                    "status": "defaults",
+                    "org_id": org_id,
+                    "preferences": DEFAULT_NOTIFICATION_PREFERENCES,
+                    "message": "Using default preferences"
+                }
+        except Exception as e:
+            error_str = str(e)
+            # Column doesn't exist — migration not run yet (Issue #62)
+            if "notification_preferences does not exist" in error_str or "42703" in error_str:
+                return {
+                    "status": "migration_pending",
+                    "org_id": org_id,
+                    "preferences": DEFAULT_NOTIFICATION_PREFERENCES,
+                    "message": "Using default preferences (migration pending)"
+                }
+            raise
 
     except Exception as e:
         print(f"[NOTIF PREFS] Error: {e}")
@@ -1009,6 +1024,8 @@ async def update_notification_preferences(
       - deadline_alert_days: list[int] — which days to alert (e.g., [2, 7, 30])
       - morning_briefs_enabled: bool — enable/disable morning brief emails
       - email_notifications_enabled: bool — master toggle for all email notifications
+    
+    Note: Requires migration 006_notification_preferences.sql to be run first.
     """
     try:
         org_id = await _get_org_id_for_user(user_id)
@@ -1016,15 +1033,25 @@ async def update_notification_preferences(
             raise HTTPException(status_code=400, detail="User has no organization")
 
         # Get current preferences
-        result = _supabase.table("organization_config") \
-            .select("notification_preferences") \
-            .eq("id", org_id) \
-            .limit(1) \
-            .execute()
+        try:
+            result = _supabase.table("organization_config") \
+                .select("notification_preferences") \
+                .eq("id", org_id) \
+                .limit(1) \
+                .execute()
 
-        current_prefs = DEFAULT_NOTIFICATION_PREFERENCES.copy()
-        if result.data and result.data[0].get("notification_preferences"):
-            current_prefs.update(result.data[0]["notification_preferences"])
+            current_prefs = DEFAULT_NOTIFICATION_PREFERENCES.copy()
+            if result.data and result.data[0].get("notification_preferences"):
+                current_prefs.update(result.data[0]["notification_preferences"])
+        except Exception as e:
+            error_str = str(e)
+            # Column doesn't exist — migration not run yet (Issue #62)
+            if "notification_preferences does not exist" in error_str or "42703" in error_str:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Notification preferences not available. Database migration pending."
+                )
+            raise
 
         # Apply updates
         update_dict = updates.model_dump(exclude_unset=True)
@@ -1044,13 +1071,22 @@ async def update_notification_preferences(
             current_prefs["deadline_alert_days"] = sorted(set(days))
 
         # Save
-        update_result = _supabase.table("organization_config") \
-            .update({"notification_preferences": current_prefs}) \
-            .eq("id", org_id) \
-            .execute()
+        try:
+            update_result = _supabase.table("organization_config") \
+                .update({"notification_preferences": current_prefs}) \
+                .eq("id", org_id) \
+                .execute()
 
-        if not update_result.data:
-            raise HTTPException(status_code=404, detail="Organization not found")
+            if not update_result.data:
+                raise HTTPException(status_code=404, detail="Organization not found")
+        except Exception as e:
+            error_str = str(e)
+            if "notification_preferences does not exist" in error_str or "42703" in error_str:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Notification preferences not available. Database migration pending."
+                )
+            raise
 
         print(f"[NOTIF PREFS] Updated preferences for org {org_id}: {current_prefs}")
 

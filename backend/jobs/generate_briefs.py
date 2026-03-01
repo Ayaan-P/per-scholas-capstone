@@ -24,7 +24,11 @@ from email_service import get_email_service
 
 
 def _get_org_notification_prefs(org_id: int, supabase) -> dict:
-    """Get notification preferences for an org, with defaults."""
+    """Get notification preferences for an org, with defaults.
+    
+    Gracefully handles missing notification_preferences column — returns defaults
+    if migration 006_notification_preferences.sql hasn't been run yet.
+    """
     default_prefs = {
         "deadline_alerts_enabled": True,
         "deadline_alert_days": [2, 7, 30],
@@ -42,7 +46,13 @@ def _get_org_notification_prefs(org_id: int, supabase) -> dict:
             prefs = result.data[0]["notification_preferences"]
             return {**default_prefs, **prefs}
     except Exception as e:
-        print(f"[BRIEF] Error fetching prefs for org {org_id}: {e}")
+        error_str = str(e)
+        # Column doesn't exist — migration not run yet (Issue #62)
+        if "notification_preferences does not exist" in error_str or "42703" in error_str:
+            # Silent fallback to defaults — migration pending
+            pass
+        else:
+            print(f"[BRIEF] Error fetching prefs for org {org_id}: {e}")
     
     return default_prefs
 
