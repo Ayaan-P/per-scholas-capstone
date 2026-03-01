@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-02-28
+# Last updated: 2026-03-01
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -226,3 +226,6 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Blog content consolidation (2026-02-28): Recovered orphaned post from frontend/content/blog/ subdirectory, copied missing grant-pipeline-management post, removed legacy root blog/ directory. Now 10 blog posts active in frontend/content/. Commits fbd9646, 0dc0d92, 42d4ea2.
 - [x] Updated sitemap with 3 missing posts (2026-02-28): Added grant-writing-tips, government-grants-guide, grant-pipeline-tracking to sitemap.xml. Commit fbd9646.
 - [x] Research context for Issue #47 (2026-02-28): Added notes on DySCO (retrieval-head-guided attention, arXiv 2602.22175) and "Tell Me What To Learn" (natural language memory updates, arXiv 2602.23201) papers — both relevant to context window optimization.
+- [x] Fixed notification_preferences column missing error (2026-03-01): Jobs were logging errors because migration 006 hadn't been run. Updated deadline_alerts.py, generate_briefs.py, and organization.py to gracefully handle missing column and return defaults. Issue #62 created for migration. Commit 9328d7e.
+- [x] Updated sitemap with Feb 28 blog posts (2026-03-01): Added ai-grant-writing and how-to-apply-for-hud-grants posts. Commit 1e3ce0b.
+- [x] Research context for Issues #47, #57 (2026-03-01): Added notes on ParamMem (parametric reflective memory), Tell Me What To Learn, and MTRAG-UN (RAG edge cases) papers from latest arxiv digests.
