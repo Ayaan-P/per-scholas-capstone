@@ -8,13 +8,25 @@
   </url>
   <url>
     <loc>https://fundfish.pro/blog</loc>
-    <lastmod>2026-02-28</lastmod>
+    <lastmod>2026-03-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://fundfish.pro/blog/2026-02-27-grant-writing-tips-for-small-nonprofits-15-strategies-to-win-more-funding-withou</loc>
+    <loc>https://fundfish.pro/blog/2026-02-28-ai-grant-writing-for-nonprofits-the-complete-2026-guide-to-using-ai-tools-effect</loc>
     <lastmod>2026-02-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-02-28-how-to-apply-for-hud-grants</loc>
+    <lastmod>2026-02-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-02-27-grant-writing-tips-for-small-nonprofits-15-strategies-to-win-more-funding-withou</loc>
+    <lastmod>2026-02-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
