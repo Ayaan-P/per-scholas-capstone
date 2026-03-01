@@ -27,7 +27,8 @@ class EmailService:
         to: str,
         subject: str,
         html: str,
-        text: Optional[str] = None
+        text: Optional[str] = None,
+        bcc: Optional[str] = None
     ) -> dict:
         """
         Send an email via Resend.
@@ -63,6 +64,11 @@ class EmailService:
                 "html": html,
                 "text": text
             }
+            
+            # Add BCC if provided or from env var
+            bcc_email = bcc or os.getenv("BRIEF_BCC_EMAIL")
+            if bcc_email:
+                payload["bcc"] = [bcc_email]
             
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
