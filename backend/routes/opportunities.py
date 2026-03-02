@@ -166,7 +166,7 @@ async def get_opportunities(user_id: str = Depends(get_current_user)):
             if user_result.data:
                 org_id = user_result.data[0].get("organization_id")
         except Exception as org_lookup_err:
-            print(f"[OPPORTUNITIES] Org lookup error: {org_lookup_err}")
+            pass  # Silently fall through to config lookup
 
         if not org_id:
             # Fall back to org_config owner lookup
@@ -179,7 +179,7 @@ async def get_opportunities(user_id: str = Depends(get_current_user)):
                 if org_result.data:
                     org_id = org_result.data[0].get("id")
             except Exception as e2:
-                print(f"[OPPORTUNITIES] Org config lookup error: {e2}")
+                pass  # No org found, will show setup message
 
         if not org_id:
             # No org found for this user
@@ -235,7 +235,6 @@ async def get_opportunities(user_id: str = Depends(get_current_user)):
         
         return {"opportunities": opportunities}
     except Exception as e:
-        print(f"[GET OPPORTUNITIES] Error: {e}")
         # Fallback to empty list if database unavailable
         return {"opportunities": []}
 
@@ -333,7 +332,6 @@ Return ONLY valid JSON, no other text."""
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error generating summary: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
 
@@ -386,7 +384,7 @@ async def save_opportunity(opportunity_id: str, user_id: str = Depends(get_curre
                     "last_updated_date": grant.get("last_updated_date")
                 }
         except Exception as e:
-            print(f"[SAVE] Error checking scraped_grants: {e}")
+            pass  # Grant not in scraped_grants, continue
 
     if not opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found in search results or database")
@@ -401,19 +399,11 @@ async def save_opportunity(opportunity_id: str, user_id: str = Depends(get_curre
             try:
                 # Generate embedding for pgvector storage
                 embedding = _semantic_service.get_embedding(opportunity_text)
-                print(f"[SAVE] Generated embedding for '{opportunity['title'][:50]}...'")
 
                 # Find similar historical RFPs using semantic search
                 similar_rfps = _semantic_service.find_similar_rfps(opportunity_text, limit=5)
-
-                if similar_rfps:
-                    print(f"[SAVE] Found {len(similar_rfps)} similar RFPs:")
-                    for rfp in similar_rfps:
-                        print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
-                else:
-                    print("[SAVE] No similar RFPs found in database")
             except Exception as e:
-                print(f"[SAVE] Error with semantic service: {e}")
+                pass  # Semantic service unavailable, continue without embedding
 
         # Save to scraped_grants table first (consistent with grants.gov flow)
         scraped_data = {
@@ -452,16 +442,12 @@ async def save_opportunity(opportunity_id: str, user_id: str = Depends(get_curre
             "rfp_attachment_requirements": opportunity.get("rfp_attachment_requirements")
         }
 
-        print(f"[SAVE] Saving Agent grant to scraped_grants: {opportunity['title'][:50]}...")
-
         # Save to scraped_grants table (global grant pool)
         result = _supabase.table("scraped_grants").insert(scraped_data).execute()
         scraped_grant_id = result.data[0]["id"] if result.data else None
 
         if not scraped_grant_id:
             raise HTTPException(status_code=500, detail="Failed to save to scraped_grants")
-
-        print(f"[SAVE] Saved to scraped_grants with ID: {scraped_grant_id}")
 
         # Also add to local cache
         _opportunities_db.append(opportunity)
@@ -486,8 +472,7 @@ async def save_opportunity(opportunity_id: str, user_id: str = Depends(get_curre
         # Import run_llm_enhancement from grants routes
         from routes.grants import run_llm_enhancement
 
-        # Start background LLM enhancement task (will move to saved_opportunities) with org-specific matching
-        print(f"[SAVE] Creating background LLM enhancement task. user_id={user_id}, grant_id={scraped_grant_id}")
+        # Start background LLM enhancement task with org-specific matching
         asyncio.create_task(run_llm_enhancement(enhancement_job_id, scraped_grant_id, user_id))
 
         return {
@@ -638,16 +623,13 @@ async def add_opportunity_to_rfp_database(opportunity_id: str, user_id: str = De
         # Reuse existing embedding from saved_opportunities if available
         embedding = opportunity.get("embedding")
 
-        if embedding:
-            print(f"[ADD_TO_RFP_DB] Reusing existing embedding for '{opportunity['title'][:50]}...'")
-        elif _semantic_service:
+        if not embedding and _semantic_service:
             # Only generate new embedding if one doesn't exist
             try:
                 opportunity_text = f"{opportunity['title']} {opportunity['description']}"
                 embedding = _semantic_service.get_embedding(opportunity_text)
-                print(f"[ADD_TO_RFP_DB] Generated new embedding for '{opportunity['title'][:50]}...'")
             except Exception as e:
-                print(f"[ADD_TO_RFP_DB] Error generating embedding: {e}")
+                pass  # Continue without embedding
 
         # Prepare RFP data
         rfp_data = {
@@ -661,7 +643,6 @@ async def add_opportunity_to_rfp_database(opportunity_id: str, user_id: str = De
         # Add embedding if available
         if embedding:
             rfp_data["embedding"] = embedding
-            print(f"[ADD_TO_RFP_DB] Including embedding in RFP data")
 
         # Insert into rfps table
         try:
@@ -670,14 +651,6 @@ async def add_opportunity_to_rfp_database(opportunity_id: str, user_id: str = De
             # If it's a duplicate key error, the sequence might be out of sync
             error_str = str(db_error)
             if "duplicate key" in error_str.lower() or "23505" in error_str:
-                # Try to fix the sequence by selecting max ID and resetting
-                print(f"[ADD_TO_RFP_DB] Duplicate key error detected, attempting sequence fix...")
-
-                # Get max ID from table
-                max_result = _supabase.table("rfps").select("id").order("id", desc=True).limit(1).execute()
-                if max_result.data and len(max_result.data) > 0:
-                    max_id = max_result.data[0]["id"]
-                    print(f"[ADD_TO_RFP_DB] Max ID in table: {max_id}")
 
                 # Re-raise with helpful message
                 raise Exception(
@@ -701,7 +674,6 @@ async def add_opportunity_to_rfp_database(opportunity_id: str, user_id: str = De
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ADD_TO_RFP_DB] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add to RFP database: {str(e)}")
 
 
@@ -734,14 +706,10 @@ async def get_opportunity_feedback(opportunity_id: str):
 async def dismiss_opportunity(opportunity_id: str, user_id: str = Depends(get_current_user)):
     """Dismiss an opportunity from the dashboard (mark as not relevant, requires authentication)"""
     try:
-        print(f"[DISMISS] Attempting to dismiss opportunity: {opportunity_id}")
-        
         # Try to update in scraped_grants table (dashboard uses this)
         scraped_result = _supabase.table("scraped_grants").update({
             "status": "dismissed"
         }).eq("id", opportunity_id).execute()
-        
-        print(f"[DISMISS] Scraped_grants update result: {len(scraped_result.data or []) > 0}")
 
         # If not found by id, try by opportunity_id field 
         if not scraped_result.data:
@@ -749,12 +717,9 @@ async def dismiss_opportunity(opportunity_id: str, user_id: str = Depends(get_cu
                 "status": "dismissed" 
             }).eq("opportunity_id", opportunity_id).execute()
             
-            print(f"[DISMISS] Scraped_grants alt update result: {len(scraped_alt_result.data or []) > 0}")
-            
             if not scraped_alt_result.data:
                 raise HTTPException(status_code=404, detail="Opportunity not found")
 
-        print(f"[DISMISS] Successfully dismissed opportunity {opportunity_id}")
         return {
             "message": "Opportunity dismissed successfully",
             "status": "success",
@@ -764,17 +729,14 @@ async def dismiss_opportunity(opportunity_id: str, user_id: str = Depends(get_cu
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DISMISS] Error dismissing opportunity: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to dismiss opportunity: {str(e)}")
 
 
 async def run_opportunity_search(job_id: str, criteria: SearchCriteria, user_id: str = None):
     """Execute Claude Code fundraising-cro agent for opportunity discovery with org-aware matching"""
-    print(f"[BACKGROUND TASK] Starting run_opportunity_search for job {job_id}, user {user_id}")
     job = _jobs_db[job_id]
 
     try:
-        print(f"[BACKGROUND TASK] Job found, current status: {job['status']}")
         # Update job status
         job["current_task"] = "Initializing fundraising-cro agent..."
         job["progress"] = 10
@@ -894,14 +856,10 @@ REQUIREMENTS:
             job["current_task"] = "Creating Gemini CLI fundraising session..."
             job["progress"] = 50
 
-            # Create Gemini CLI session (with grants service fallback)
-            print(f"[Gemini CLI Session] Starting fundraising opportunity discovery...")
-
             # Use grants service API if available, otherwise fall back to Gemini CLI
             use_api = False  # Set to False to use Gemini CLI instead
 
             if use_api and _grants_service_class:
-                print(f"[Gemini CLI Session] Fetching real grants data...")
                 search_keywords = criteria.prompt if criteria.prompt and criteria.prompt != "hi" else "technology workforce development"
                 # Clean the search keywords - remove newlines and extra whitespace
                 search_keywords = search_keywords.strip()
@@ -931,7 +889,6 @@ REQUIREMENTS:
             # Score opportunities using match_scoring (Gemini is just a scraper)
             if opportunities and _semantic_service:
                 from match_scoring import calculate_match_score
-                print(f"[SCORING] Scoring {len(opportunities)} opportunities from Gemini CLI agent...")
 
                 for opp in opportunities:
                     try:
@@ -943,10 +900,7 @@ REQUIREMENTS:
                         opportunity_id = opp.get('id') or opp.get('opportunity_id')
                         match_score = calculate_match_score(opp, similar_rfps, opportunity_id)
                         opp['match_score'] = match_score
-
-                        print(f"[SCORING] {opp.get('title', 'Unknown')[:60]}... = {match_score}% (found {len(similar_rfps)} similar RFPs)")
                     except Exception as e:
-                        print(f"[SCORING] Error scoring opportunity: {e}")
                         opp['match_score'] = opp.get('match_score', 50)  # Keep Claude's estimate as fallback
 
             # Tag opportunities from Claude Agent with source="Agent"
@@ -955,7 +909,6 @@ REQUIREMENTS:
                     opp['source'] = 'Agent'
 
         except Exception as e:
-            print(f"Orchestration failed: {e}")
             opportunities = []
 
         # If no opportunities found, return empty result
