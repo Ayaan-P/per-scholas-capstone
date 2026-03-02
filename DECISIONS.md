@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-01
+# Last updated: 2026-03-02
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -229,3 +229,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Fixed notification_preferences column missing error (2026-03-01): Jobs were logging errors because migration 006 hadn't been run. Updated deadline_alerts.py, generate_briefs.py, and organization.py to gracefully handle missing column and return defaults. Issue #62 created for migration. Commit 9328d7e.
 - [x] Updated sitemap with Feb 28 blog posts (2026-03-01): Added ai-grant-writing and how-to-apply-for-hud-grants posts. Commit 1e3ce0b.
 - [x] Research context for Issues #47, #57 (2026-03-01): Added notes on ParamMem (parametric reflective memory), Tell Me What To Learn, and MTRAG-UN (RAG edge cases) papers from latest arxiv digests.
+- [x] Updated sitemap with March 1 blog posts (2026-03-02): Added ai-grant-writing-for-nonprofits and grant-deadline-management-for-nonprofits to sitemap.xml. Commit 2fee37f.
+- [x] Removed all print statements from opportunities.py (2026-03-02): Cleaned 20+ debug prints from opportunities routes. Follows Issue #53 pattern. Cleaner Render logs for production. Commit 5b07ba3.
