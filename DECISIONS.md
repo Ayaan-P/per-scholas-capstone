@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-02
+# Last updated: 2026-03-04
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -231,3 +231,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Research context for Issues #47, #57 (2026-03-01): Added notes on ParamMem (parametric reflective memory), Tell Me What To Learn, and MTRAG-UN (RAG edge cases) papers from latest arxiv digests.
 - [x] Updated sitemap with March 1 blog posts (2026-03-02): Added ai-grant-writing-for-nonprofits and grant-deadline-management-for-nonprofits to sitemap.xml. Commit 2fee37f.
 - [x] Removed all print statements from opportunities.py (2026-03-02): Cleaned 20+ debug prints from opportunities routes. Follows Issue #53 pattern. Cleaner Render logs for production. Commit 5b07ba3.
+- [x] Updated sitemap with March 3 blog post (2026-03-04): Added how-to-write-a-winning-grant-proposal to sitemap.xml. Commit 594f784.
+- [x] Research context for Issues #47, #57 (2026-03-04): Added notes on "Do LLMs Benefit From Their Own Words?" (MIT CSAIL, context pollution/pruning) and AgenticOCR (query-driven document parsing) papers from March 2 arxiv digest. Both directly applicable to agent context optimization.
