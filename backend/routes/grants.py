@@ -7,12 +7,15 @@ Routes:
 - POST /api/scraped-grants/{grant_id}/save - Start LLM enhancement job
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, Dict, Any
 from auth_service import get_current_user, optional_token
 from datetime import datetime
 import asyncio
 import uuid
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["grants"])
 
@@ -66,7 +69,7 @@ async def run_llm_enhancement(job_id: str, grant_id: str, user_id: str = None):
         job["status"] = "failed"
         job["error"] = str(e)
         job["current_task"] = f"Error: {str(e)}"
-        print(f"[LLM Enhancement Job] Failed: {e}")
+        logger.error(f"LLM Enhancement Job failed: {e}")
 
 
 @router.get("/scraped-grants")
@@ -113,7 +116,7 @@ async def get_scraped_grants(
                     for grant in grants:
                         should_exclude, exclude_reason = matching_service.should_filter_grant(org_profile, grant)
                         if should_exclude:
-                            print(f"[GET SCRAPED GRANTS] Filtering out grant {grant.get('id')}: {exclude_reason}")
+                            logger.debug(f"Filtering out grant {grant.get('id')}: {exclude_reason}")
                         else:
                             filtered_grants.append(grant)
                     grants = filtered_grants
@@ -169,7 +172,7 @@ async def get_scraped_grants(
                             'geographic_alignment': org_match['geographic_alignment'],
                         }
             except Exception as e:
-                print(f"[GET SCRAPED GRANTS] Error calculating personalized scores: {e}")
+                logger.warning(f"Error calculating personalized scores: {e}")
                 # Continue with generic scores from database
 
         total = result.count if (hasattr(result, 'count') and result.count is not None) else len(grants)
@@ -184,14 +187,14 @@ async def get_scraped_grants(
             "personalized": org_profile is not None
         }
     except Exception as e:
-        print(f"[GET SCRAPED GRANTS] Error: {e}")
+        logger.error(f"Error fetching scraped grants: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch scraped grants: {str(e)}")
 
 
 @router.post("/scraped-grants/{grant_id}/save")
 async def save_scraped_grant(grant_id: str, user_id: str = Depends(get_current_user)):
     """Start LLM enhancement job for a scraped grant (async with progress tracking)"""
-    print(f"[SAVE GRANT] Request received for grant_id={grant_id}, user_id={user_id}")
+    logger.info(f"Save grant request: grant_id={grant_id}, user_id={user_id}")
     try:
         # Fetch the grant from scraped_grants table
         result = _supabase.table("scraped_grants").select("*").eq("id", grant_id).execute()
@@ -249,7 +252,7 @@ async def _get_user_org_id(user_id: str) -> Optional[int]:
         if result.data and result.data[0].get("organization_id"):
             return int(result.data[0]["organization_id"])
     except Exception as e:
-        print(f"[GET USER ORG] Error: {e}")
+        logger.error(f"Error getting user org: {e}")
     return None
 
 
@@ -379,10 +382,10 @@ async def get_my_grants(
                         if not should_exclude:
                             filtered.append(grant)
                         else:
-                            print(f"[MY GRANTS] Excluding grant {grant.get('id')}: {exclude_reason}")
+                            logger.debug(f"Excluding grant {grant.get('id')}: {exclude_reason}")
                     grants = filtered
             except Exception as exc:
-                print(f"[MY GRANTS] Excluded keyword filter error (non-fatal): {exc}")
+                logger.warning(f"Excluded keyword filter error (non-fatal): {exc}")
 
             # Apply server-side text search
             if search:
@@ -454,11 +457,11 @@ async def get_my_grants(
             }
         
         # No org_grants yet, fall back to scraped_grants with on-the-fly scoring
-        print(f"[MY GRANTS] No org_grants for org {org_id}, falling back to scraped_grants")
+        logger.info(f"No org_grants for org {org_id}, falling back to scraped_grants")
         return await get_scraped_grants(user_id=user_id)
         
     except Exception as e:
-        print(f"[MY GRANTS] Error: {e}")
+        logger.error(f"Error fetching my grants: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch grants: {str(e)}")
 
 
@@ -508,7 +511,7 @@ async def dismiss_grant(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DISMISS GRANT] Error: {e}")
+        logger.error(f"Error dismissing grant: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to dismiss grant: {str(e)}")
 
 
@@ -589,5 +592,5 @@ async def update_grant_status(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[UPDATE GRANT STATUS] Error: {e}")
+        logger.error(f"Error updating grant status: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update grant status: {str(e)}")

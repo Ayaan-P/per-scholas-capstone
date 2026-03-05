@@ -2,6 +2,7 @@
 Processing routes - Trigger grant qualification and scoring
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
@@ -9,6 +10,8 @@ from auth_service import get_current_user
 import subprocess
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/processing", tags=["processing"])
 
@@ -85,10 +88,10 @@ def run_qualification_agent(org_id: str, since_hours: int = 720, force: bool = F
             timeout=300  # 5 min timeout
         )
         
-        print(f"[PROCESSING] Qualification agent for org {org_id}")
-        print(f"[PROCESSING] stdout: {result.stdout}")
+        logger.info(" Qualification agent for org {org_id}")
+        logger.info(" stdout: {result.stdout}")
         if result.stderr:
-            print(f"[PROCESSING] stderr: {result.stderr}")
+            logger.info(" stderr: {result.stderr}")
         
         return {
             "success": result.returncode == 0,
@@ -96,13 +99,13 @@ def run_qualification_agent(org_id: str, since_hours: int = 720, force: bool = F
             "stderr": result.stderr
         }
     except subprocess.TimeoutExpired:
-        print(f"[PROCESSING] Timeout running qualification agent for org {org_id}")
+        logger.info(" Timeout running qualification agent for org {org_id}")
         return {
             "success": False,
             "error": "Processing timeout (>5 min)"
         }
     except Exception as e:
-        print(f"[PROCESSING] Error: {e}")
+        logger.info(" Error: {e}")
         return {
             "success": False,
             "error": str(e)
@@ -162,7 +165,7 @@ async def processing_status(user_id: str = Depends(get_current_user)):
             "has_scores": (result.count or 0) > 0
         }
     except Exception as e:
-        print(f"[PROCESSING] Error checking status: {e}")
+        logger.info(" Error checking status: {e}")
         return {
             "org_id": org_id,
             "scored_grants_count": 0,
@@ -197,12 +200,12 @@ async def generate_brief(
                 timeout=120
             )
             
-            print(f"[BRIEF] Manual trigger completed")
-            print(f"[BRIEF] stdout: {result.stdout}")
+            logger.info(" Manual trigger completed")
+            logger.info(" stdout: {result.stdout}")
             if result.stderr:
-                print(f"[BRIEF] stderr: {result.stderr}")
+                logger.info(" stderr: {result.stderr}")
         except Exception as e:
-            print(f"[BRIEF] Error: {e}")
+            logger.info(" Error: {e}")
     
     background_tasks.add_task(run_brief_generation)
     

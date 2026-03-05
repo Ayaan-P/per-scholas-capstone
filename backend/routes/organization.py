@@ -3,6 +3,7 @@ Organization routes - Config, documents, and user initialization
 Extracted from main.py (Issue #37)
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -10,6 +11,8 @@ import uuid
 import httpx
 from auth_service import get_current_user
 from credits_service import CreditsService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["organization"])
 
@@ -120,7 +123,7 @@ async def get_organization_config():
             }
         return get_default_organization_config()
     except Exception as e:
-        print(f"[ORG CONFIG] Error fetching config: {e}")
+        logger.error("Error fetching config: {e}")
         return get_default_organization_config()
 
 
@@ -173,7 +176,7 @@ async def initialize_user(request: UserInitializationRequest, user_id: str = Dep
         # Initialize credits for new user (Free tier - 5 credits/month)
         credits_result = CreditsService.initialize_user_credits(user_id, plan="free")
         if not credits_result["success"]:
-            print(f"[AUTH] Warning: Failed to initialize credits for user {user_id}: {credits_result.get('error')}")
+            logger.warning(" Failed to initialize credits for user {user_id}: {credits_result.get('error')}")
 
         # Initialize workspace for the organization (agentic architecture)
         workspace_initialized = False
@@ -183,9 +186,9 @@ async def initialize_user(request: UserInitializationRequest, user_id: str = Dep
             ws.init_workspace(org_id)
             ws.sync_profile_from_db(org_id, org_data)
             workspace_initialized = True
-            print(f"[AUTH] Workspace initialized for org {org_id}")
+            logger.info("Workspace initialized for org {org_id}")
         except Exception as ws_err:
-            print(f"[AUTH] Warning: Failed to initialize workspace: {ws_err}")
+            logger.warning(" Failed to initialize workspace: {ws_err}")
 
         return {
             "status": "initialized",
@@ -199,7 +202,7 @@ async def initialize_user(request: UserInitializationRequest, user_id: str = Dep
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[AUTH] Error initializing user: {e}")
+        logger.error("Auth error initializing user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to initialize user: {str(e)}")
 
 
@@ -222,7 +225,7 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
         
         # If user doesn't exist in users table, auto-initialize them
         if not user_data or len(user_data) == 0:
-            print(f"[ORG CONFIG] User {user_id} not in users table, auto-initializing")
+            logger.info("User {user_id} not in users table, auto-initializing")
             # Get email from Supabase auth
             with httpx.Client() as client:
                 auth_url = f"{_supabase_url}/auth/v1/user"
@@ -278,7 +281,7 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
                     json=user_data_insert
                 )
             
-            print(f"[ORG CONFIG] Auto-initialized user {user_id} with org {organization_id}")
+            logger.info("Auto-initialized user {user_id} with org {organization_id}")
             user_data = [{"organization_id": organization_id, "email": email}]
         
         organization_id = user_data[0].get("organization_id")
@@ -344,14 +347,14 @@ async def get_organization_configuration(user_id: str = Depends(get_current_user
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ORG CONFIG] Error getting config: {e}")
+        logger.error("Error getting config: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving configuration")
 
 
 @router.post("/organization/config")
 async def save_organization_configuration(config_request: OrganizationConfigRequest, user_id: str = Depends(get_current_user)):
     """Save or update organization configuration for authenticated user"""
-    print(f"[ORG CONFIG POST] Handler called with user: {user_id}, config: {config_request}")
+    logger.info(" Handler called with user: {user_id}, config: {config_request}")
     try:
         headers = _make_org_config_auth_headers()
 
@@ -405,7 +408,7 @@ async def save_organization_configuration(config_request: OrganizationConfigRequ
                             ws = get_workspace_service()
                             ws.sync_profile_from_db(organization_id, saved_config)
                         except Exception as ws_err:
-                            print(f"[ORG CONFIG] Workspace sync failed: {ws_err}")
+                            logger.warning("Workspace sync failed: {ws_err}")
                         return {
                             "status": "updated",
                             "id": saved_config.get("id"),
@@ -448,7 +451,7 @@ async def save_organization_configuration(config_request: OrganizationConfigRequ
                         ws.init_workspace(org_id)
                         ws.sync_profile_from_db(org_id, saved_config)
                     except Exception as ws_err:
-                        print(f"[ORG CONFIG] Workspace init failed: {ws_err}")
+                        logger.warning("Workspace init failed: {ws_err}")
 
                     return {
                         "status": "created",
@@ -466,7 +469,7 @@ async def save_organization_configuration(config_request: OrganizationConfigRequ
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ORG CONFIG] Error saving: {e}")
+        logger.error("Error saving: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save organization configuration: {str(e)}")
 
 
@@ -537,7 +540,7 @@ async def upload_organization_documents(
             try:
                 supabase.storage.from_('org-documents').upload(storage_path, file_bytes)
             except Exception as e:
-                print(f"[DOC UPLOAD] Storage error: {e}")
+                logger.error("Storage error: {e}")
                 # Continue without storage - we have the text
                 storage_path = f"extraction-only/{uuid.uuid4()}"
 
@@ -568,7 +571,7 @@ async def upload_organization_documents(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DOC UPLOAD] Error: {e}")
+        logger.error("Document upload error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload documents: {str(e)}")
 
 
@@ -661,7 +664,7 @@ async def extract_organization_info(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DOC EXTRACT] Error: {e}")
+        logger.error("Document extraction error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to extract organization info: {str(e)}")
 
 
@@ -732,7 +735,7 @@ async def apply_extracted_data(
         # Filter to valid columns only
         update_data = {k: v for k, v in mapped_data.items() if k in valid_columns}
 
-        print(f"[APPLY] Updating org {organization_id} with: {update_data}")
+        logger.info(" Updating org {organization_id} with: {update_data}")
 
         # Update organization config
         with httpx.Client() as client:
@@ -777,7 +780,7 @@ async def apply_extracted_data(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DOC APPLY] Error: {e}")
+        logger.error("Document apply error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to apply extracted data: {str(e)}")
 
 
@@ -817,7 +820,7 @@ async def list_organization_documents(user_id: str = Depends(get_current_user)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DOC LIST] Error: {e}")
+        logger.error("Document list error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to list documents: {str(e)}")
 
 
@@ -860,7 +863,7 @@ async def delete_organization_document(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DOC DELETE] Error: {e}")
+        logger.error("Document delete error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
 
@@ -918,7 +921,7 @@ async def get_organization_match_profile(user_id: str = Depends(get_current_user
         }
 
     except Exception as e:
-        print(f"[MATCH PROFILE] Error: {e}")
+        logger.error("Match profile error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load match profile: {str(e)}")
 
 
@@ -948,7 +951,7 @@ async def _get_org_id_for_user(user_id: str) -> Optional[int]:
         if result.data and result.data[0].get("organization_id"):
             return int(result.data[0]["organization_id"])
     except Exception as e:
-        print(f"[NOTIF PREFS] Error getting org_id: {e}")
+        logger.info(" Error getting org_id: {e}")
     return None
 
 
@@ -1006,7 +1009,7 @@ async def get_notification_preferences(user_id: str = Depends(get_current_user))
             raise
 
     except Exception as e:
-        print(f"[NOTIF PREFS] Error: {e}")
+        logger.info(" Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load notification preferences: {str(e)}")
 
 
@@ -1088,7 +1091,7 @@ async def update_notification_preferences(
                 )
             raise
 
-        print(f"[NOTIF PREFS] Updated preferences for org {org_id}: {current_prefs}")
+        logger.info(" Updated preferences for org {org_id}: {current_prefs}")
 
         return {
             "status": "updated",
@@ -1099,5 +1102,5 @@ async def update_notification_preferences(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[NOTIF PREFS] Update error: {e}")
+        logger.info(" Update error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update notification preferences: {str(e)}")

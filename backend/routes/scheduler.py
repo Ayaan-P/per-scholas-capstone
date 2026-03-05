@@ -1,10 +1,13 @@
 """Scheduler routes for controlling scraping jobs"""
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 
 from auth_service import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 
@@ -73,7 +76,7 @@ async def get_scheduler_settings(user_id: str = Depends(get_current_user)):
                 "updated_at": None
             }
     except Exception as e:
-        print(f"[SCHEDULER SETTINGS] Error fetching settings: {e}")
+        logger.info(" Error fetching settings: {e}")
         # Return default settings on error
         return {
             "id": None,
@@ -113,7 +116,7 @@ async def save_scheduler_settings(settings: SchedulerSettingsRequest, user_id: s
                 # Reload scheduler settings immediately (no need to restart)
                 if scheduler_service:
                     reload_success = await scheduler_service.reload_scheduler_settings()
-                    print(f"[SCHEDULER SETTINGS] Scheduler reload: {'success' if reload_success else 'failed'}")
+                    logger.info(" Scheduler reload: {'success' if reload_success else 'failed'}")
 
                 return {
                     "status": "updated",
@@ -134,7 +137,7 @@ async def save_scheduler_settings(settings: SchedulerSettingsRequest, user_id: s
                 # Reload scheduler settings immediately (no need to restart)
                 if scheduler_service:
                     reload_success = await scheduler_service.reload_scheduler_settings()
-                    print(f"[SCHEDULER SETTINGS] Scheduler reload: {'success' if reload_success else 'failed'}")
+                    logger.info(" Scheduler reload: {'success' if reload_success else 'failed'}")
 
                 return {
                     "status": "created",
@@ -148,7 +151,7 @@ async def save_scheduler_settings(settings: SchedulerSettingsRequest, user_id: s
 
         raise Exception("Failed to save settings")
     except Exception as e:
-        print(f"[SCHEDULER SETTINGS] Error saving settings: {e}")
+        logger.info(" Error saving settings: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save scheduler settings: {str(e)}")
 
 

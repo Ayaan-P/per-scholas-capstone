@@ -8,6 +8,7 @@ Routes:
 - GET /api/rfps/similar/{opportunity_id} - Get similar RFPs for an opportunity
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from typing import Optional, Dict, Any
 from auth_service import get_current_user
@@ -18,6 +19,8 @@ import json
 import PyPDF2
 import io
 import google.generativeai as genai
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rfps", tags=["rfps"])
 
@@ -44,7 +47,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
             text += page.extract_text() + "\n"
         return text.strip()
     except Exception as e:
-        print(f"[PDF EXTRACT] Error: {e}")
+        logger.debug(" Error: {e}")
         return ""
 
 
@@ -133,7 +136,7 @@ Return ONLY valid JSON, no other text."""
                 "tags": ["user-uploaded"]
             }
     except Exception as e:
-        print(f"[ANALYZE RFP] Error: {e}")
+        logger.error(" Error: {e}")
         return {
             "title": title or "Uploaded RFP",
             "funder": funder or "Unknown",
@@ -182,7 +185,7 @@ async def upload_rfp(
 ):
     """Upload and analyze an RFP/grant document"""
     try:
-        print(f"[RFP UPLOAD] Starting upload for user {user_id}")
+        logger.info(" Starting upload for user {user_id}")
 
         # Validate file is PDF
         if file.content_type != "application/pdf":
@@ -195,19 +198,19 @@ async def upload_rfp(
         if len(file_bytes) > 50 * 1024 * 1024:  # 50MB limit
             raise HTTPException(status_code=400, detail="File is too large (max 50MB)")
 
-        print(f"[RFP UPLOAD] File size: {len(file_bytes)} bytes")
+        logger.info(" File size: {len(file_bytes)} bytes")
 
         # Extract text from PDF
         pdf_text = extract_text_from_pdf(file_bytes)
         if not pdf_text or len(pdf_text) < 50:
             raise HTTPException(status_code=400, detail="Could not extract meaningful text from PDF")
 
-        print(f"[RFP UPLOAD] Extracted {len(pdf_text)} characters from PDF")
+        logger.info(" Extracted {len(pdf_text)} characters from PDF")
 
         # Analyze with Claude
         analyzed_data = await analyze_uploaded_rfp(pdf_text, title, funder, deadline)
 
-        print(f"[RFP UPLOAD] Analysis complete: {analyzed_data.get('title')}")
+        logger.info(" Analysis complete: {analyzed_data.get('title')}")
 
         # Generate unique opportunity_id
         opportunity_id = f"user-upload-{uuid.uuid4()}"
@@ -249,7 +252,7 @@ async def upload_rfp(
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to save opportunity to database")
 
-        print(f"[RFP UPLOAD] Successfully saved opportunity {opportunity_id}")
+        logger.info(" Successfully saved opportunity {opportunity_id}")
 
         # Return success response with analyzed data
         return {
@@ -266,7 +269,7 @@ async def upload_rfp(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[RFP UPLOAD] Error: {e}")
+        logger.info(" Error: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
@@ -290,13 +293,13 @@ async def get_similar_rfps(opportunity_id: str, user_id: str = Depends(get_curre
                 similar_rfps = _semantic_service.find_similar_rfps(opportunity_text, limit=5)
 
                 if similar_rfps:
-                    print(f"[SIMILAR_RFPS] Found {len(similar_rfps)} similar RFPs for opportunity {opportunity_id}")
+                    logger.info(" Found {len(similar_rfps)} similar RFPs for opportunity {opportunity_id}")
                     for rfp in similar_rfps:
-                        print(f"  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
+                        logger.debug("  - {rfp.get('title', 'Unknown')[:60]}... (similarity: {rfp.get('similarity_score', 0):.2f})")
                 else:
-                    print(f"[SIMILAR_RFPS] No similar RFPs found for opportunity {opportunity_id}")
+                    logger.info(" No similar RFPs found for opportunity {opportunity_id}")
             except Exception as e:
-                print(f"[SIMILAR_RFPS] Error finding similar RFPs: {e}")
+                logger.info(" Error finding similar RFPs: {e}")
 
         return {
             "opportunity": opportunity,

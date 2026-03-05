@@ -1,11 +1,14 @@
 """Dashboard and analytics routes"""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timedelta
 import httpx
 import os
 
 from auth_service import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -98,7 +101,7 @@ async def get_dashboard_stats(user_id: str = Depends(get_current_user)):
             "avgMatchScore": avg_match_score
         }
     except Exception as e:
-        print(f"[DASHBOARD] Error: {e}")
+        logger.error(f"Dashboard stats error: {e}")
         return {
             "totalOpportunities": 0,
             "totalProposals": 0,

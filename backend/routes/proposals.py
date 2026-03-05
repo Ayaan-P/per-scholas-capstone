@@ -1,5 +1,6 @@
 """Proposals routes for managing grant proposals"""
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -10,6 +11,8 @@ import uuid
 
 from auth_service import get_current_user
 from claude_code_service import generate_proposal_content, create_claude_api_session, PER_SCHOLAS_CONTEXT
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
 
@@ -129,7 +132,7 @@ async def download_proposal(proposal_id: int, user_id: str = Depends(get_current
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ERROR] Failed to serve proposal {proposal_id}: {e}")
+        logger.error(" Failed to serve proposal {proposal_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to serve proposal: {str(e)}")
 
 
@@ -145,7 +148,7 @@ async def run_proposal_generation(job_id: str, request: ProposalRequest):
         job["current_task"] = "Generating proposal with Claude API..."
         job["progress"] = 30
 
-        print(f"[Proposal Generation] Starting for '{request.opportunity_title}'")
+        logger.info(" Starting for '{request.opportunity_title}'")
 
         # Use Claude API directly for proposal generation
         result = generate_proposal_content(
@@ -163,7 +166,7 @@ async def run_proposal_generation(job_id: str, request: ProposalRequest):
         if not result['success']:
             # Fallback to Gemini CLI if Claude fails and Gemini is available
             if create_gemini_cli_session:
-                print(f"[Proposal Generation] Claude API failed, falling back to Gemini CLI...")
+                logger.info(" Claude API failed, falling back to Gemini CLI...")
                 job["current_task"] = "Falling back to Gemini CLI..."
                 
                 proposal_prompt = f"""Generate a complete grant proposal for Per Scholas.
@@ -197,9 +200,9 @@ Expected Outcomes, Sustainability Plan, and Conclusion."""
                 raise Exception(f"Claude API failed: {result['error']}")
         else:
             proposal_content = result['content']
-            print(f"[Proposal Generation] Claude API succeeded, generated {len(proposal_content)} chars")
+            logger.info(" Claude API succeeded, generated {len(proposal_content)} chars")
             if result.get('usage'):
-                print(f"[Proposal Generation] Token usage: {result['usage']}")
+                logger.info(" Token usage: {result['usage']}")
 
         job["current_task"] = "Saving proposal to database..."
         job["progress"] = 85
@@ -225,9 +228,9 @@ Expected Outcomes, Sustainability Plan, and Conclusion."""
                 "created_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat()
             }).execute()
-            print(f"[Proposal Generation] Saved proposal {proposal_id} to database")
+            logger.info(" Saved proposal {proposal_id} to database")
         except Exception as e:
-            print(f"[Proposal Generation] Error saving to Supabase: {e}")
+            logger.info(" Error saving to Supabase: {e}")
 
         # Complete job
         job["status"] = "completed"
@@ -242,7 +245,7 @@ Expected Outcomes, Sustainability Plan, and Conclusion."""
         }
 
     except Exception as e:
-        print(f"[Proposal Generation] FAILED: {str(e)}")
+        logger.info(" FAILED: {str(e)}")
         job["status"] = "failed"
         job["error"] = str(e)
         job["current_task"] = f"Error: {str(e)}"

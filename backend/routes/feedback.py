@@ -2,12 +2,15 @@
 Feedback routes - Track user actions for adaptive learning
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from auth_service import get_current_user
 from adaptive_scoring import AdaptiveScoringAgent
 import os
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/feedback", tags=["feedback"])
 
@@ -124,7 +127,7 @@ async def record_grant_feedback(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[FEEDBACK] Error: {e}")
+        logger.error(f"Feedback error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -150,5 +153,5 @@ async def get_scoring_accuracy(user_id: str = Depends(get_current_user)):
             "evolution_count": len(adaptive_agent.state.get("evolution_history", []))
         }
     except Exception as e:
-        print(f"[FEEDBACK] Error getting accuracy: {e}")
+        logger.error(f"Error getting accuracy: {e}")
         raise HTTPException(status_code=500, detail=str(e))

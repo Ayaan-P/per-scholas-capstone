@@ -1,6 +1,9 @@
 """Category routes for opportunity filtering"""
 
+import logging
 from fastapi import APIRouter, HTTPException
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["categories"])
 
@@ -18,7 +21,7 @@ async def get_all_categories():
             "count": len(categories)
         }
     except Exception as e:
-        print(f"[CATEGORIES] Error loading categories: {e}")
+        logger.error(f"Error loading categories: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load categories: {str(e)}")
 
 
@@ -45,5 +48,5 @@ async def get_category_detail(category_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[CATEGORIES] Error loading category {category_id}: {e}")
+        logger.error(f"Error loading category {category_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load category: {str(e)}")

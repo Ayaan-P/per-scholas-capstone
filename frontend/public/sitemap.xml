@@ -8,8 +8,14 @@
   </url>
   <url>
     <loc>https://fundfish.pro/blog</loc>
-    <lastmod>2026-03-04</lastmod>
+    <lastmod>2026-03-05</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-03-04-what-to-include-in-a-grant-proposal-the-complete-checklist-for-nonprofits</loc>
+    <lastmod>2026-03-04</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>

@@ -2,6 +2,7 @@
 Workspace routes - Session-based agentic interactions
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
@@ -11,6 +12,8 @@ import os
 from pathlib import Path
 import uuid
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
 
@@ -200,7 +203,7 @@ async def ensure_organization(
             }
     
     # User doesn't exist or has no org - create everything
-    print(f"[ENSURE-ORG] Creating org for user {user_id}")
+    logger.info(" Creating org for user {user_id}")
     
     # Get email from Supabase auth (if available)
     email = "user@fundfish.pro"
@@ -216,7 +219,7 @@ async def ensure_organization(
                 auth_data = auth_response.json()
                 email = auth_data.get("email", email)
     except Exception as e:
-        print(f"[ENSURE-ORG] Could not fetch email: {e}")
+        logger.info(" Could not fetch email: {e}")
     
     # Create organization
     org_data = {
@@ -264,13 +267,13 @@ async def ensure_organization(
         )
     
     if user_insert.status_code not in [200, 201]:
-        print(f"[ENSURE-ORG] Warning: User insert returned {user_insert.status_code}")
+        logger.info(" Warning: User insert returned {user_insert.status_code}")
     
     # Initialize credits
     try:
         CreditsService.initialize_user_credits(user_id, plan="free")
     except Exception as e:
-        print(f"[ENSURE-ORG] Credits init warning: {e}")
+        logger.info(" Credits init warning: {e}")
     
     # Initialize workspace
     try:
@@ -278,9 +281,9 @@ async def ensure_organization(
         ws.init_workspace(org_id)
         ws.sync_profile_from_db(org_id, org_data)
     except Exception as e:
-        print(f"[ENSURE-ORG] Workspace init warning: {e}")
+        logger.info(" Workspace init warning: {e}")
     
-    print(f"[ENSURE-ORG] Created org {org_id} for user {user_id}")
+    logger.info(" Created org {org_id} for user {user_id}")
     
     return {
         "status": "created",
@@ -706,7 +709,7 @@ async def upload_document(
                     }
                     _supabase.table("workspace_files").insert(file_record).execute()
                 except Exception as e:
-                    print(f"Warning: Failed to log upload to DB: {e}")
+                    logger.warning(" Failed to log upload to DB: {e}")
                 
                 return result
             else:
@@ -747,5 +750,5 @@ async def list_uploads(user_id: str = Depends(get_current_user)):
             "files": result.data
         }
     except Exception as e:
-        print(f"Error listing uploads: {e}")
+        logger.error(" listing uploads: {e}")
         return {"status": "success", "files": []}
