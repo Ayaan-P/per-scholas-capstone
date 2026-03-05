@@ -233,3 +233,10 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Removed all print statements from opportunities.py (2026-03-02): Cleaned 20+ debug prints from opportunities routes. Follows Issue #53 pattern. Cleaner Render logs for production. Commit 5b07ba3.
 - [x] Updated sitemap with March 3 blog post (2026-03-04): Added how-to-write-a-winning-grant-proposal to sitemap.xml. Commit 594f784.
 - [x] Research context for Issues #47, #57 (2026-03-04): Added notes on "Do LLMs Benefit From Their Own Words?" (MIT CSAIL, context pollution/pruning) and AgenticOCR (query-driven document parsing) papers from March 2 arxiv digest. Both directly applicable to agent context optimization.
+- [x] Updated sitemap with March 4 blog post (2026-03-05): Added what-to-include-in-a-grant-proposal-the-complete-checklist-for-nonprofits to sitemap.xml. Commit 9f67f92.
+- [x] Logging cleanup (2026-03-05): Replaced all 83 print() statements in backend/routes/ with proper Python logging. All 10 route files updated. Issue #63 CLOSED. Commit 9f67f92.
+- [x] Research context for Issues #47, #57 (2026-03-05): New papers from March 4 arxiv digest:
+  - Speculative Speculative Decoding (Saguaro) by Tri Dao — 2x-5x faster inference
+  - MOSAIC (Microsoft) — Safe multi-step tool use for agents, 50% harm reduction
+  - CDI (Stanford/Microsoft) — Privacy defense for LLM agents, 94% preservation with 80% helpfulness
+  - Graph-GRPO — Multi-agent topology optimization via GRPO
