@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-04
+# Last updated: 2026-03-06
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -240,3 +240,6 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
   - MOSAIC (Microsoft) — Safe multi-step tool use for agents, 50% harm reduction
   - CDI (Stanford/Microsoft) — Privacy defense for LLM agents, 94% preservation with 80% helpfulness
   - Graph-GRPO — Multi-agent topology optimization via GRPO
+- [x] Blog post #6 (2026-03-06): "How to Find Foundation Grants for Nonprofits: The Complete Guide to Private Funding" — comprehensive guide to private/corporate/community foundations, research methods, relationship building. Targets new keywords: foundation grants, private foundations, corporate giving. Commit d13f5f8.
+- [x] Updated sitemap with March 6 blog post (2026-03-06): Added how-to-find-foundation-grants-for-nonprofits to sitemap.xml. Commit d13f5f8.
+- [x] Research context for Issues #47, #57 (2026-03-06): Added notes on Saguaro (Tri Dao inference speedup), MOSAIC (safe tool use), CDI (privacy defense), AgenticOCR (query-driven document parsing) from March 2+4 arxiv digests.
