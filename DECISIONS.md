@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-06
+# Last updated: 2026-03-07
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
@@ -60,14 +60,13 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - **Details:** The ANTHROPIC_API_KEY in Render is invalid. AI state/local scraper is completely broken (0 grants found). Proposal generation using Claude is also affected.
 - **Fix Required:** Verify/regenerate API key at console.anthropic.com and update in Render environment variables.
 
-### Hetzner Agent Bridge OAuth Failing (NEW 2026-02-16)
-- **Priority:** HIGH
-- **Status:** 🔴 BLOCKING CHAT
+### ✅ Hetzner Agent Bridge OAuth — WORKING (2026-03-07)
+- **Priority:** HIGH → RESOLVED
+- **Status:** ✅ WORKING
 - **Discovered:** 2026-02-16 (logs show errors from 2026-02-15)
-- **Details:** The Hetzner agent bridge is failing with "OAuth token refresh failed for anthropic" errors. This affects the chat interface - users see 500 errors when trying to chat with their agent.
-- **Error:** `Error: All models failed (2): anthropic/claude-haiku-4-5: OAuth token refresh failed... | anthropic/claude-opus-4-5: OAuth token refresh failed...`
-- **Impact:** Chat is broken for all users. Agents can't respond.
-- **Action Required:** Re-authenticate Clawdbot on Hetzner for anthropic OAuth. Check Hetzner agent-api logs for details.
+- **Verified Working:** 2026-03-07 02:30 AM — Health check passed, librarian agent responded correctly
+- **Test:** `curl -X POST http://46.225.82.130:9090/chat -d '{"user_id":"health-check","agent_type":"librarian","message":"ping"}'` returns valid response
+- **Previous Issue:** OAuth token refresh errors have been resolved (either automatically or via manual re-auth)
 
 ### Backend Scheduler Not Producing New Grants
 - **Priority:** High
