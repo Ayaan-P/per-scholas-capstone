@@ -8,8 +8,20 @@
   </url>
   <url>
     <loc>https://fundfish.pro/blog</loc>
-    <lastmod>2026-03-06</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-03-08-common-grant-rejection-reasons-and-how-to-avoid-them</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://fundfish.pro/blog/2026-03-07-grant-proposal-template-for-nonprofits-section-by-section-guide-with-examples</loc>
+    <lastmod>2026-03-07</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
