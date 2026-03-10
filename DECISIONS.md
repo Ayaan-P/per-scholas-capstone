@@ -1,6 +1,33 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-07
+# Last updated: 2026-03-10
+
+## From Chat (updated 2026-03-10)
+
+### What Ayaan Said
+- "There is only one librarian for all orgs as of now" — architecture clarification
+- "Fuck if I know the only accounts are perscholeads@gmail.com and ayaansp@gmail.com why do you ask me pointless questions instead of using supabase" — don't ask Ayaan for data that's in Supabase, query it yourself
+- "Sir if I'm logged into perscholas I should talk to perscholas agent no" — Per Scholas user should route to Per Scholas agent
+- "The perscholas agent I talked to on the site is blank for some reason" — agent responses were blank (routing bug)
+- "Tell it to go find the amounts and make sure you insert the current date into its context every time btw so it's not finding out of date stuff" — librarian needs current date context
+- "Read the code first" — before asking questions, read the actual codebase
+- "Why would it trigger from here and not hetzner" — cron should run directly on Hetzner, not SSH from local
+
+### Known Issues (don't nag)
+- **Agent routing bug** — ff-15 vs ff-perscholas mismatch FIXED (2026-03-10). Users table was empty, causing temp- prefix routing. Fixed by creating proper org records.
+- **Librarian cron location** — was triggering via SSH from local machine, now runs directly on Hetzner at 3 AM
+- **Two librarian workspaces existed** — `fundfish-librarian` (orphan) and `lib-fundfishmain` (active). Merged rules from orphan to active, orphan archived.
+- **EXTRACTION_RULES.md was in wrong directory** — copied to correct workspace
+
+### New Priorities
+- **Librarian must insert current date in context** — so it doesn't find outdated grants
+- **Query Supabase directly** — don't ask Ayaan for data that's queryable
+- **One librarian for all orgs** — architecture confirmed
+
+### Decisions Made
+- Single librarian architecture confirmed (one librarian → scraped_grants → all org agents qualify)
+- Cron moved to Hetzner (no more SSH roundtrip from local)
+- Per Scholas user ID is `58ac6326-caef-4107-8032-f356a52ab149` (perscholasleads@gmail.com)
 
 ## Important Context
 - **Domain is fundfish.pro** — NOT fundfishpro.netlify.app. The agent was checking the wrong URL. Check the actual domain first before reporting the site as down.
