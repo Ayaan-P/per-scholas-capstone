@@ -565,6 +565,91 @@ class StartSessionResponse(BaseModel):
     has_profile: bool
 
 
+async def auto_create_org_for_user(user_id: str) -> str:
+    """Auto-create an organization for a user who doesn't have one"""
+    import httpx
+    
+    headers = {
+        "Authorization": f"Bearer {_supabase_service_role_key}",
+        "apikey": _supabase_service_role_key,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    
+    # Get user email from auth
+    email = "user@fundfish.pro"
+    org_name = "My Organization"
+    try:
+        with httpx.Client() as client:
+            auth_url = f"{_supabase_url}/auth/v1/admin/users/{user_id}"
+            auth_response = client.get(auth_url, headers={
+                "Authorization": f"Bearer {_supabase_service_role_key}",
+                "apikey": _supabase_service_role_key
+            })
+            if auth_response.status_code == 200:
+                auth_data = auth_response.json()
+                email = auth_data.get("email", email)
+                # Try to get org name from user_metadata
+                user_meta = auth_data.get("user_metadata", {})
+                org_name = user_meta.get("organization_name", org_name)
+    except Exception as e:
+        logger.warning(f"Could not fetch user email: {e}")
+    
+    # Create organization
+    org_data = {
+        "name": org_name,
+        "mission": "",
+        "focus_areas": [],
+        "impact_metrics": {},
+        "programs": [],
+        "target_demographics": [],
+        "owner_id": user_id
+    }
+    
+    with httpx.Client() as client:
+        org_response = client.post(
+            f"{_supabase_url}/rest/v1/organization_config",
+            headers=headers,
+            json=org_data
+        )
+    
+    if org_response.status_code not in [200, 201]:
+        logger.error(f"Failed to create org: {org_response.text}")
+        return f"temp-{user_id}"  # Fallback to temp
+    
+    org_result = org_response.json()
+    org_id = org_result[0].get("id") if org_result else None
+    
+    if not org_id:
+        return f"temp-{user_id}"
+    
+    # Create/update user record with org_id
+    user_record = {
+        "id": user_id,
+        "email": email,
+        "organization_id": org_id,
+        "role": "admin"
+    }
+    
+    with httpx.Client() as client:
+        # Try insert first
+        user_insert = client.post(
+            f"{_supabase_url}/rest/v1/users",
+            headers=headers,
+            json=user_record
+        )
+        # If exists, update
+        if user_insert.status_code == 409 or "duplicate" in user_insert.text.lower():
+            client.patch(
+                f"{_supabase_url}/rest/v1/users?id=eq.{user_id}",
+                headers=headers,
+                json={"organization_id": org_id}
+            )
+    
+    logger.info(f"Auto-created org {org_id} for user {user_id}")
+    return str(org_id)
+
+
 @router.post("/chat/start")
 async def start_chat_session(
     request: CreateSessionRequest,
@@ -578,8 +663,8 @@ async def start_chat_session(
         org_id = await get_user_org_id(user_id)
     except HTTPException as e:
         if e.status_code == 400 and "no organization" in str(e.detail).lower():
-            # User hasn't completed onboarding - use user_id as temp org_id
-            org_id = f"temp-{user_id}"
+            # Auto-create org for user instead of using temp
+            org_id = await auto_create_org_for_user(user_id)
         else:
             raise
     
@@ -607,7 +692,8 @@ async def chat_with_agent(
         org_id = await get_user_org_id(user_id)
     except HTTPException as e:
         if e.status_code == 400 and "no organization" in str(e.detail).lower():
-            org_id = f"temp-{user_id}"
+            # Auto-create org for user instead of using temp
+            org_id = await auto_create_org_for_user(user_id)
         else:
             raise
     session_svc = get_session_service(_supabase)
