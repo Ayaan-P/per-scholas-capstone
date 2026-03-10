@@ -328,7 +328,7 @@ async def get_my_grants(
                     posted_date,
                     category_id
                 )
-            """) \
+            """, count="exact") \
             .eq("org_id", org_id)
         
         # Apply filters
@@ -441,14 +441,14 @@ async def get_my_grants(
                     reverse=(sort_dir == "desc")
                 )
 
-            # has_more: if DB returned the full limit, there may be more pages
-            # (Python-side filters may reduce the count, but we conservatively signal more)
-            db_returned_full_page = len(org_grants) >= limit
-
+            # Calculate total from count or fallback
+            total = result.count if (hasattr(result, 'count') and result.count is not None) else len(grants)
+            
             return {
                 "grants": grants,
                 "count": len(grants),
-                "has_more": db_returned_full_page,
+                "total": total,
+                "has_more": (offset + len(grants)) < total,
                 "limit": limit,
                 "offset": offset,
                 "org_id": org_id,

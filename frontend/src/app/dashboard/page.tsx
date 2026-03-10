@@ -81,6 +81,7 @@ export default function Dashboard() {
   const [grantStatuses, setGrantStatuses] = useState<Record<string, string>>({})  // grantId -> current pipeline status
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
   const [pipelineStatusFilter, setPipelineStatusFilter] = useState<string>('all')  // pipeline tab filter (auth only)
+  const [totalGrantCount, setTotalGrantCount] = useState<number>(0)  // total grants from API (not just current page)
 
   useEffect(() => {
     fetchGrants(isAuthenticated)
@@ -185,6 +186,12 @@ export default function Dashboard() {
         const fetched: ScrapedGrant[] = data.grants || []
         setRawGrants(fetched)
         setHasMore(data.has_more === true)
+        // Store total count from API (not just current page)
+        if (data.total !== undefined) {
+          setTotalGrantCount(data.total)
+        } else {
+          setTotalGrantCount(fetched.length)
+        }
         // Initialize pipeline statuses from org_status
         const statuses: Record<string, string> = {}
         fetched.forEach(g => {
@@ -674,7 +681,7 @@ export default function Dashboard() {
         <div className="mb-6 sm:mb-8 grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '100ms' }}>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Total Grants</p>
-            <p className="text-3xl sm:text-4xl font-bold text-gray-900">{filteredGrants.length}</p>
+            <p className="text-3xl sm:text-4xl font-bold text-gray-900">{totalGrantCount}</p>
           </div>
 
           <div className="card-premium p-5 sm:p-6 animate-fadeIn" style={{ animationDelay: '150ms' }}>
