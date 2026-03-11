@@ -1,14 +1,16 @@
+# BACKLOG.md — Future Ideas / Non-urgent
 
-## Auto-create org on agent onboarding [BUG]
-**Added:** 2026-02-16
-**Priority:** High
+*(Cleared 2026-03-11 — all items either completed or moved to GitHub issues)*
 
-When a new user onboards via the Hetzner agent (not web app), no organization is created in `organization_config`. This breaks the qualification job.
+---
 
-**Fix:** Agent should check for existing org on first conversation. If none exists:
-1. Ask for org name/mission
-2. Create entry in `organization_config`
-3. Store org_id for future sessions
+## Ideas for Later
 
-**Discovered:** Qualification job ran in 12 seconds because org table was empty.
+- **Email list / Newsletter signup** — Capture leads on landing page
+- **Case studies section** — Showcase nonprofit success stories
+- **Grant calendar view** — Visual timeline of deadlines
+- **Mobile app** — PWA or native for grant tracking on the go
 
+---
+
+See GitHub Issues for tracked work.
