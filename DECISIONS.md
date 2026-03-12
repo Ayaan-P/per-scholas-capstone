@@ -278,3 +278,4 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Issue #46 verified and closed (2026-03-10): Agent onboarding auto-create org fix confirmed working. Commit 6cc9464 adds auto_create_org_for_user() function. No more temp- prefix routing.
 - [x] Blog post #9 (2026-03-10): "Grant Reporting Requirements: The Complete Guide to Post-Award Compliance" — covers financial/narrative/outcome reports, federal compliance (2 CFR 200), reporting systems, best practices, technology tools. High-intent keywords: grant reporting, grant compliance. Commit bf61a56.
 - [x] Updated sitemap with missing March 10 post (2026-03-11): Added best-grant-databases-for-nonprofits post that was missed. Cleaned up stale BACKLOG.md (removed fixed Issue #46 bug). Commit b4a3ffa.
+- [x] Updated sitemap with March 11 blog post (2026-03-12): Added small-nonprofit-funding-strategies-complete-2026-guide-sustainable-revenue-mix to sitemap.xml. Commit 9703d3b.
