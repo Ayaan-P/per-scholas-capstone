@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-11
+# Last updated: 2026-03-13
 
 ## From Chat (updated 2026-03-10)
 
@@ -280,3 +280,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Updated sitemap with missing March 10 post (2026-03-11): Added best-grant-databases-for-nonprofits post that was missed. Cleaned up stale BACKLOG.md (removed fixed Issue #46 bug). Commit b4a3ffa.
 - [x] Updated sitemap with March 11 blog post (2026-03-12): Added small-nonprofit-funding-strategies-complete-2026-guide-sustainable-revenue-mix to sitemap.xml. Commit 9703d3b.
 - [x] Blog post #10 (2026-03-12): "First-Time Grant Seeker's Guide: The Complete Beginner's Roadmap to Winning Funding" — comprehensive guide covering grant-readiness assessment, grant types, finding first grants, writing proposals, and building long-term success. Targets high-intent keywords: first grant, beginner grant writing. Commit 03b8c5b.
+- [x] Updated sitemap with missing March 12 post (2026-03-13): Added foundation-grants-vs-government-grants-the-complete-decision-guide-for-nonprofit. Commit d0aca0d.
+- [x] Blog post #11 (2026-03-13): "How Funders Evaluate Grant Proposals: Inside the Review Process" — explains scoring rubrics, reviewer psychology, evaluation criteria, and what makes reviewers say yes or no. Targets high-intent keywords: grant evaluation, grant review process, proposal scoring. Commit 7b91411.
