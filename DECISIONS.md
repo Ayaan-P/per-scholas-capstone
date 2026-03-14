@@ -1,6 +1,6 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-13
+# Last updated: 2026-03-14
 
 ## From Chat (updated 2026-03-10)
 
@@ -282,3 +282,5 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Blog post #10 (2026-03-12): "First-Time Grant Seeker's Guide: The Complete Beginner's Roadmap to Winning Funding" — comprehensive guide covering grant-readiness assessment, grant types, finding first grants, writing proposals, and building long-term success. Targets high-intent keywords: first grant, beginner grant writing. Commit 03b8c5b.
 - [x] Updated sitemap with missing March 12 post (2026-03-13): Added foundation-grants-vs-government-grants-the-complete-decision-guide-for-nonprofit. Commit d0aca0d.
 - [x] Blog post #11 (2026-03-13): "How Funders Evaluate Grant Proposals: Inside the Review Process" — explains scoring rubrics, reviewer psychology, evaluation criteria, and what makes reviewers say yes or no. Targets high-intent keywords: grant evaluation, grant review process, proposal scoring. Commit 7b91411.
+- [x] Blog post #12 (2026-03-14): "How to Write a Letter of Inquiry (LOI): The Complete Guide for Nonprofits" — comprehensive LOI guide covering templates, examples, common mistakes, follow-up protocol, and AI assistance. Targets high-intent keywords: letter of inquiry, LOI, foundation grants. Commit 1c321c1.
+- [x] Fixed missing sitemap entry (2026-03-14): Added Mar 13 community-development-grants post that was missing from sitemap.xml. Commit 1c321c1.
