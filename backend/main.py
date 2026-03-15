@@ -585,40 +585,10 @@ async def startup_event():
     set_feedback_deps(supabase)
     print("[STARTUP] Opportunities routes configured")
     
-    # Morning brief scheduler (lightweight, runs daily at 8 AM EST)
+    # Morning brief scheduler DISABLED — Hetzner agent handles briefs
+    # (was duplicating with agent, same grants every day)
     global brief_scheduler
     brief_scheduler = AsyncIOScheduler(timezone='America/New_York')
-    
-    async def run_morning_briefs():
-        """Generate and send morning briefs to all active orgs"""
-        import subprocess
-        import sys
-        from pathlib import Path
-        
-        print(f"[BRIEF] Starting morning brief generation at {datetime.now()}")
-        script_path = Path(__file__).parent / "jobs" / "generate_briefs.py"
-        
-        try:
-            result = subprocess.run(
-                [sys.executable, str(script_path)],
-                capture_output=True,
-                text=True,
-                timeout=300,  # 5 min timeout
-                env={**os.environ}  # Pass current env vars including RESEND_API_KEY
-            )
-            print(f"[BRIEF] Output: {result.stdout}")
-            if result.stderr:
-                print(f"[BRIEF] Errors: {result.stderr}")
-        except Exception as e:
-            print(f"[BRIEF] Failed: {e}")
-    
-    brief_scheduler.add_job(
-        run_morning_briefs,
-        trigger=CronTrigger(hour=8, minute=0),  # 8 AM EST
-        id='morning_briefs_job',
-        name='Send Morning Briefs',
-        replace_existing=True
-    )
 
     async def run_deadline_alerts():
         """Check for upcoming grant deadlines and send alerts to orgs"""
@@ -653,7 +623,7 @@ async def startup_event():
 
     brief_scheduler.start()
     set_health_brief_scheduler(brief_scheduler)
-    print("[STARTUP] Morning brief scheduler started (daily at 8 AM EST)")
+    # Morning briefs handled by Hetzner agent, not this scheduler
     print("[STARTUP] Deadline alert scheduler started (daily at 8:15 AM EST)")
 
 @app.on_event("shutdown")
