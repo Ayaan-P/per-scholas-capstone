@@ -1,6 +1,21 @@
 # DECISIONS.md — Owner Feedback & Priorities
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
-# Last updated: 2026-03-14
+# Last updated: 2026-03-15
+
+## From Chat (2026-03-15)
+
+### Librarian Cron Fixed (Mar 14)
+- **"The Cron is supposed to be on hetzner? Why are you being dumb"** — Ayaan had to remind Maya the cron should be on Hetzner, not SSH from local
+- **"Can you read the damn fundfish architecture"** — Read before asking/changing
+- **"Did you lie when you said you set it up"** — Scraper stopped Mar 10, Maya claimed it was working
+- **Fixed:** Cron added to Hetzner `/etc/cron.d/fundfish`
+- **Result:** 20 new grants scraped (14 from instrumentl.com, 6 from foundationdirectory.org)
+
+### Morning Brief Data Quality (Mar 14)
+- **"The brief is using stale data"** — transactions.json was generated once, not real-time
+- Data sources (Schwab, Teller) need fresh fetches, not cached files
+
+---
 
 ## From Chat (updated 2026-03-10)
 
