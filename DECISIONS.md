@@ -2,14 +2,6 @@
 # Updated by Maya when Ayaan gives direction. Read this FIRST every run.
 # Last updated: 2026-03-15
 
-## 🚫 DO NOT REPORT THESE (Known Issues — Ayaan Aware)
-- **Hetzner SSH/credential issues** — Known, intermittent. Don't report unless completely blocking.
-- **Morning Brief garbage data** — Teller API broken. KNOWN.
-- **Scraper was stopped** — FIXED Mar 14. Cron on Hetzner at `/etc/cron.d/fundfish`. STOP MENTIONING.
-- **Librarian cron issues** — FIXED Mar 14. "Can you read the damn fundfish architecture" — He was frustrated. It's working now.
-
-**RULE:** If you see these issues, DO NOT include them in your report. Only report NEW information. Ayaan explicitly complained about repeat reporting on Mar 15.
-
 ## From Chat (2026-03-15)
 
 ### Librarian Cron Fixed (Mar 14)
