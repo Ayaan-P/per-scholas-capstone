@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Morning Brief Generation Job
+Morning Brief Generation Job - FIXED VERSION
+
+CHANGES FROM ORIGINAL:
+1. Excludes grants already sent in previous briefs (last 30 days)
+2. Prioritizes recently qualified grants (newest first)
+3. Adds created_at to SELECT for sorting
 
 Runs daily at 8am for each active organization.
 Selects top 3 grants and sends email brief.
@@ -9,7 +14,7 @@ Selects top 3 grants and sends email brief.
 import os
 import sys
 import asyncio
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 # Add backend to path
@@ -83,14 +88,35 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
     today = date.today().isoformat()
     
     try:
+        # === FIX 1: Get grants already sent in previous briefs (last 30 days) ===
+        thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+        sent_grants_result = supabase.table("org_briefs") \
+            .select("grant_ids") \
+            .eq("org_id", org_id) \
+            .gte("sent_at", thirty_days_ago) \
+            .execute()
+        
+        # Flatten grant_ids from all previous briefs
+        sent_grant_ids = set()
+        for brief in sent_grants_result.data:
+            grant_ids = brief.get("grant_ids", [])
+            if grant_ids:
+                sent_grant_ids.update(grant_ids)
+        
+        if sent_grant_ids:
+            print(f"[BRIEF] Excluding {len(sent_grant_ids)} previously sent grants")
+        # === END FIX 1 ===
+        
+        # === FIX 2: Add created_at to SELECT for sorting ===
         result = supabase.table("org_grants") \
             .select(
-                "grant_id, match_score, llm_summary, scraped_grants(title, funder, amount, deadline, description)"
+                "grant_id, match_score, llm_summary, created_at, scraped_grants(title, funder, amount, deadline, description)"
             ) \
             .eq("org_id", org_id) \
             .eq("status", "active") \
             .gte("match_score", 70) \
             .execute()
+        # === END FIX 2 ===
         
         grants_data = result.data
         
@@ -105,6 +131,13 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
         # Filter out past deadlines and flatten
         grants = []
         for item in grants_data:
+            grant_id = item["grant_id"]
+            
+            # === FIX 3: Skip grants already sent ===
+            if grant_id in sent_grant_ids:
+                continue
+            # === END FIX 3 ===
+            
             grant_info = item.get("scraped_grants", {})
             if not grant_info:
                 continue
@@ -113,8 +146,10 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
             if deadline and deadline < today:
                 continue  # Skip past deadlines
             
+            # === FIX 4: Add qualified_at field ===
             grants.append({
-                "grant_id": item["grant_id"],
+                "grant_id": grant_id,
+                "qualified_at": item.get("created_at", "1970-01-01T00:00:00"),
                 "title": grant_info.get("title", "Untitled"),
                 "funder": grant_info.get("funder", "Unknown"),
                 "amount": grant_info.get("amount", 0),
@@ -122,6 +157,7 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
                 "match_score": item.get("match_score", 0),
                 "summary": item.get("llm_summary") or grant_info.get("description", "")[:300] or "No summary available"
             })
+            # === END FIX 4 ===
         
         if not grants:
             print(f"[BRIEF] All grants past deadline for org {org_id}")
@@ -131,13 +167,17 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
                 "grant_count": 0
             }
         
-        # Sort by score descending, then deadline ascending (urgent first)
+        # === FIX 5: Sort by qualified_at first (newest first), then score, then deadline ===
+        # Convert ISO timestamp to Unix timestamp and negate for DESC sort
+        from datetime import datetime
         grants.sort(
             key=lambda g: (
-                -g["match_score"],  # Higher score first
-                g["deadline"] if g["deadline"] != "TBD" else "9999-12-31"  # Sooner deadline first
+                -datetime.fromisoformat(g["qualified_at"].replace('Z', '+00:00')).timestamp(),  # Newest first (DESC)
+                -g["match_score"],  # Higher score first (DESC)
+                g["deadline"] if g["deadline"] != "TBD" else "9999-12-31"  # Sooner deadline first (ASC)
             )
         )
+        # === END FIX 5 ===
         
         # Take top 3
         top_grants = grants[:3]
@@ -145,7 +185,8 @@ async def generate_brief_for_org(org_id: int, org_name: str, org_email: str, sup
         print(f"[BRIEF] Selected {len(top_grants)} grants for org {org_id}")
         for i, g in enumerate(top_grants, 1):
             amount = g['amount'] or 0
-            print(f"  {i}. {g['title']} ({g['match_score']}% match, ${amount:,})")
+            qualified = g['qualified_at'][:10]  # Just the date part
+            print(f"  {i}. {g['title']} ({g['match_score']}% match, ${amount:,}, qualified {qualified})")
         
         # Send email
         result = await email_service.send_morning_brief(
