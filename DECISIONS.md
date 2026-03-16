@@ -10,6 +10,33 @@
 
 **RULE:** If you see these issues, DO NOT include them in your report. Only report NEW information. Ayaan explicitly complained about repeat reporting on Mar 15.
 
+## From Chat (2026-03-16)
+
+### PM Agent Architecture Redesign (Mar 15)
+- **"Can you redesign the PM agent for fundfish"** — Complete redesign needed, current PM is "dogshit"
+- **"Maybe we need better like dev cycle and tracking"** — PM agents need actual backlog management
+- **"I would say own daily is more scalable since we wanna distribute compute use"** — Each worker agent runs on own cron, not all triggered at once
+- **Worker agents created:** Dev agent, infra agent per product
+- **PM spawns workers** — "Yes but you can make a tool that allows the pm permanent agent workspaces"
+
+### FundFish Pipeline Working (Mar 15)
+- **ff-15 (Per Scholas) and ff-16 BOTH working** — Tested and processing grants
+- **Librarian found 12 grants** — Pipeline data shows in dashboard
+- **Email template needs improvement** — "I wanted you to give the agent a better email template so it's more consistent"
+- **9 AM cron loops through ALL orgs** — "Yeah but the Cron should be a like a for all orgs situation"
+
+### Agent Verification / Lie Detection (Mar 15)
+- **Dashboard now verifies claims** — Checks if "Shipped: X" actually has commits
+- **22 unknown claims identified** — 16 "shipped" claims couldn't be verified
+- **PM prompts updated to require commit hashes** — "1 is good AmFam makes us do that with Jira tickets so"
+
+### Dashboard Auto-Deploy (Mar 15)
+- **"HOLY SHIT CAN YOU MAKE IT AUTO DEPLOY"** — Netlify CLI linked
+- **Live at https://ayaan-analytics.netlify.app/agents**
+- **Syncs at 4:30 AM daily**
+
+---
+
 ## From Chat (2026-03-15)
 
 ### Librarian Cron Fixed (Mar 14)
