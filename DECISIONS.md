@@ -336,3 +336,13 @@ Agent template scaffolded at `~/clawd/agents/fundfish/`:
 - [x] Fixed missing sitemap entry (2026-03-14): Added Mar 13 community-development-grants post that was missing from sitemap.xml. Commit 1c321c1.
 - [x] Blog post #13 (2026-03-15): "Capacity Building Grants for Nonprofits: The Complete Guide to Strengthening Your Organization" — comprehensive guide to capacity building grants, covering what they fund (leadership, technology, financial, strategic planning), how to find them, and how to write proposals that connect organizational improvements to mission impact. Targets high-intent keywords: capacity building grants, organizational development, general operating support. Commit 2e668e1.
 - [x] Fixed missing sitemap entry (2026-03-15): Added Mar 14 education-grants post that was missing from sitemap.xml. Commit 2e668e1.
+
+---
+
+## From Chat (2026-03-17)
+
+### No FundFish-Specific Discussion (Mar 14-17)
+- No FundFish pipeline or product discussions in the last 3 days
+- Focus was on House Monte Carlo simulator and analytics dashboard
+- Pipeline should be running on existing crons (Librarian 3 AM, Org Qual 9 AM)
+
