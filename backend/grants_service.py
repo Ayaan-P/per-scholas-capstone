@@ -187,7 +187,7 @@ class GrantsGovService:
                         "id": opp_number or f"grant-{len(opportunities)+1}",
                         "title": title,
                         "funder": funder,
-                        "amount": opportunity_details.get('amount') or 750000,  # Use real amount or default
+                        "amount": opportunity_details.get('award_ceiling') or opportunity_details.get('award_floor') or opportunity_details.get('amount') or None,  # Prefer ceiling, then floor, then calculated amount
                         "deadline": self._parse_date(hit.get('closeDate', '')),
                         "description": opportunity_details.get('description') or self._clean_html_entities(f"Grant opportunity: {hit.get('title', 'Federal funding opportunity')}. Agency: {hit.get('agency', 'Federal Agency')}. Status: {hit.get('oppStatus', 'Posted')}."),
                         "requirements": self._extract_requirements(opportunity_details.get('description', hit.get('title', '') + ' ' + hit.get('agency', ''))),
