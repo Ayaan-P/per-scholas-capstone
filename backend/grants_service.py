@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import xml.etree.ElementTree as ET
 import re
+import asyncio
+import aiohttp
 from semantic_service import SemanticService
 from organization_matching_service import OrganizationMatchingService
 
@@ -36,6 +38,96 @@ class GrantsGovService:
             self.org_matching_service = None
         # Cache organization profiles to avoid repeated database queries
         self.org_profile_cache = {}
+
+    async def _validate_url(self, url: str, timeout: int = 5) -> Dict[str, Any]:
+        """
+        Validate that a URL is accessible and returns a successful response.
+        
+        Args:
+            url: The URL to validate
+            timeout: Request timeout in seconds
+            
+        Returns:
+            Dict with 'valid' (bool), 'status' (int or None), 'error' (str or None)
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.head(url, timeout=aiohttp.ClientTimeout(total=timeout), allow_redirects=True) as response:
+                    return {
+                        'valid': response.status < 400,
+                        'status': response.status,
+                        'error': None if response.status < 400 else f"HTTP {response.status}"
+                    }
+        except asyncio.TimeoutError:
+            return {'valid': False, 'status': None, 'error': 'Timeout'}
+        except aiohttp.ClientError as e:
+            return {'valid': False, 'status': None, 'error': f"Client error: {str(e)}"}
+        except Exception as e:
+            return {'valid': False, 'status': None, 'error': f"Error: {str(e)}"}
+
+    async def _validate_urls_batch(self, urls: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Validate multiple URLs concurrently.
+        
+        Args:
+            urls: List of URLs to validate
+            
+        Returns:
+            Dict mapping each URL to its validation result
+        """
+        tasks = [self._validate_url(url) for url in urls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        validated = {}
+        for url, result in zip(urls, results):
+            if isinstance(result, Exception):
+                validated[url] = {'valid': False, 'status': None, 'error': str(result)}
+            else:
+                validated[url] = result
+        
+        return validated
+
+    def validate_grant_urls(self, grants: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Validate URLs for a list of grants and mark invalid ones.
+        
+        Args:
+            grants: List of grant dictionaries with 'application_url' field
+            
+        Returns:
+            List of grants with 'url_valid' and 'url_validation_error' fields added
+        """
+        urls = [grant.get('application_url') for grant in grants if grant.get('application_url')]
+        
+        if not urls:
+            return grants
+        
+        # Run async validation
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        validation_results = loop.run_until_complete(self._validate_urls_batch(urls))
+        
+        # Update grants with validation results
+        for grant in grants:
+            url = grant.get('application_url')
+            if url and url in validation_results:
+                result = validation_results[url]
+                grant['url_valid'] = result['valid']
+                grant['url_validation_error'] = result['error']
+                grant['url_status_code'] = result['status']
+                
+                if not result['valid']:
+                    print(f"[GRANTS] Invalid URL for {grant.get('id', 'unknown')}: {url} - {result['error']}")
+            else:
+                grant['url_valid'] = True  # Assume valid if no URL to check
+                grant['url_validation_error'] = None
+                grant['url_status_code'] = None
+        
+        return grants
 
     def search_grants_via_script(self, keywords: str = "technology workforce", limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -219,7 +311,19 @@ class GrantsGovService:
                     opportunities.append(opp)
 
                 print(f"[GRANTS SERVICE] Found {len(opportunities)} opportunities")
-                return opportunities
+                
+                # Validate URLs before returning
+                print(f"[GRANTS SERVICE] Validating grant URLs...")
+                opportunities = self.validate_grant_urls(opportunities)
+                
+                # Filter out grants with invalid URLs
+                valid_opportunities = [opp for opp in opportunities if opp.get('url_valid', True)]
+                invalid_count = len(opportunities) - len(valid_opportunities)
+                
+                if invalid_count > 0:
+                    print(f"[GRANTS SERVICE] Filtered out {invalid_count} grants with invalid URLs")
+                
+                return valid_opportunities
 
             print(f"[GRANTS SERVICE] No oppHits in response, using mock data")
             return self._get_mock_grants()

@@ -646,7 +646,13 @@ REQUIREMENTS:
                             "anticipated_awards": grant.get("anticipated_awards"),
                             "consortium_required": grant.get("consortium_required", False),
                             "consortium_description": grant.get("consortium_description"),
-                            "rfp_attachment_requirements": grant.get("rfp_attachment_requirements")
+                            "rfp_attachment_requirements": grant.get("rfp_attachment_requirements"),
+                            
+                            # URL VALIDATION FIELDS
+                            "url_valid": grant.get("url_valid", True),
+                            "url_validation_error": grant.get("url_validation_error"),
+                            "url_status_code": grant.get("url_status_code"),
+                            "url_last_checked": datetime.now().isoformat() if grant.get("url_valid") is not None else None
                         })\
                         .eq("opportunity_id", grant.get("id"))\
                         .execute()
@@ -696,7 +702,13 @@ REQUIREMENTS:
                         "anticipated_awards": grant.get("anticipated_awards"),
                         "consortium_required": grant.get("consortium_required", False),
                         "consortium_description": grant.get("consortium_description"),
-                        "rfp_attachment_requirements": grant.get("rfp_attachment_requirements")
+                        "rfp_attachment_requirements": grant.get("rfp_attachment_requirements"),
+
+                        # URL VALIDATION FIELDS
+                        "url_valid": grant.get("url_valid", True),
+                        "url_validation_error": grant.get("url_validation_error"),
+                        "url_status_code": grant.get("url_status_code"),
+                        "url_last_checked": datetime.now().isoformat() if grant.get("url_valid") is not None else None
                     }).execute()
 
                 saved_count += 1
