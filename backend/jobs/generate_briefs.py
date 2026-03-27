@@ -295,10 +295,10 @@ async def main():
     supabase = create_client(supabase_url, supabase_key)
     
     # Get all active organizations
-    # Join with users to get org name and email
+    # Join with users to get org name and email, but also get contact_email as fallback
     try:
         orgs_result = supabase.table("organization_config") \
-            .select("id, name, users(email)") \
+            .select("id, name, contact_email, users(email)") \
             .execute()
         
         orgs = orgs_result.data
@@ -315,15 +315,18 @@ async def main():
             org_id = org["id"]
             org_name = org.get("name", "Your Organization")
             
-            # Get first user email for this org
+            # Get email: prefer linked user, fall back to org's contact_email
             users = org.get("users", [])
-            if not users:
-                print(f"[BRIEF] ⚠️ Org {org_id} ({org_name}) has no users, skipping")
-                continue
+            org_email = None
+            if users:
+                org_email = users[0].get("email")
             
-            org_email = users[0].get("email")
+            # Fallback to contact_email on org config
             if not org_email:
-                print(f"[BRIEF] ⚠️ Org {org_id} ({org_name}) has no email, skipping")
+                org_email = org.get("contact_email")
+            
+            if not org_email:
+                print(f"[BRIEF] ⚠️ Org {org_id} ({org_name}) has no email (no users, no contact_email), skipping")
                 continue
             
             result = await generate_brief_for_org(org_id, org_name, org_email, supabase)
