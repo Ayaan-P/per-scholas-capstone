@@ -1,6 +1,9 @@
 import { supabase } from './supabaseClient'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+// In production, the Netlify redirect proxies /api/* to the Render backend.
+// Set NEXT_PUBLIC_API_URL="" (empty) on Netlify to use the proxy.
+// In development, set NEXT_PUBLIC_API_URL="http://localhost:8000" or leave unset.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 // API Request Types
 interface SearchOpportunitiesRequest {

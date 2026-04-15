@@ -26,7 +26,7 @@ export function SearchAllocation({ onUpgrade }: { onUpgrade?: () => void }) {
 
         if (!token) return
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
         const creditRes = await fetch(`${apiUrl}/api/credits/balance`, {
           headers: { 'Authorization': `Bearer ${token}` }

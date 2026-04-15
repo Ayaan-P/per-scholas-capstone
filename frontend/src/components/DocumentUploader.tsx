@@ -75,7 +75,7 @@ export function DocumentUploader({
         return
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
       const formData = new FormData()
       validFiles.forEach(file => formData.append('files', file))
 

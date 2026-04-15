@@ -63,7 +63,7 @@ export function UpgradeModal({ isOpen, onClose, reason = 'upgrade' }: UpgradeMod
         throw new Error('Not authenticated')
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
       if (selectedOption === 'pro') {
         // Upgrade subscription
